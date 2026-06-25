@@ -1455,6 +1455,16 @@ button {
   }
 }
 
+/* Immune: a blue outline ring (minion ignores all damage this turn, e.g.
+   bestial_fury). Outline-offset keeps it clear of the Aegis ring / Taunt frame.
+   The hero's Immune cue is a yellow portrait ring (.heropanel.immune) — minions
+   use blue to stay distinct from that and from the green action outlines. */
+.minion.immune {
+  outline: 3px solid #5ab6ff;
+  outline-offset: 2px;
+  box-shadow: 0 0 10px 2px #5ab6ff88;
+}
+
 /* Action/target state uses OUTLINE (drawn outside the box, offset clear of the
    border) so it's NEVER hidden by the Taunt frame or Aegis ring. These
    must always be visible — they tell the player what they can do. */
@@ -2500,15 +2510,17 @@ button {
 /* A hand card you can play right now (your turn + affordable): green glow, like a
  * ready minion on the board. */
 .hand .card.playable {
-  border-color: #6fdf7a;
+  border-color: #caffce;
   box-shadow:
     0 3px 6px #0008,
-    0 0 7px 1px #4caf5088;
+    0 0 0 1.5px #6fdf7acc,
+    0 0 12px 3px #4caf50cc;
 }
 .hand .card.playable:hover {
   box-shadow:
     0 16px 30px #000b,
-    0 0 14px 2px #6fdf7aaa;
+    0 0 0 1.5px #caffce,
+    0 0 20px 5px #6fdf7a;
 }
 /* Card colors are driven by CLASS, not type: neutral = warm parchment (the
  * default above), Mage = blue, Hunter = green. (.card.secret below styles only

@@ -288,6 +288,7 @@ type MinionView struct {
 	CanAttackHero bool   `json:"canAttackHero"`
 	Taunt         bool   `json:"taunt,omitempty"`
 	Aegis         bool   `json:"aegis,omitempty"`
+	Immune        bool   `json:"immune,omitempty"` // ignores all damage (e.g. bestial_fury this turn)
 	Frozen        bool   `json:"frozen,omitempty"`
 	Twinstrike    bool   `json:"twinstrike,omitempty"`
 	Stealth       bool   `json:"stealth,omitempty"`

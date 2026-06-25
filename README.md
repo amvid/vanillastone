@@ -46,9 +46,10 @@ Built deliberately, one phase at a time:
 |    12 | Card set — initial core neutrals + Mage spells/secrets/weapons/hero power               |  ✅   |
 |    13 | **Expand the card set — fuller Mage toolkit + deeper neutral curve (original designs)** |  ✅   |
 |    14 | Play versus AI                                                                          |  ✅   |
-|    15 | Neutral cards art                                                                       |  ⏳   |
-|    16 | Hunter — second class + Hunter cards                                                    |  ⏳   |
-|    17 | Warlock — third class + Warlock cards                                                   |  ⏳   |
+|    15 | Hunter — second class + Hunter cards                                                    |  ✅   |
+|    16 | Warlock — third class + Warlock cards                                                   |  ⏳   |
+|    17 | Warrior class + Warrior cards                                                           |  ⏳   |
+|   ??? | Art                                                                                     |  ⏳   |
 
 ## Stack
 

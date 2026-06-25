@@ -13,7 +13,7 @@ import (
 )
 
 // MaxDecksPerUser caps how many decks a single account may save (Phase 9).
-const MaxDecksPerUser = 10
+const MaxDecksPerUser = 15
 
 // ErrUsernameTaken is returned when a username already exists.
 var ErrUsernameTaken = errors.New("username taken")

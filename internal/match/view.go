@@ -174,6 +174,7 @@ func (m *Match) minionViews(board []*minion) []protocol.MinionView {
 			CanAttackHero: m.canAttackHero(mn),
 			Taunt:         mn.has(cards.KeywordTaunt),
 			Aegis:         mn.aegis,
+			Immune:        mn.has(cards.KeywordImmune),
 			Frozen:        mn.frozen,
 			Twinstrike:    mn.has(cards.KeywordTwinstrike),
 			Stealth:       mn.stealthed,

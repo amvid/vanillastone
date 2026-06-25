@@ -78,6 +78,7 @@ export function Board(props: {
         if (m.taunt) cls.push('taunt')
         if (m.frozen) cls.push('frozen')
         if (m.aegis) cls.push('shielded')
+        if (m.immune) cls.push('immune')
         if (m.stealth) cls.push('stealthed')
         if (m.silenced) cls.push('silenced')
         if (targetable(kind, m)) cls.push('targetable')

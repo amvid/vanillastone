@@ -4,7 +4,7 @@ package cards
 // the HS Basic + Classic Hunter set; mechanics are 1:1 with genre staples while
 // names + art are wholly original (see HANDOFF "Legal rules"). This first wave
 // covers only the cards that need NO new engine support — Beast-tribe synergies,
-// a battlecry buff, a deathrattle, a random-summon spell, and the hero power.
+// an onset buff, a final gasp, a random-summon spell, and the hero power.
 // The mechanic-gated Hunter cards (traps/secrets, conditional damage, set-health,
 // keyword auras, weapon triggers, multi-effect spells) land as their engine
 // support is built — see HANDOFF "Open / next" Hunter phases.
@@ -38,7 +38,7 @@ var hunterCards = []Card{
 		Effect: &Effect{Kind: EffectDestroy, Target: TargetNone, Area: AreaRandomEnemyMinion}},
 
 	{ID: "scout_ahead", Name: "Scout Ahead", Type: TypeSpell, Class: ClassHunter, Cost: 1,
-		Text:   "Discover a card from your deck.",
+		Text:   "Seek a card from your deck.",
 		Effect: &Effect{Kind: EffectSeek, Target: TargetNone, FromDeck: true}},
 
 	{ID: "signal_flare", Name: "Signal Flare", Type: TypeSpell, Class: ClassHunter, Rarity: RarityRare, Cost: 1,
@@ -75,12 +75,12 @@ var hunterCards = []Card{
 		Triggers: []Trigger{{When: OnFriendlyDeath, SubjectTribe: TribeBeast, Effect: Effect{Kind: EffectBuff, Target: TargetSelf, BuffAtk: 2, BuffHP: 1}}}},
 
 	{ID: "kennel_master", Name: "Kennel Master", Type: TypeMinion, Class: ClassHunter, Cost: 4, Attack: 4, Health: 3,
-		Text:     "Battlecry: Give a friendly Beast +2/+2 and Taunt.",
+		Text:     "Onset: Give a friendly Beast +2/+2 and Taunt.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectBuff, Target: TargetFriendlyMinion, ReqTribe: TribeBeast, BuffAtk: 2, BuffHP: 2, Grant: []Keyword{KeywordTaunt}}}}},
 
 	{ID: "mane_lioness", Name: "Mane Lioness", Type: TypeMinion, Class: ClassHunter, Rarity: RarityRare, Cost: 6, Attack: 6, Health: 5,
 		Tribe:    TribeBeast,
-		Text:     "Deathrattle: Summon two 2/2 Cubs.",
+		Text:     "Final Gasp: Summon two 2/2 Cubs.",
 		Triggers: []Trigger{{When: OnDeath, Effect: Effect{Kind: EffectSummon, Summon: "savanna_cub", Count: 2}}}},
 
 	{ID: "apex_saurian", Name: "Apex Saurian", Type: TypeMinion, Class: ClassHunter, Rarity: RarityLegendary, Cost: 9, Attack: 8, Health: 8,

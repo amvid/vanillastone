@@ -23,7 +23,7 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-for the new cards just started. Art now: **135/193 collectible art files placed** + 1 token
+for the new cards just started. Art now: **145/193 collectible art files placed** + 1 token
 (`mana_surge`); `pyrebolt` is now counted as collectible Basic Mage art. Prev:
 art in progress — 104/140 collectible art files placed + 2 tokens:
 `pyrebolt`, `mana_surge`; collectibles placed = all 32 legendaries + all 13 neutral epics + first
@@ -57,8 +57,12 @@ placed from this queue: `molten_hound`, `battlehorn_champion`, `war_colossus`,
 `marsh_snapjaw`, `runefist_ogre`, `bulwark_shieldmaster`, and `bastion_knight`.
 Last placed before stop: `bastion_knight` (4-cost Basic neutral minion, 103KB). User requested
 switching to Hunter card art in batches of 5 before returning to the remaining Basic/default
-neutrals. Next raw preview batch: **Hunter collectibles high-to-low by cost**:
-`apex_saurian`, `duelists_longbow`, `mane_lioness`, `blasting_shot`, `tundra_charger`.
+neutrals. Hunter art placed: `apex_saurian` (128KB), `duelists_longbow` (118KB),
+`mane_lioness` (99KB), `blasting_shot` (104KB), `tundra_charger` (111KB),
+`volley_shot` (115KB), `kennel_master` (127KB), `call_the_pack` (107KB),
+`feral_command` (100KB), `culling_shot` (133KB). Hunter collectibles now **10/25**
+placed. Next raw preview batch: `hawkeye_bow`, `unleash_the_pack`, `famished_vulture`,
+`carrion_hyena`, `blasting_snare`.
 After Hunter collectible cards, generate Hunter tokens: `frenzy_boar`, `pride_lion`,
 `guardian_bear`, `savanna_cub`, `snarling_hound`, `coil_serpent`.
 Workflow: generate a batch of up to 5 raw previews with the locked cel-shaded/top-35%-empty style,

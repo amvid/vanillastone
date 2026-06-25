@@ -123,7 +123,7 @@ func TestRegisterSeedsStarterDeck(t *testing.T) {
 	}
 }
 
-// TestDeckLimitHTTP: the 11th deck is rejected with 409.
+// TestDeckLimitHTTP: the 16th deck is rejected with 409.
 func TestDeckLimitHTTP(t *testing.T) {
 	a, token := testAuth(t)
 	deck := cards.DefaultDeck()

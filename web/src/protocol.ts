@@ -46,6 +46,7 @@ export type MinionView = {
   canAttackHero: boolean // may also go face (false for Rush on its summon turn)
   taunt?: boolean
   aegis?: boolean
+  immune?: boolean // ignores all damage (e.g. bestial_fury this turn)
   frozen?: boolean
   twinstrike?: boolean
   stealth?: boolean

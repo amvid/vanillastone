@@ -14,6 +14,11 @@ tmp/
 web/node_modules/
 web/dist/
 web/.vite/
+# Vite build output: reproducible from web/public + sources (prod Dockerfile
+# rebuilds it). Tracking it duplicated public/art into static/art. Keep only
+# the .gitkeep placeholder so //go:embed static still compiles.
+web/static/*
+!web/static/.gitkeep
 
 # Env / secrets
 .env

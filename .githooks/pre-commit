@@ -1,10 +1,9 @@
 #!/bin/sh
-# Build the React client before each commit so the embedded web/static the Go
-# binary serves is always current. Enable once with: make hooks
+# Build the React client before each commit to catch build breakage early.
+# web/static is NOT committed (it's gitignored, reproducible build output —
+# prod rebuilds it via the Dockerfile web-build stage), so nothing is staged.
+# Enable once with: make hooks
 set -e
 
 echo "pre-commit: building frontend…"
 ( cd web && corepack pnpm install --frozen-lockfile && corepack pnpm build )
-
-# Stage the regenerated static output so it lands in this commit.
-git add web/static
