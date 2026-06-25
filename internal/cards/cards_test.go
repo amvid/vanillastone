@@ -73,8 +73,8 @@ func TestValidateDeckLegendaryCap(t *testing.T) {
 func TestValidateDeckClass(t *testing.T) {
 	legal := DefaultDeck()
 
-	// A class with no hero / no cards (Hunter is reserved but not playable).
-	if err := ValidateDeck(legal, ClassHunter); err == nil {
+	// A class that is not in PlayableClasses (no hero / no cards) is rejected.
+	if err := ValidateDeck(legal, Class("warlock")); err == nil {
 		t.Fatal("a non-playable deck class should be rejected")
 	}
 	if err := ValidateDeck(legal, ClassNeutral); err == nil {
@@ -108,9 +108,49 @@ func TestValidateDeckClass(t *testing.T) {
 	if err := ValidateDeck(withMage, ClassMage); err != nil {
 		t.Fatalf("a Mage card must be legal in a Mage deck: %v", err)
 	}
-	// There is only one playable class today, so cross-class rejection can only be
-	// asserted once a second class ships; the per-card guard (c.Class != class &&
-	// != neutral) is covered by the ClassHunter case above.
+	// Cross-class rejection: a Mage card may not sit in a Hunter deck. Swap the two
+	// Mage copies into an otherwise-legal Hunter deck.
+	crossClass := append([]string{mageID, mageID}, DefaultDeckFor(ClassHunter)[2:]...)
+	if err := ValidateDeck(crossClass, ClassHunter); err == nil {
+		t.Fatal("a Mage card must be rejected in a Hunter deck")
+	}
+}
+
+// TestDefaultHunterDeckIsLegal: the curated Hunter fallback deck must be a legal
+// Hunter deck (so vs-AI / fallback queuing with Hunter never builds an illegal
+// game).
+func TestDefaultHunterDeckIsLegal(t *testing.T) {
+	if err := ValidateDeck(DefaultDeckFor(ClassHunter), ClassHunter); err != nil {
+		t.Fatalf("default Hunter deck must be legal: %v", err)
+	}
+}
+
+// TestHeroPowerForClass: each playable class resolves to its own hero power card;
+// an unknown class falls back to the Mage hero power (never empty).
+func TestHeroPowerForClass(t *testing.T) {
+	if hp := HeroPowerForClass(ClassMage); hp.ID != "fire_dart" {
+		t.Fatalf("Mage hero power want fire_dart, got %q", hp.ID)
+	}
+	if hp := HeroPowerForClass(ClassHunter); hp.ID != "quick_shot" {
+		t.Fatalf("Hunter hero power want quick_shot, got %q", hp.ID)
+	}
+	if hp := HeroPowerForClass(ClassNeutral); hp.ID != "fire_dart" {
+		t.Fatalf("unknown class must fall back to Mage hero power, got %q", hp.ID)
+	}
+}
+
+// TestDeckClass: a deck's class is inferred from its first non-neutral card; an
+// all-neutral deck falls back to the first playable class.
+func TestDeckClass(t *testing.T) {
+	if got := DeckClass(Deck(defaultHunterDeck)); got != ClassHunter {
+		t.Fatalf("Hunter deck should infer Hunter, got %q", got)
+	}
+	if got := DeckClass(Deck(defaultMageDeck)); got != ClassMage {
+		t.Fatalf("Mage deck should infer Mage, got %q", got)
+	}
+	if got := DeckClass(Deck([]string{"mirefang_raptor", "river_snapper"})); got != PlayableClasses()[0] {
+		t.Fatalf("all-neutral deck should fall back to %q, got %q", PlayableClasses()[0], got)
+	}
 }
 
 // TestClassicMechanicsHaveCards: every CLASSIC-era mechanic the engine supports

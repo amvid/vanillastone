@@ -14,6 +14,11 @@ import (
 // it. A var (not const) so tests can zero it for fast, deterministic runs.
 var botActionDelay = 1300 * time.Millisecond
 
+// mulliganKeepCost is the highest mana cost the bot keeps in its opening hand;
+// anything dearer is tossed to dig for an early curve. 3 keeps the 1–3 drops that
+// matter most in the first turns.
+const mulliganKeepCost = 3
+
 // NewVsAI creates a match against an AI opponent. Who goes first is decided by a
 // coin flip: the human takes seat 0 (first) or seat 1 (second, and so gets Mana
 // Surge), with the bot on the other seat. botName is the opponent's display name.
@@ -54,21 +59,38 @@ func (m *Match) isAITurn() bool {
 	return m.aiSeat >= 0 && m.turn == m.aiSeat && !m.over && m.mulligan == nil
 }
 
-// driveBotMulligan auto-submits the bot's opening mulligan (keep everything — the
-// dumb policy) so play can begin. Safe to call after Start on a vs-AI match; a
-// no-op if there's no AI or the mulligan already resolved.
+// driveBotMulligan auto-submits the bot's opening mulligan, tossing expensive
+// cards to dig for an early curve (botMulliganTosses). Safe to call after Start on
+// a vs-AI match; a no-op if there's no AI or the mulligan already resolved.
 func (m *Match) driveBotMulligan() {
 	m.mu.Lock()
 	ai := m.aiSeat
 	inMulligan := m.mulligan != nil && ai >= 0
+	var toss []int
+	if inMulligan {
+		toss = m.botMulliganTosses(ai)
+	}
 	m.mu.Unlock()
 	if !inMulligan {
 		return
 	}
 	go func() {
 		time.Sleep(botActionDelay)
-		m.Mulligan(m.players[ai], nil) // keep all
+		m.Mulligan(m.players[ai], toss)
 	}()
+}
+
+// botMulliganTosses picks the opening-hand cards the bot replaces: anything that
+// costs more than mulliganKeepCost, so it digs for a playable early curve instead
+// of keeping a clump of late-game cards. Caller holds m.mu.
+func (m *Match) botMulliganTosses(seat int) []int {
+	var toss []int
+	for i, c := range m.state[seat].hand {
+		if c.Cost > mulliganKeepCost {
+			toss = append(toss, i)
+		}
+	}
+	return toss
 }
 
 // runBotTurn drives one full AI turn in its own goroutine: greedily apply the

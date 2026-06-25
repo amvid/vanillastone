@@ -367,6 +367,7 @@ export function cardArtIcon(cardType: string): string {
 // hpIcon picks a glyph for a hero power by name (Mage = Fire Dart for now).
 export function hpIcon(name: string): string {
   if (/fire/i.test(name)) return '🔥'
+  if (/shot|arrow|quick/i.test(name)) return '🏹'
   return '✴️'
 }
 
@@ -443,9 +444,12 @@ export function cardTypeLabel(c: CardView): string {
 }
 
 // cardColorClass returns the CSS modifier that colors a card by CLASS (not by
-// type): Mage cards are blue, neutral cards keep the default parchment frame.
+// type): Mage cards are blue, Hunter cards green, neutral cards keep the default
+// parchment frame.
 export function cardColorClass(c: CardView): string {
-  return c.class === 'mage' ? ' mage' : ''
+  if (c.class === 'mage') return ' mage'
+  if (c.class === 'hunter') return ' hunter'
+  return ''
 }
 
 // cardStats is the small stat string shown on a card: minions a/h, weapons

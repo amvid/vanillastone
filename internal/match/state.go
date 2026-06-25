@@ -178,6 +178,13 @@ func (m *Match) clearTempBuffs() {
 // owner's hand as its base card (all enchantments/damage reset). A full hand
 // burns it. Emits a "bounce" event. Caller resolves auras/deaths in finish().
 func (m *Match) bounceMinion(mn *minion, owner int) {
+	m.bounceMinionCost(mn, owner, 0)
+}
+
+// bounceMinionCost is bounceMinion with a permanent cost increase on the returned
+// card (`snaring_trap`: +2). The bump rides on the hand card's printed cost, so
+// later cost auras/rules still apply on top of it.
+func (m *Match) bounceMinionCost(mn *minion, owner, costBump int) {
 	board := m.state[owner].board
 	idx := -1
 	for i, x := range board {
@@ -194,6 +201,7 @@ func (m *Match) bounceMinion(mn *minion, owner int) {
 	if !ok {
 		base = mn.card
 	}
+	base.Cost += costBump
 	if len(m.state[owner].hand) >= maxHand {
 		m.emitBurn(owner, base)
 		return

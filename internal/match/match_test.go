@@ -1948,6 +1948,56 @@ func TestHeroPowerNotBoostedBySpellDamage(t *testing.T) {
 	}
 }
 
+// TestBotMulliganTossesExpensive: the bot keeps its early curve (cost ≤
+// mulliganKeepCost) and replaces dearer cards, so it can actually play on the
+// first turns instead of clutching a hand of late-game bombs.
+func TestBotMulliganTossesExpensive(t *testing.T) {
+	a, b := &fakeSender{id: "p1"}, &fakeSender{id: "p2"}
+	deck := cards.Deck(cards.DefaultDeck())
+	m := New("mm", a, b, 1, deck, deck)
+	m.aiSeat = 0
+	// Hand: two keepable (cost ≤3) bracketing two expensive cards, so a correct
+	// toss set is exactly the expensive indices — not "everything" or "nothing".
+	m.state[0].hand = cards.Deck([]string{"keen_arrow", "kennel_master", "call_the_pack", "apex_saurian"})
+
+	got := m.botMulliganTosses(0)
+	want := []int{1, 3} // kennel_master (4) and apex_saurian (9)
+	if len(got) != len(want) {
+		t.Fatalf("toss = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("toss = %v, want %v", got, want)
+		}
+	}
+}
+
+// TestHunterHeroPower: a deck of Hunter cards is assigned the Quick Shot hero
+// power, which deals 2 untargeted damage to the enemy hero (no target needed).
+func TestHunterHeroPower(t *testing.T) {
+	a, b := &fakeSender{id: "p1"}, &fakeSender{id: "p2"}
+	hunterDeck := cards.Deck(cards.DefaultDeckFor(cards.ClassHunter))
+	m := New("hm", a, b, 1, hunterDeck, hunterDeck)
+	m.mulligan = nil
+	for pi := 0; pi < 2; pi++ {
+		m.state[pi].hand = cards.Deck(cards.DefaultDeckFor(cards.ClassHunter))
+		m.state[pi].deck = cards.Deck(cards.DefaultDeckFor(cards.ClassHunter))
+	}
+	m.state[0].maxMana, m.state[0].mana = 2, 2
+	m.sendStateAll()
+
+	if hp := m.state[0].heroPower; hp.ID != "quick_shot" {
+		t.Fatalf("a Hunter deck should get the Quick Shot hero power, got %q", hp.ID)
+	}
+	// Untargeted: the Quick Shot effect resolves with no target id.
+	if ok, msg := m.HeroPower(a, ""); !ok {
+		t.Fatalf("Quick Shot should resolve untargeted: %s", msg)
+	}
+	if hp := lastState(t, a).Opp.HeroHP; hp != 28 {
+		t.Fatalf("Quick Shot should deal 2 to the enemy hero (30->28), got %d", hp)
+	}
+}
+
 // TestEquipWeaponGivesHeroAttack: equipping a weapon gives the hero attack and
 // durability, and lets it attack this turn.
 func TestEquipWeaponGivesHeroAttack(t *testing.T) {

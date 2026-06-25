@@ -239,6 +239,11 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		// 0 (a pure-Freeze effect like Permafrost). Spell Damage (sp) adds to each
 		// damage instance that deals damage, never to a 0-damage effect.
 		amt := eff.Amount
+		// `kill_command`: deal a larger amount when the caster controls a minion of the
+		// named tribe (e.g. a Beast).
+		if eff.ReqControlTribe != "" && m.controlsTribe(caster, eff.ReqControlTribe) {
+			amt = eff.AmountIfReq
+		}
 		if amt > 0 {
 			amt += sp
 		}
@@ -256,6 +261,16 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 				total += m.damageHero(t.owner, amt, srcID)
 				if eff.Freeze {
 					m.freezeHero(t.owner)
+				}
+			}
+		}
+		// `explosive_shot`: also splash a smaller amount onto the (single) target
+		// minion's neighbours. Spell Damage adds to each splash instance too.
+		if eff.SplashAmount > 0 && ref.minion != nil {
+			splash := eff.SplashAmount + sp
+			for _, t := range m.adjacentRefs(ref, false) {
+				if t.minion != nil {
+					total += m.damageMinion(t.minion, splash, srcID)
 				}
 			}
 		}
@@ -436,6 +451,20 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		i := m.rng.Intn(len(secs))
 		m.state[opp].secrets = append(secs[:i], secs[i+1:]...)
 		m.emit(protocol.Event{Kind: "destroy", Source: m.pid(opp), Name: "Secret"})
+	case cards.EffectFlare:
+		// `flarewatch`: strip Stealth from every minion (both boards), destroy ALL of
+		// the opponent's Secrets (no reveal — hidden info), then draw a card.
+		for pi := 0; pi < 2; pi++ {
+			for _, mn := range m.state[pi].board {
+				mn.stealthed = false
+			}
+		}
+		opp := 1 - caster
+		if n := len(m.state[opp].secrets); n > 0 {
+			m.state[opp].secrets = nil
+			m.emit(protocol.Event{Kind: "destroy", Source: m.pid(opp), Name: "Secret"})
+		}
+		m.drawCard(caster)
 	case cards.EffectBounce:
 		// Return the target minion to its owner's hand as its base card (all
 		// enchantments/damage reset). Burned if the hand is full. Death/auras
@@ -455,6 +484,9 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		}
 		if eff.CountMax > n {
 			n += m.rng.Intn(eff.CountMax - n + 1) // Anthem of the Muster: a random Count..CountMax
+		}
+		if eff.CountPerEnemyMinion {
+			n = len(m.state[1-caster].board) // `unleash_the_pack`: one token per enemy minion
 		}
 		side := caster
 		if eff.SummonForOpponent {
@@ -633,10 +665,17 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			m.emit(protocol.Event{Kind: "mana", Target: m.pid(opp), Amount: 1})
 		}
 	case cards.EffectSetHealth:
-		// Set the target hero's Health to Amount (clamped to the hero max). A direct
-		// set — no armor interaction and it does NOT fire heal/damage triggers
-		// (`emberqueen_valtha`). Only heroes are valid targets (TargetHero).
+		// Set the target's Health to Amount. For a hero (`emberqueen_valtha`): a direct
+		// set, clamped to the hero max, no armor interaction, no heal/damage triggers.
+		// For a minion (`hunters_mark`): change its Health to Amount — lower its max to
+		// Amount via an enchantment (so Silence restores it) and clamp current to it.
 		if ref.minion != nil {
+			mn := ref.minion
+			mn.enchants = append(mn.enchants, enchant{hp: eff.Amount - mn.maxHP()})
+			if mn.health > mn.maxHP() {
+				mn.health = mn.maxHP()
+			}
+			m.emit(protocol.Event{Kind: "sethealth", Target: mn.uid, Amount: mn.maxHP()})
 			return
 		}
 		hp := min(eff.Amount, heroMaxHP)
@@ -705,6 +744,9 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 func (m *Match) damageMinion(mn *minion, amt int, srcID string) int {
 	if amt <= 0 {
 		return 0
+	}
+	if mn.has(cards.KeywordImmune) {
+		return 0 // `bestial_fury`: an Immune minion ignores all damage (no shield pop)
 	}
 	if mn.aegis {
 		mn.aegis = false
@@ -849,6 +891,7 @@ func (m *Match) silence(mn *minion) {
 func (m *Match) refreshAuras() {
 	newAtk := map[*minion]int{}
 	newHP := map[*minion]int{}
+	newKw := map[*minion][]cards.Keyword{}
 	for pi := 0; pi < 2; pi++ {
 		for _, src := range m.state[pi].board {
 			if src.silenced {
@@ -858,6 +901,9 @@ func (m *Match) refreshAuras() {
 				for _, mn := range m.auraTargets(pi, src, a) {
 					newAtk[mn] += a.Atk
 					newHP[mn] += a.HP
+					if len(a.Grant) > 0 {
+						newKw[mn] = append(newKw[mn], a.Grant...) // `tundra_charger`: Charge to Beasts
+					}
 				}
 			}
 			// SelfCountAtk: +Atk per OTHER in-play minion of a tribe (e.g.
@@ -870,6 +916,7 @@ func (m *Match) refreshAuras() {
 	for pi := 0; pi < 2; pi++ {
 		for _, mn := range m.state[pi].board {
 			mn.auraAtk = newAtk[mn]
+			mn.auraKeywords = newKw[mn]
 			if delta := newHP[mn] - mn.auraHP; delta > 0 {
 				mn.health += delta // gaining max health also heals
 			}
@@ -954,6 +1001,17 @@ func (m *Match) freezeHero(h int) {
 	m.emit(protocol.Event{Kind: "freeze", Target: m.pid(h)})
 }
 
+// controlsTribe reports whether player pi controls at least one (non-silenced)
+// minion of the given tribe. Drives `kill_command`'s conditional damage.
+func (m *Match) controlsTribe(pi int, tribe cards.Tribe) bool {
+	for _, mn := range m.state[pi].board {
+		if mn.card.Tribe == tribe {
+			return true
+		}
+	}
+	return false
+}
+
 // damageTargets resolves the set of characters a damage/freeze effect addresses,
 // from caster's perspective.
 func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []charRef {
@@ -1018,7 +1076,20 @@ func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []char
 		if len(pool) == 0 {
 			return nil
 		}
-		return []charRef{{minion: pool[m.rng.Intn(len(pool))], owner: opp}}
+		// Pick Count distinct random enemy minions (default 1). `multishot`: 2.
+		n := eff.Count
+		if n < 1 {
+			n = 1
+		}
+		if n > len(pool) {
+			n = len(pool)
+		}
+		m.rng.Shuffle(len(pool), func(i, j int) { pool[i], pool[j] = pool[j], pool[i] })
+		out := make([]charRef, 0, n)
+		for _, mn := range pool[:n] {
+			out = append(out, charRef{minion: mn, owner: opp})
+		}
+		return out
 	case eff.Area == cards.AreaFriendlyChars:
 		// The caster's hero and every friendly minion (`darkscale_mender` mass heal).
 		out := []charRef{{owner: caster}}
@@ -1150,4 +1221,25 @@ func (m *Match) randomEnemy(caster int) charRef {
 		return charRef{minion: m.state[opp].board[pick], owner: opp}
 	}
 	return charRef{owner: opp}
+}
+
+// randomRetarget picks a random character for `feint_trap` to redirect an attack
+// onto: any character on either board EXCEPT the defender's hero (the original
+// target) and the attacker itself. Returns ok=false if nothing else exists.
+func (m *Match) randomRetarget(defender int, attacker *minion) (charRef, bool) {
+	var pool []charRef
+	// The attacker's hero (the side attacking the defender) is a valid new target.
+	pool = append(pool, charRef{owner: 1 - defender})
+	for pi := 0; pi < 2; pi++ {
+		for _, mn := range m.state[pi].board {
+			if mn == attacker {
+				continue
+			}
+			pool = append(pool, charRef{minion: mn, owner: pi})
+		}
+	}
+	if len(pool) == 0 {
+		return charRef{}, false
+	}
+	return pool[m.rng.Intn(len(pool))], true
 }

@@ -15,7 +15,7 @@ export type CardView = {
   cardId: string
   name: string
   cardType: 'minion' | 'spell' | 'secret' | 'weapon' | 'heroPower'
-  class?: 'neutral' | 'mage' // drives card color (mage = blue); absent/neutral = default
+  class?: 'neutral' | 'mage' | 'hunter' // drives card color (mage = blue); absent/neutral = default
   rarity?: 'common' | 'rare' | 'epic' | 'legendary' // drives the rarity gem
   cost: number
   baseCost?: number // hand cards: printed cost (present so the client can colour a cost-modified card)
@@ -35,7 +35,7 @@ export type MinionView = {
   instanceId: string
   cardId: string
   name: string
-  class?: 'neutral' | 'mage' // drives card color in the hover preview
+  class?: 'neutral' | 'mage' | 'hunter' // drives card color in the hover preview
   cost: number // printed mana cost (for the full-card hover preview)
   attack: number
   health: number

@@ -18,6 +18,7 @@ const (
 	minionPresence = 1.0 // flat value of having a body on board (tempo / board control)
 	handWeight     = 0.5 // each card in hand (card advantage — minor, never dominates board)
 	weaponWeight   = 0.5 // per point of weapon attack×durability
+	secretValue    = 1.5 // per armed secret (a card that does something on a future trigger)
 
 	// Asymmetric threat: the opponent's total board attack is what can kill us, so
 	// it counts EXTRA from our POV (on top of being part of their minions' value).
@@ -55,6 +56,7 @@ func (m *Match) sideValue(seat int) float64 {
 	if ps.weapon != nil {
 		v += float64(ps.weapon.attack*ps.weapon.durability) * weaponWeight
 	}
+	v += float64(len(ps.secrets)) * secretValue
 	return v
 }
 

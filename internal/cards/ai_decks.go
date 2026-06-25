@@ -54,6 +54,34 @@ var aiMageDecks = [][]string{
 	aiMageMidrange,
 }
 
+// aiHunterAggro is a fast Beast-tempo curve: cheap bodies plus the class's
+// tribal payoffs, leaning on the bot's "race when ahead" lethal lens.
+var aiHunterAggro = []string{
+	"keen_arrow", "keen_arrow",
+	"packleader_wolf", "packleader_wolf",
+	"tusker_runt", "tusker_runt",
+	"famished_vulture", "famished_vulture",
+	"carrion_hyena", "carrion_hyena",
+	"fang_alpha", "fang_alpha",
+	"mirefang_raptor", "mirefang_raptor",
+	"river_snapper", "river_snapper",
+	"call_the_pack", "call_the_pack",
+	"ironfur_bear", "ironfur_bear",
+	"kennel_master", "kennel_master",
+	"razorthorn_hunter", "razorthorn_hunter",
+	"trampling_brute", "trampling_brute",
+	"mane_lioness", "mane_lioness",
+	"molten_hound",
+	"apex_saurian",
+}
+
+// aiHunterDecks is the pool the AI draws from for a Hunter opponent (the curated
+// default plus an aggro flavor).
+var aiHunterDecks = [][]string{
+	defaultHunterDeck,
+	aiHunterAggro,
+}
+
 // AIDecks returns copies of the prebuilt AI decks for a class, or nil if the
 // class has none. The caller picks one at random.
 func AIDecks(class Class) [][]string {
@@ -61,6 +89,8 @@ func AIDecks(class Class) [][]string {
 	switch class {
 	case ClassMage:
 		src = aiMageDecks
+	case ClassHunter:
+		src = aiHunterDecks
 	default:
 		return nil
 	}

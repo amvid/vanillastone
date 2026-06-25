@@ -116,9 +116,11 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 		m.emit(protocol.Event{Kind: "onset", Source: mn.uid, Name: card.Name})
 		if bc.Kind == cards.EffectSeek {
 			// Seek pauses the action: send the prompt and the snapshot so far,
-			// then wait for Choose to finish (resolve deaths / win / state).
-			m.startSeek(pi, bc.Pool)
-			return true, ""
+			// then wait for Choose to finish (resolve deaths / win / state). If there
+			// was nothing to offer it does not pause — fall through to finish below.
+			if m.startSeek(pi, bc) {
+				return true, ""
+			}
 		}
 		if bc.Kind == cards.EffectCopy {
 			// `visage_thief`-style: the just-played minion becomes a copy of the target.
@@ -169,6 +171,9 @@ func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, c
 		if !validTarget(eff.Target, ref, pi) {
 			return false, "illegal target"
 		}
+		if !targetCondOK(eff, ref) {
+			return false, "illegal target" // e.g. `bestial_fury` requires a Beast
+		}
 		if !spellTargetable(ref) {
 			return false, "can't target an Elusive minion"
 		}
@@ -185,6 +190,19 @@ func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, c
 		m.copySpellToOpponent(pi, card)
 		m.fireTriggers(pi, cards.OnSpellCast, nil)
 		m.fireTriggers(pi, cards.OnPlayCard, nil)
+		m.finish()
+		return true, ""
+	}
+	// A Seek spell (`tracking`: discover from your own deck) pauses the action:
+	// fire cast-synergy, then present the choice and wait for Choose to finish. If
+	// there is nothing to offer it does not pause — fall through to finish.
+	if eff.Kind == cards.EffectSeek {
+		m.copySpellToOpponent(pi, card)
+		m.fireTriggers(pi, cards.OnSpellCast, nil)
+		m.fireTriggers(pi, cards.OnPlayCard, nil)
+		if m.startSeek(pi, eff) {
+			return true, ""
+		}
 		m.finish()
 		return true, ""
 	}
@@ -254,33 +272,17 @@ func (m *Match) Attack(c Sender, attackerID, targetID string) (bool, string) {
 		return false, "minion cannot attack"
 	}
 
-	if targetID == oppHeroTarget {
+	// Resolve the target ref + per-target legality.
+	toHero := targetID == oppHeroTarget
+	var tgtRef charRef
+	if toHero {
 		if !m.canAttackHero(atk) {
 			return false, "can't attack heroes this turn"
 		}
 		if hasTaunt(opp) {
 			return false, "must attack a Taunt minion"
 		}
-		m.resetLog()
-		m.emit(protocol.Event{Kind: "attack", Source: atk.uid, Target: m.pid(1 - pi)})
-		// Hero-attack secrets fire before damage. Snare ("enemy minion attacks your
-		// hero") may destroy the attacker and cancel; Frost Ward ("when your hero is
-		// attacked") gains armor and never cancels. Both fire on a minion attack.
-		cancelled := m.triggerSecrets(1-pi, cards.OnEnemyAttackHero, secretCtx{minion: atk})
-		m.triggerSecrets(1-pi, cards.OnHeroAttacked, secretCtx{minion: atk})
-		if cancelled {
-			atk.attacksMade++
-			atk.stealthed = false
-			m.finish()
-			return true, ""
-		}
-		dealt := m.damageHero(1-pi, atk.atk(), atk.uid)
-		if atk.has(cards.KeywordLifesteal) {
-			m.lifestealHeal(pi, dealt)
-		}
-		if dealt > 0 && atk.has(cards.KeywordFreezeOnHit) {
-			m.freezeHero(1 - pi) // `frostfont_elemental`: Freeze the hero it damages
-		}
+		tgtRef = charRef{owner: 1 - pi}
 	} else {
 		tgt := findMinion(opp.board, targetID)
 		if tgt == nil {
@@ -292,19 +294,79 @@ func (m *Match) Attack(c Sender, attackerID, targetID string) (bool, string) {
 		if hasTaunt(opp) && !tgt.has(cards.KeywordTaunt) {
 			return false, "must attack a Taunt minion"
 		}
-		m.resetLog()
-		m.emit(protocol.Event{Kind: "attack", Source: atk.uid, Target: tgt.uid})
-		// Simultaneous damage exchange (Aegis handled in damageMinion).
-		m.combatStrike(atk, tgt) // attacker -> defender
-		if tgt.atk() > 0 {
-			m.combatStrike(tgt, atk) // defender retaliates
+		tgtRef = charRef{minion: tgt, owner: 1 - pi}
+	}
+
+	m.resetLog()
+	m.emit(protocol.Event{Kind: "attack", Source: atk.uid, Target: m.refUID(tgtRef)})
+
+	// The defender's secrets react to the declared attack, before any damage.
+	redirect := charRef{}
+	didRedirect := false
+	ctx := secretCtx{minion: atk, redirect: &redirect, didRedirect: &didRedirect}
+	cancelled := m.triggerSecrets(1-pi, cards.OnEnemyAttack, ctx) // `snaring_trap`: bounce + cancel
+	if !cancelled {
+		if toHero {
+			// `cinder_trap` (destroy attacker + cancel), `feint_trap` (redirect), Frost
+			// Ward armor, `blasting_snare` AoE. Hero-attacked secrets fire even when the
+			// attacker was already destroyed by a hero-attack secret.
+			cancelled = m.triggerSecrets(1-pi, cards.OnEnemyAttackHero, ctx)
+			m.triggerSecrets(1-pi, cards.OnHeroAttacked, ctx)
+		} else {
+			m.triggerSecrets(1-pi, cards.OnMinionAttacked, ctx) // `serpent_trap`: summon
 		}
 	}
+
+	// Cancelled, or the attacker died to a secret (e.g. `blasting_snare`) before its
+	// blow — no damage is dealt; finish() resolves any deaths.
+	if cancelled || atk.health <= 0 {
+		atk.attacksMade++
+		atk.stealthed = false
+		m.finish()
+		return true, ""
+	}
+
+	dst := tgtRef
+	if didRedirect {
+		dst = redirect
+		m.emit(protocol.Event{Kind: "attack", Source: atk.uid, Target: m.refUID(dst)}) // re-aim animation
+	}
+	m.resolveAttackBlow(pi, atk, dst)
 
 	atk.attacksMade++
 	atk.stealthed = false // attacking breaks Stealth
 	m.finish()
 	return true, ""
+}
+
+// resolveAttackBlow deals attacker atk's blow to dst (hero or minion), applying
+// Lifesteal / Freeze-on-hit and minion retaliation. Shared by direct and
+// redirected (`feint_trap`) attacks.
+func (m *Match) resolveAttackBlow(pi int, atk *minion, dst charRef) {
+	if dst.minion == nil {
+		dealt := m.damageHero(dst.owner, atk.atk(), atk.uid)
+		if atk.has(cards.KeywordLifesteal) {
+			m.lifestealHeal(pi, dealt)
+		}
+		if dealt > 0 && atk.has(cards.KeywordFreezeOnHit) {
+			m.freezeHero(dst.owner) // `frostfont_elemental`: Freeze the hero it damages
+		}
+		return
+	}
+	// Simultaneous damage exchange (Aegis handled in damageMinion).
+	m.combatStrike(atk, dst.minion) // attacker -> defender
+	if dst.minion.atk() > 0 {
+		m.combatStrike(dst.minion, atk) // defender retaliates
+	}
+}
+
+// refUID is the wire id for a character ref: the minion's uid, or the hero's
+// player id.
+func (m *Match) refUID(ref charRef) string {
+	if ref.minion != nil {
+		return ref.minion.uid
+	}
+	return m.pid(ref.owner)
 }
 
 // heroAttack resolves a weapon-armed hero attack by player pi against targetID.
@@ -348,7 +410,10 @@ func (m *Match) heroAttack(pi int, targetID string) (bool, string) {
 		m.resetLog()
 		m.emit(protocol.Event{Kind: "attack", Source: m.pid(pi), Target: tgt.uid})
 		m.damageMinion(tgt, atkVal, m.pid(pi)) // Aegis handled in damageMinion
-		if tgt.atk() > 0 {
+		// `duelists_longbow`: the hero is Immune while attacking, so it takes no
+		// retaliation from the struck minion.
+		immuneAttacking := ps.weapon != nil && ps.weapon.card.ImmuneAttacking
+		if tgt.atk() > 0 && !immuneAttacking {
 			m.damageHero(pi, tgt.atk(), tgt.uid) // the struck minion hits back at my hero
 		}
 	}

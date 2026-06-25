@@ -71,11 +71,12 @@ type enchant struct {
 type minion struct {
 	uid                string
 	card               cards.Card
-	owner              int       // player index that controls it (drives finalGasp sides/summons)
-	enchants           []enchant // persistent buffs (stripped by Silence)
-	auraAtk            int       // attack granted by active auras, recomputed each board change
-	auraHP             int       // max-health granted by active auras, recomputed each board change
-	health             int       // current health; <= 0 means dead
+	owner              int             // player index that controls it (drives finalGasp sides/summons)
+	enchants           []enchant       // persistent buffs (stripped by Silence)
+	auraAtk            int             // attack granted by active auras, recomputed each board change
+	auraHP             int             // max-health granted by active auras, recomputed each board change
+	auraKeywords       []cards.Keyword // keywords granted by active auras (`tundra_charger`: Charge), recomputed each board change
+	health             int             // current health; <= 0 means dead
 	summonedThisTurn   bool
 	attacksMade        int
 	frozen             bool
@@ -94,11 +95,16 @@ func (mn *minion) has(k cards.Keyword) bool {
 	if mn.card.Has(k) {
 		return true
 	}
-	for _, e := range mn.enchants { // keywords granted by a buff (e.g. Argus' Taunt)
+	for _, e := range mn.enchants { // keywords granted by a buff (e.g. `bannerguard`'s Taunt)
 		for _, gk := range e.keywords {
 			if gk == k {
 				return true
 			}
+		}
+	}
+	for _, gk := range mn.auraKeywords { // keywords granted by an in-play aura (`tundra_charger`: Charge)
+		if gk == k {
+			return true
 		}
 	}
 	if mn.enraged() { // keywords granted only while damaged (`moonfury_stalker`: Twinstrike)
@@ -283,8 +289,8 @@ func New(id string, a, b Sender, seed int64, deckA, deckB []cards.Card) *Match {
 		ID:      id,
 		players: [2]Sender{a, b},
 		state: [2]*playerState{
-			{heroHP: startHP, deck: append([]cards.Card(nil), deckA...), heroPower: cards.MageHeroPower()},
-			{heroHP: startHP, deck: append([]cards.Card(nil), deckB...), heroPower: cards.MageHeroPower()},
+			{heroHP: startHP, deck: append([]cards.Card(nil), deckA...), heroPower: cards.HeroPowerForClass(cards.DeckClass(deckA))},
+			{heroHP: startHP, deck: append([]cards.Card(nil), deckB...), heroPower: cards.HeroPowerForClass(cards.DeckClass(deckB))},
 		},
 		rng:          rand.New(rand.NewSource(seed)),
 		mulligan:     &mulliganState{},

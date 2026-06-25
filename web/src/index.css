@@ -2511,11 +2511,15 @@ button {
     0 0 14px 2px #6fdf7aaa;
 }
 /* Card colors are driven by CLASS, not type: neutral = warm parchment (the
- * default above), Mage = blue. (.card.secret below styles only the hidden
- * opponent-secret cast placeholder, not a real card in hand.) */
+ * default above), Mage = blue, Hunter = green. (.card.secret below styles only
+ * the hidden opponent-secret cast placeholder, not a real card in hand.) */
 .card.mage {
   background: linear-gradient(#27406a, #1a2740);
   border-color: #5a9bd8;
+}
+.card.hunter {
+  background: linear-gradient(#2a4a2c, #1a2f1b);
+  border-color: #6fb35a;
 }
 .card.secret {
   background: linear-gradient(#43295c, #2a1b3a);

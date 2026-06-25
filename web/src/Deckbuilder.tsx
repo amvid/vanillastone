@@ -55,6 +55,9 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   // True while the new-deck class picker is open.
   const [picking, setPicking] = useState(false)
   const [tab, setTab] = useState<Tab>('all')
+  // Which class the "class" tab filters to while just browsing (no deck open).
+  // When editing a deck the deck's own class wins. Null = the first playable class.
+  const [browseClass, setBrowseClass] = useState<string | null>(null)
   const [manaFilter, setManaFilter] = useState<number | null>(null)
   const [rarityFilter, setRarityFilter] = useState<string | null>(null)
   // Card previewed on the left while hovering an in-deck row, pinned to the
@@ -78,8 +81,9 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   }, [pool])
 
   // The class context the collection is filtered against: the editing deck's
-  // class, or the first playable class when just browsing.
-  const activeClass = editing?.class ?? pool?.classes[0] ?? 'mage'
+  // class, or the browse-selected class (first playable by default) when no deck
+  // is open. The class tab(s) below switch `browseClass` while browsing.
+  const activeClass = editing?.class ?? browseClass ?? pool?.classes[0] ?? 'mage'
 
   // Filtered + sorted (ascending mana) collection driven by the tab and filters.
   const filtered = useMemo(() => {
@@ -205,9 +209,18 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               <button className={tab === 'all' ? 'on' : ''} onClick={() => setTab('all')}>
                 All
               </button>
-              <button className={tab === 'class' ? 'on' : ''} onClick={() => setTab('class')}>
-                {classLabel(activeClass)}
-              </button>
+              {(editing ? [editing.class] : pool.classes).map((cls) => (
+                <button
+                  key={cls}
+                  className={tab === 'class' && activeClass === cls ? 'on' : ''}
+                  onClick={() => {
+                    setBrowseClass(cls)
+                    setTab('class')
+                  }}
+                >
+                  {classLabel(cls)}
+                </button>
+              ))}
               <button className={tab === 'neutral' ? 'on' : ''} onClick={() => setTab('neutral')}>
                 Neutral
               </button>

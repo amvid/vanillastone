@@ -24,9 +24,8 @@ const (
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
-// to exactly one of these; its cards must be that class or neutral. Mage only
-// for now (the game is Mage-only); Hunter is reserved but not yet playable.
-func PlayableClasses() []Class { return []Class{ClassMage} }
+// to exactly one of these; its cards must be that class or neutral.
+func PlayableClasses() []Class { return []Class{ClassMage, ClassHunter} }
 
 // classPlayable reports whether decks may be built for this class.
 func classPlayable(c Class) bool {
@@ -93,6 +92,7 @@ const (
 	EffectEnemySpellsFree EffectKind = "enemySpellsFree" // the opponent's spells cost 0 on their next turn (`fizzle_sparkmuddle`)
 	EffectGiveOppMana     EffectKind = "giveOppMana"     // give the opponent an empty Mana Crystal (maxMana +1, capped) (`runed_golem`)
 	EffectSwapWithHand    EffectKind = "swapWithHand"    // swap the source minion with a random minion in the caster's hand (`clockwork_swapbot`)
+	EffectFlare           EffectKind = "flare"           // strip Stealth from every minion (both boards), destroy ALL enemy Secrets, then draw a card (`flarewatch`)
 
 	// Weapon-manipulation battlecries (untargeted; operate on the hero weapons).
 	EffectGainWeaponAttack EffectKind = "gainWeaponAttack" // buff self by the caster's weapon Attack (`tidereaver`)
@@ -188,6 +188,11 @@ type Effect struct {
 	ReqOppMinions          int        `json:"reqOppMinions,omitempty"`          // EffectMindControl: only fire if the opponent controls at least this many minions (`mesmer_adept`)
 	ReqDeckAllOdd          bool       `json:"reqDeckAllOdd,omitempty"`          // EffectDraw: only fire if every card left in the caster's deck is odd-cost (`shadowtail_familiar`)
 	DrawWeaponDurability   bool       `json:"drawWeaponDurability,omitempty"`   // EffectDestroyWeapon: also draw cards = the broken weapon's durability (`relic_breaker`); plain destroy leaves it false (`corroding_ooze`)
+	ReqControlTribe        Tribe      `json:"reqControlTribe,omitempty"`        // EffectDamage: if the caster controls a minion of this tribe, deal AmountIfReq instead (`kill_command`)
+	AmountIfReq            int        `json:"amountIfReq,omitempty"`            // EffectDamage: damage to deal when ReqControlTribe is satisfied (`kill_command`)
+	SplashAmount           int        `json:"splashAmount,omitempty"`           // EffectDamage: also deal this to the (single) target minion's neighbours (`explosive_shot`)
+	CountPerEnemyMinion    bool       `json:"countPerEnemyMinion,omitempty"`    // EffectSummon: summon one token per enemy minion (`unleash_the_pack`)
+	FromDeck               bool       `json:"fromDeck,omitempty"`               // EffectSeek: offer 3 cards from the caster's own deck (and remove them) instead of the whole pool (`tracking`)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -229,6 +234,8 @@ const (
 	OnEnemyCastSpell  EventType = "on_enemy_cast_spell"  // an enemy casts a spell
 	OnHeroAttacked    EventType = "on_hero_attacked"     // the owner's hero is attacked (minion OR weapon)
 	OnFatalDamage     EventType = "on_fatal_damage"      // the owner's hero would take fatal damage (`frostward_aegis`; fired only from the damageHero hook, never via triggerSecrets)
+	OnEnemyAttack     EventType = "on_enemy_attack"      // an enemy MINION declares an attack (any target, hero or minion) — `snaring_trap`
+	OnMinionAttacked  EventType = "on_minion_attacked"   // one of the owner's minions is the target of an enemy attack — `serpent_trap`
 )
 
 // SecretKind is a secret's Go-handled behavior (HANDOFF: weird effects are
@@ -242,6 +249,11 @@ const (
 	SecretGainArmor       SecretKind = "gainArmor"       // the owner's hero gains Amount armor
 	SecretRetargetSpell   SecretKind = "retargetSpell"   // enemy casts a spell on the owner's minion → summon Summon and make it the new target (`decoy_ward`)
 	SecretIceBlock        SecretKind = "iceBlock"        // fatal damage to the owner's hero → prevent it and make the hero Immune this turn (`frostward_aegis`)
+	SecretDamageAll       SecretKind = "damageAll"       // hero attacked → deal Amount to every enemy character (`blasting_snare`); does not cancel
+	SecretBounceAttacker  SecretKind = "bounceAttacker"  // an enemy minion attacks → return the attacker to its owner's hand, raising its cost by Amount; cancels the attack (`snaring_trap`)
+	SecretDamageMinion    SecretKind = "damageMinion"    // enemy plays a minion → deal Amount to it (`marksman_trap`); does not cancel
+	SecretRetargetAttack  SecretKind = "retargetAttack"  // an enemy minion attacks the owner's hero → redirect the attack to a random OTHER character (`feint_trap`); does not cancel
+	SecretSummon          SecretKind = "summon"          // one of the owner's minions is attacked → summon Amount copies of Summon (`serpent_trap`); does not cancel
 )
 
 // SecretDef binds a secret's trigger event to its behavior. Amount carries a
@@ -291,6 +303,7 @@ const (
 	KeywordElusive     Keyword = "elusive"     // cannot be targeted by spells or hero powers (either side)
 	KeywordCantAttack  Keyword = "cantAttack"  // can never attack
 	KeywordFreezeOnHit Keyword = "freezeOnHit" // Freezes any character it deals combat damage to (`frostfont_elemental`)
+	KeywordImmune      Keyword = "immune"      // ignores all damage (used as a "this turn" grant on minions, e.g. `bestial_fury`)
 )
 
 // Tribe is a minion's creature type (drives tribal synergies). Most minions have
@@ -315,10 +328,11 @@ const (
 // the board changes. Tribe (optional) restricts it to other minions of that
 // tribe; Adjacent restricts it to the immediate neighbours.
 type Aura struct {
-	Atk      int   `json:"atk,omitempty"`
-	HP       int   `json:"hp,omitempty"`
-	Tribe    Tribe `json:"tribe,omitempty"`    // only buff other minions of this tribe (empty = all)
-	Adjacent bool  `json:"adjacent,omitempty"` // only buff the immediate neighbours
+	Atk      int       `json:"atk,omitempty"`
+	HP       int       `json:"hp,omitempty"`
+	Tribe    Tribe     `json:"tribe,omitempty"`    // only buff other minions of this tribe (empty = all)
+	Adjacent bool      `json:"adjacent,omitempty"` // only buff the immediate neighbours
+	Grant    []Keyword `json:"grant,omitempty"`    // keywords granted to the buffed minions while the aura holds (`tundra_charger`: Charge to Beasts)
 }
 
 // CostScope decides whose hand cards a CostAura affects.
@@ -389,6 +403,8 @@ type Card struct {
 	ChargeWithWeapon bool          `json:"chargeWithWeapon,omitempty"` // has Charge only while its controller has a weapon equipped (`tideblade_raider`)
 	EnrageGrant      []Keyword     `json:"enrageGrant,omitempty"`      // keywords granted while this minion is damaged (`moonfury_stalker`: Twinstrike)
 	Token            bool          `json:"token,omitempty"`            // summon-only; excluded from Seek/decks
+	WeaponSecretGain bool          `json:"weaponSecretGain,omitempty"` // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
+	ImmuneAttacking  bool          `json:"immuneAttacking,omitempty"`  // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
 }
 
 // Has reports whether the card has the given keyword.
@@ -431,7 +447,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -447,9 +463,34 @@ func Get(id string) (Card, bool) {
 	return c, ok
 }
 
-// MageHeroPower returns the Mage hero power (Fire Dart). The only hero for now.
+// MageHeroPower returns the Mage hero power (Fire Dart).
 func MageHeroPower() Card {
 	return set["fire_dart"]
+}
+
+// HeroPowerForClass returns the hero power card for a class. Falls back to the
+// Mage hero power for any class without its own (keeps a match always playable).
+func HeroPowerForClass(c Class) Card {
+	switch c {
+	case ClassHunter:
+		return set["quick_shot"]
+	default:
+		return set["fire_dart"]
+	}
+}
+
+// DeckClass infers a deck's class from its cards: the class of its first
+// non-neutral card. A deck with no class cards (all-neutral) resolves to the
+// first playable class. Used to assign the right hero power at match start, where
+// only the materialized card list is available (decks otherwise bind to a class
+// in storage).
+func DeckClass(deck []Card) Class {
+	for _, c := range deck {
+		if c.Class != ClassNeutral && c.Class != "" {
+			return c.Class
+		}
+	}
+	return PlayableClasses()[0]
 }
 
 // UpgradedMageHeroPower returns the upgraded Mage hero power (`lunar_devourer`'s
@@ -573,11 +614,54 @@ var defaultMageDeck = []string{
 	"emberforge_magus",
 }
 
+// defaultHunterDeck is a hand-curated, playable 30-card Hunter deck: a Beast
+// tempo list leaning on the class's tribal payoffs (Packleader Wolf's anthem,
+// Carrion Hyena's death snowball, Famished Vulture's draw, Kennel Master's buff)
+// plus a wide neutral Beast core, topped by the class legendary. Kept 30 cards,
+// ≤2 of any id, ≤1 legendary — TestDefaultHunterDeckIsLegal enforces it.
+var defaultHunterDeck = []string{
+	// 1-drops: cheap removal + the Beast anthem.
+	"keen_arrow", "keen_arrow",
+	"packleader_wolf", "packleader_wolf",
+	// 2-drops: draw engine, death snowball, Beast bodies.
+	"famished_vulture", "famished_vulture",
+	"carrion_hyena", "carrion_hyena",
+	"fang_alpha", "fang_alpha",
+	"mirefang_raptor", "mirefang_raptor",
+	"river_snapper", "river_snapper",
+	// 3-drops: random pack + sticky Beast bodies.
+	"call_the_pack", "call_the_pack",
+	"ironfur_bear", "ironfur_bear",
+	"silverback_elder", "silverback_elder",
+	// 4-drops: Beast buff body + a fat Taunt wall.
+	"kennel_master", "kennel_master",
+	"marsh_snapjaw", "marsh_snapjaw",
+	// 5-drops: midrange Beast threats.
+	"trampling_brute", "trampling_brute",
+	// 6-drops: deathrattle value.
+	"mane_lioness", "mane_lioness",
+	// Top end: big Beast + legendary finisher.
+	"molten_hound",
+	"apex_saurian",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
 func DefaultDeck() []string {
 	return append([]string(nil), defaultMageDeck...)
+}
+
+// DefaultDeckFor returns a legal, curated 30-card default deck for a class. Used
+// as a last-resort deck when a player has none. Unknown classes fall back to the
+// Mage list.
+func DefaultDeckFor(class Class) []string {
+	switch class {
+	case ClassHunter:
+		return append([]string(nil), defaultHunterDeck...)
+	default:
+		return append([]string(nil), defaultMageDeck...)
+	}
 }
 
 // Deck materializes a list of card ids into Card values.

@@ -930,8 +930,14 @@ export function App() {
                     <span>AI plays</span>
                     <FancySelect
                       value={aiClass}
-                      onChange={(v) => setAiClass(String(v))}
-                      options={[{ value: 'mage', label: 'Mage', art: '/art/mage_hero.png' }]}
+                      onChange={(v) => {
+                        setAiClass(String(v))
+                        setAiDeck(0)
+                      }}
+                      options={[
+                        { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
+                        { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
+                      ]}
                     />
                   </label>
                   <label className="mode-aiclass">
@@ -941,7 +947,9 @@ export function App() {
                       onChange={(v) => setAiDeck(Number(v))}
                       options={[
                         { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
-                        ...decks.map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
+                        ...decks
+                          .filter((d) => d.class === aiClass)
+                          .map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
                       ]}
                     />
                   </label>

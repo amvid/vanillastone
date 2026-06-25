@@ -125,7 +125,9 @@ func (m *Match) playSecret(pi, handIndex int, card cards.Card, cost int) (bool, 
 type secretCtx struct {
 	minion      *minion
 	spellTarget *charRef
-	spellName   string // the enemy spell being cast — named in a Counter Spell reveal
+	spellName   string   // the enemy spell being cast — named in a Counter Spell reveal
+	redirect    *charRef // SecretRetargetAttack (`feint_trap`): the attack's new target is written here
+	didRedirect *bool    // set true when a retarget secret fired, so the caller re-aims the blow
 }
 
 // secretFires reports whether secret s should fire given the context, beyond its
@@ -164,6 +166,11 @@ func (m *Match) triggerSecrets(defender int, ev cards.EventType, ctx secretCtx) 
 			reveal.Note = ctx.spellName
 		}
 		m.emit(reveal)
+		// `hawkeye_bow`: the wielder's weapon gains +1 Durability whenever one of their
+		// Secrets is revealed. The secret owner (defender) is also the weapon's wielder.
+		if w := m.state[defender].weapon; w != nil && w.card.WeaponSecretGain {
+			w.durability++
+		}
 		switch s.card.Secret.Kind {
 		case cards.SecretDestroyAttacker:
 			if ctx.minion != nil {
@@ -184,6 +191,48 @@ func (m *Match) triggerSecrets(defender int, ev cards.EventType, ctx secretCtx) 
 			if tok, ok := cards.Get(s.card.Secret.Summon); ok {
 				if decoy := m.summonMinion(defender, tok); decoy != nil {
 					*ctx.spellTarget = charRef{minion: decoy, owner: defender}
+				}
+			}
+		case cards.SecretDamageAll:
+			// `blasting_snare`: deal Amount to every enemy character (the attacker's side).
+			// Does not cancel; the attacker may die to this before its blow lands.
+			amt := s.card.Secret.Amount
+			m.damageHero(1-defender, amt, m.pid(defender))
+			for _, mn := range append([]*minion(nil), m.state[1-defender].board...) {
+				m.damageMinion(mn, amt, m.pid(defender))
+			}
+		case cards.SecretBounceAttacker:
+			// `snaring_trap`: return the attacker to its owner's hand, costing Amount more.
+			// Cancels the attack.
+			if ctx.minion != nil {
+				m.bounceMinionCost(ctx.minion, ctx.minion.owner, s.card.Secret.Amount)
+			}
+			cancelled = true
+		case cards.SecretDamageMinion:
+			// `marksman_trap`: deal Amount to the minion the enemy just played. Non-cancel.
+			if ctx.minion != nil {
+				m.damageMinion(ctx.minion, s.card.Secret.Amount, m.pid(defender))
+			}
+		case cards.SecretRetargetAttack:
+			// `feint_trap`: redirect the attack to a random OTHER character (not the
+			// original hero target, not the attacker itself). Non-cancel.
+			if ctx.minion != nil && ctx.redirect != nil && ctx.didRedirect != nil {
+				if pick, ok := m.randomRetarget(defender, ctx.minion); ok {
+					*ctx.redirect = pick
+					*ctx.didRedirect = true
+				}
+			}
+		case cards.SecretSummon:
+			// `serpent_trap`: summon Amount copies of Summon for the owner. Non-cancel.
+			if tok, ok := cards.Get(s.card.Secret.Summon); ok {
+				n := s.card.Secret.Amount
+				if n < 1 {
+					n = 1
+				}
+				for i := 0; i < n; i++ {
+					if m.summonMinion(defender, tok) == nil {
+						break
+					}
 				}
 			}
 		}
@@ -263,16 +312,33 @@ func (m *Match) condMet(cond cards.TriggerCondition, pi int) bool {
 	}
 }
 
-// startSeek picks three distinct cards from the pool, records the pending
-// choice, pushes the snapshot so far, and sends the Seek prompt to player pi.
-// The action resumes (and finishes) when Choose arrives. Caller holds m.mu.
-func (m *Match) startSeek(pi int, pool cards.SeekPool) {
-	ids := m.pickDistinct(cards.SeekPoolIDs(pool), 3)
-	opts := make([]cards.Card, 0, len(ids))
-	for _, id := range ids {
-		if c, ok := cards.Get(id); ok {
-			opts = append(opts, c)
+// startSeek presents three cards for player pi to pick one, records the pending
+// choice, pushes the snapshot so far, and sends the Seek prompt. The pool is the
+// whole collection of eff.Pool's type, OR — for eff.FromDeck (`tracking`) — the
+// top 3 cards of the caster's own deck (removed now; the two unpicked are
+// discarded). Returns false without pausing when there is nothing to offer (e.g.
+// an empty deck); the caller must then finish the action itself. The action
+// otherwise resumes (and finishes) when Choose arrives. Caller holds m.mu.
+func (m *Match) startSeek(pi int, eff *cards.Effect) bool {
+	var opts []cards.Card
+	if eff.FromDeck {
+		ps := m.state[pi]
+		n := 3
+		if n > len(ps.deck) {
+			n = len(ps.deck)
 		}
+		opts = append([]cards.Card(nil), ps.deck[:n]...)
+		ps.deck = ps.deck[n:] // the 3 leave the deck; the unpicked are discarded
+	} else {
+		ids := m.pickDistinct(cards.SeekPoolIDs(eff.Pool), 3)
+		for _, id := range ids {
+			if c, ok := cards.Get(id); ok {
+				opts = append(opts, c)
+			}
+		}
+	}
+	if len(opts) == 0 {
+		return false
 	}
 	m.pending = &pendingChoice{player: pi, options: opts}
 	m.sendStateAll() // reflect the summon/onset resolved so far
@@ -285,6 +351,7 @@ func (m *Match) startSeek(pi int, pool cards.SeekPool) {
 	// Seek prompt (only the choosing player may pick).
 	m.fanout(pi, od)
 	m.fanout(1-pi, od)
+	return true
 }
 
 // sendSeekTo sends player pi the prompt for the current pending Seek.

@@ -28,6 +28,11 @@ export function Hero(props: {
     .filter(Boolean)
     .join(' ')
 
+  // Hero portrait art + glyph are class-driven, inferred from the hero power's
+  // class (the snapshot has no separate hero-class field). Defaults to Mage.
+  const heroClass = p.heroPower?.class ?? 'mage'
+  const heroIcon = heroClass === 'hunter' ? '🏹' : '🧙'
+
   // Secret gems shown over the portrait, HS-style. Own secrets reveal their name
   // on hover; the opponent's are anonymous "?" tokens.
   const gems: { key: string | number; card?: CardView }[] =
@@ -52,8 +57,12 @@ export function Hero(props: {
             ))}
           </div>
         )}
-        <span className="hero-portrait-art" aria-hidden="true" />
-        <span className="hero-portrait-icon">🧙</span>
+        <span
+          className="hero-portrait-art"
+          style={{ backgroundImage: `url('/art/${heroClass}_hero.png')` }}
+          aria-hidden="true"
+        />
+        <span className="hero-portrait-icon">{heroIcon}</span>
         {p.frozen && (
           <div className="hero-frost-badge" title="Frozen — can't attack this turn" aria-hidden="true">
             ❄
