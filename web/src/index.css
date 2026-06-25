@@ -866,18 +866,77 @@ button {
   }
 }
 
-/* Overdraw burn: a card back igniting at the deck pile (animate.ts). */
-.burn-card {
-  position: relative;
+/* Burnt card revealed: the destroyed card's face flies from its owner's deck pile
+   (--bx/--by offset from center) to screen center, growing small->full with a flame,
+   holds, then fades up. (GameScreen burnFace state.) Both players see what was lost. */
+.burn-show {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 81;
+  pointer-events: none;
+  animation: burn-show-fly 2s ease-out forwards;
 }
-.burn-flame {
+@keyframes burn-show-fly {
+  0% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--bx, 0px)), calc(-50% + var(--by, 0px)))
+      scale(0.1) rotate(-6deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.45) rotate(0deg);
+    filter: brightness(1);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.45) rotate(0deg);
+    filter: brightness(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 36px)) scale(1.3) rotate(5deg);
+    filter: brightness(2.2) sepia(0.9);
+  }
+}
+.burn-show-card {
+  box-shadow:
+    0 14px 44px #000c,
+    0 0 32px #ff7a1eaa;
+}
+.burn-show-flame {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  filter: drop-shadow(0 0 8px #ff7a1e);
+  font-size: 92px;
+  filter: drop-shadow(0 0 16px #ff7a1e);
+  opacity: 0;
+  animation: burn-flame-in 2s ease-out forwards;
+}
+/* Flame holds off until the card has flown to center (~50%), then ignites. */
+@keyframes burn-flame-in {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
 }
 
 /* Fatigue: a black skull card flying from the empty deck to center (animate.ts). */
@@ -2165,6 +2224,7 @@ button {
 }
 .hand .card,
 .cast-card,
+.burn-show-card,
 .drag-card,
 .play-ghost,
 .seek-options .card,

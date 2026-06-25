@@ -9,7 +9,6 @@ import { Hero } from './Hero'
 import { CardTooltip } from './Tooltip'
 import { TargetingArrow } from './TargetingArrow'
 import {
-  burnCard,
   dealIn,
   deathPuff,
   fatigueBurst,
@@ -170,6 +169,33 @@ export function GameScreen(props: GameScreenProps) {
     setSecretFx({ key: secretFxSeq.current, name })
     window.clearTimeout(secretFxTimer.current)
     secretFxTimer.current = window.setTimeout(() => setSecretFx(null), 3200)
+  }, [])
+  // A burnt card's face flies from its owner's deck pile to center, growing small->full
+  // with a flame, so both players see what was destroyed, then fades. bx/by = the deck
+  // pile's offset from screen center (the fly-from point). Last burn wins (batch overwrites).
+  const [burnFace, setBurnFace] = useState<{
+    key: number
+    card: CardView
+    bx: number
+    by: number
+  } | null>(null)
+  const burnFaceTimer = useRef<number | undefined>(undefined)
+  const burnFaceSeq = useRef(0)
+  const showBurnFace = useCallback((card: CardView, side: 'self' | 'opp') => {
+    const ref =
+      document.querySelector<HTMLElement>(`.deck-pile.${side} .deck-card-back`) ??
+      document.querySelector<HTMLElement>(`.deck-pile.${side}`)
+    let bx = 0
+    let by = 0
+    if (ref) {
+      const r = ref.getBoundingClientRect()
+      bx = r.left + r.width / 2 - window.innerWidth / 2
+      by = r.top + r.height / 2 - window.innerHeight / 2
+    }
+    burnFaceSeq.current++
+    setBurnFace({ key: burnFaceSeq.current, card, bx, by })
+    window.clearTimeout(burnFaceTimer.current)
+    burnFaceTimer.current = window.setTimeout(() => setBurnFace(null), 2000)
   }, [])
   // Opponent's secret count last render: a rise means they played a secret.
   const prevOppSecrets = useRef<number | null>(null)
@@ -365,6 +391,7 @@ export function GameScreen(props: GameScreenProps) {
     () => () => {
       window.clearTimeout(castTimer.current)
       window.clearTimeout(secretFxTimer.current)
+      window.clearTimeout(burnFaceTimer.current)
     },
     [],
   )
@@ -690,7 +717,10 @@ export function GameScreen(props: GameScreenProps) {
         if (tg) at(t0 + 750, () => fatiguePop(tg, e.amount)) // hero flash + number after the card reaches center
         t += BEAT
       } else if (e.kind === 'burn') {
-        at(t, () => burnCard(e.target === snap.you ? 'self' : 'opp'))
+        const card = e.card
+        const side = e.target === snap.you ? 'self' : 'opp'
+        // The card face flies from the deck pile to center, growing + flaming, then fades.
+        if (card) at(t, () => showBurnFace(card, side))
         t += BEAT
       } else if (e.kind === 'secret' && e.card) {
         const card = e.card
@@ -996,6 +1026,19 @@ export function GameScreen(props: GameScreenProps) {
                 </div>
               )
             )}
+          </div>
+        )}
+
+        {burnFace && (
+          <div
+            className="burn-show"
+            key={burnFace.key}
+            style={{ '--bx': `${burnFace.bx}px`, '--by': `${burnFace.by}px` } as React.CSSProperties}
+          >
+            <div className={'card burn-show-card' + cardColorClass(burnFace.card)}>
+              <CardFace card={burnFace.card} />
+            </div>
+            <div className="burn-show-flame">🔥</div>
           </div>
         )}
 

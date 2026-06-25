@@ -207,7 +207,7 @@ func (m *Match) copySpellToOpponent(caster int, card cards.Card) {
 				continue
 			}
 			if len(m.state[opp].hand) >= maxHand {
-				m.emit(protocol.Event{Kind: "burn", Target: m.pid(opp)})
+				m.emitBurn(opp, card)
 				continue
 			}
 			m.state[opp].hand = append(m.state[opp].hand, card)

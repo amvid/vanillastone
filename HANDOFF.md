@@ -17,7 +17,8 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-for the new cards not yet generated. Prev:
+for the new cards just started. Art now: **116/193 collectible art files placed** + 1 token
+(`mana_surge`); `pyrebolt` is now counted as collectible Basic Mage art. Prev:
 art in progress — 104/140 collectible art files placed + 2 tokens:
 `pyrebolt`, `mana_surge`; collectibles placed = all 32 legendaries + all 13 neutral epics + first
 neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender`, `rune_warden`, `acolyte_novice`, `brackish_caller` + all 16 non-legendary Mage collectible art files
@@ -32,6 +33,24 @@ zoomed `auto 160%`/`center bottom` to cut the top sky); hover card-preview delay
 2026-06-23: art layout finalized — full-bleed ~square slot via `background-cover`, fixed the
 `<button>` global-padding inset gotcha, style locked to **cel cartoon**, vite auto-reload on art
 drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/public/art/README.md`).
+
+---
+
+## Next Session: Art Generation
+
+User is starting a fresh session to continue the card-art workflow. Read this file, `.notes/art-prompts.md`,
+and `web/public/art/README.md`, then continue **1 card at a time**. **Basic Mage art is complete**:
+`cinderstorm`, `frostfont_elemental`, `hexform`, `arcane_study`, `glacial_halt`, `rimebolt`,
+`arcane_burst`, `arcane_barrage`, and `conjured_mirage` placed; `pyrebolt` already had art from its
+prior token pass. Current queue: **Basic neutral set (43 cards)**, high-to-low by cost. Already
+placed from this queue: `molten_hound`. Next raw preview target: **`battlehorn_champion`** (7-cost
+Basic neutral minion, gives other friendly minions +1/+1). Workflow: generate one raw preview with the locked cel-shaded/top-35%-empty style, stop for user review. When
+user says `continue`, that means approve/place the current preview, copy the approved raw from the
+current `.codex/generated_images/...` folder to `web/public/art/<card_id>.png`, resize to 512,
+compress below ~150KB, update this handoff and `.notes/art-prompts.md`, then immediately generate
+the next raw preview and stop for review. If user says `rework`, regenerate without placing. Do not
+visually critique previews unless asked; user is reviewing them. Vary humanoid prompts with more
+women/girls where suitable.
 
 ---
 
@@ -181,7 +200,7 @@ mana + rarity filters, ascending-mana sort, mana-curve histogram.
   `padding: 0` on `.card`/`.book-card`. Without that, no full-bleed/edge alignment will ever work.
   Style = **clean cel-shaded cartoon** (see `web/public/art/README.md` prefix). **Hand cards** use
   `CardArt`'s full-bleed `background-size:cover` anchored **`center bottom`** (crop eats the top sky,
-  keeps feet/tail). **104/140 collectible art files placed** + tokens `pyrebolt`, `mana_surge`: all 32 legendaries,
+  keeps feet/tail). **108/193 collectible art files placed** + token `mana_surge`: all 32 legendaries,
   all 13 neutral epics, all 49 rares (verified complete after `brackish_caller`), plus all non-legendary Mage collectibles:
   `arcane_adept`,
   `warded_scholar`, `spellwarden_magus`, `glacial_splinter`, `arcane_wyrmling`, `frost_tempest`,
@@ -199,7 +218,16 @@ mana + rarity filters, ascending-mana sort, mana-curve histogram.
   `spellrage_acolyte` (2), `mana_leech` (2), `pocket_conjurer` (2), `addled_brewer` (2), and
   `riled_rooster` (1), `brine_cutter` (1), `dawn_tender` (1), `rune_warden` (1),
   `acolyte_novice` (1), and `brackish_caller` (1) placed after user approval. Rare coverage check:
-  49/49 rare cards have art. Next preview target = `galewing_harpy` (6-cost common). User noted the recent batch skewed boy-heavy; vary upcoming
+  49/49 rare cards have art. `galewing_harpy` (6-cost common, 142KB) placed after user approval.
+  Basic Mage art started high-to-low; `cinderstorm` (7-cost Basic Mage spell, 109KB),
+  `frostfont_elemental` (4-cost Basic Mage minion, 75KB), `hexform` (4-cost Basic Mage spell,
+  132KB), `arcane_study` (3-cost Basic Mage spell, 132KB), `glacial_halt` (3-cost Basic Mage
+  spell, 132KB), `rimebolt` (2-cost Basic Mage spell, 132KB), `arcane_burst` (2-cost Basic Mage
+  spell, 132KB), `arcane_barrage` (1-cost Basic Mage spell, 132KB), and `conjured_mirage`
+  (1-cost Basic Mage spell, 132KB) placed after user approval; `pyrebolt` already has art from its
+  prior token pass. **Basic Mage art complete.** Basic neutral art started high-to-low; `molten_hound`
+  (7-cost Basic neutral Beast, 132KB) placed after user approval. Next preview target =
+  `battlehorn_champion` (7-cost Basic neutral minion). User noted the recent batch skewed boy-heavy; vary upcoming
   humanoid prompts with more women/girls where the card concept allows.
   Updated workflow: generate a raw
   preview and wait for user review; on `continue`, resize/compress/place/update notes, then start
@@ -275,6 +303,11 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
     another minion of the same card no longer collapses to an empty popup (`LogActor.uid`).
   - **Opp spell/weapon play**: slow ~1.2s card travel hand→center (`.opp-cast-fly`); minions keep
     board flyIn; hidden secrets have none. Left cast showcase now 4s (was 5s).
+  - **Burn reveal (2026-06-25)**: `burn` events now carry the destroyed card (`Event.Card`,
+    set via `m.emitBurn`); all 7 server burn sites reveal the face to both players. Client flies
+    the actual card **face** (not a back) from the owner's deck pile to center, growing small->full
+    with 🔥, holds, then fades (`burnFace` state w/ `--bx/--by` pile offset, `.burn-show-fly`
+    keyframe). Replaced the old hidden-info `burnCard` card-back animation (removed from animate.ts).
   - **Secrets**: center burst ring + "🔮 <name>" on ANY secret fire (`.secret-burst`); a
     Counter-type secret shows BOTH cards paired (negated spell desaturated ✕ secret) — paired
     client-side from the same event batch (`emitPlay` precedes `triggerSecrets`), no protocol change.
@@ -361,8 +394,15 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
   143KB), `addled_brewer` (2-cost, 144KB), `riled_rooster` (1-cost, 128KB), `brine_cutter`
   (1-cost, 142KB), `dawn_tender` (1-cost, 136KB), `rune_warden` (1-cost, 143KB),
   `acolyte_novice` (1-cost, 143KB), and `brackish_caller` (1-cost, 139KB), generated raw for
-  user review, then placed after approval without assistant visual review. Next preview target:
-  `galewing_harpy` (6-cost common). Going forward, vary humanoid prompts with more
+  user review, then placed after approval without assistant visual review. `galewing_harpy`
+  (6-cost common, 142KB) placed after approval. Basic Mage art started high-to-low:
+  `cinderstorm` (7-cost spell, 109KB), `frostfont_elemental` (4-cost minion, 75KB), `hexform`
+  (4-cost spell, 132KB), `arcane_study` (3-cost spell, 132KB), `glacial_halt` (3-cost spell,
+  132KB), `rimebolt` (2-cost spell, 132KB), `arcane_burst` (2-cost spell, 132KB),
+  `arcane_barrage` (1-cost spell, 132KB), and `conjured_mirage` (1-cost spell, 132KB) placed after
+  approval. Basic Mage art complete; Basic neutral queue started with `molten_hound` (7-cost Beast,
+  132KB) placed after approval. Next preview target: `battlehorn_champion` (7-cost minion). Going
+  forward, vary humanoid prompts with more
   women/girls where suitable.
   Mage review batch 1 DONE: `arcane_adept` (512w, 110KB), `warded_scholar` (123KB),
   `spellwarden_magus` (121KB), `glacial_splinter` (130KB; first version rerolled lower/wider for

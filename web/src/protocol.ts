@@ -130,7 +130,7 @@ export type Event = {
   buffHp?: number
   name?: string
   note?: string // secret reveal: the card the secret acted on (e.g. countered spell)
-  card?: CardView // set on 'play' events (reveals an opponent's cast)
+  card?: CardView // set on 'play' (reveals an opponent's cast) and 'burn' (the destroyed card's face)
 }
 
 export type Snapshot = {

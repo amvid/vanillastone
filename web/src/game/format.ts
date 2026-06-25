@@ -60,7 +60,7 @@ export function formatEvent(e: Event, names: Record<string, string>, me: string 
     case 'fatigue':
       return `${ent(e.target)} takes ${e.amount} fatigue damage`
     case 'burn':
-      return `${ent(e.target)} burns a card (hand full)`
+      return `${ent(e.target)} burns ${e.card ? e.card.name : 'a card'} (hand full)`
     case 'generate':
       return `${ent(e.target)} adds a card to hand`
     case 'destroy':
@@ -266,6 +266,17 @@ export function buildLog(
       case 'equip':
       case 'weaponBreak':
         open({ kind: e.kind, text, source: A(e.source), targets: [] })
+        return
+      case 'burn':
+        // Show the hero whose hand burned + the destroyed card's face (now revealed).
+        open({
+          kind: e.kind,
+          text,
+          source: A(e.target),
+          targets: e.card
+            ? [{ actor: { name: e.card.name, cardId: e.card.cardId, card: e.card }, kind: e.kind }]
+            : [],
+        })
         return
       default:
         // armor / mana / fatigue / burn / generate — hero-centric, one target.

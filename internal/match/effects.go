@@ -507,7 +507,7 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		}
 		for i := 0; i < n; i++ {
 			if len(m.state[who].hand) >= maxHand {
-				m.emit(protocol.Event{Kind: "burn", Target: m.pid(who)})
+				m.emitBurn(who, gen)
 				continue
 			}
 			m.state[who].hand = append(m.state[who].hand, gen)
@@ -583,7 +583,7 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			who = 1 - caster // Warhorn Chieftain: give the opponent one too
 		}
 		if len(m.state[who].hand) >= maxHand {
-			m.emit(protocol.Event{Kind: "burn", Target: m.pid(who)})
+			m.emitBurn(who, gen)
 			return
 		}
 		m.state[who].hand = append(m.state[who].hand, gen)
@@ -691,7 +691,7 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		c := ps.deck[pick]
 		ps.deck = append(ps.deck[:pick], ps.deck[pick+1:]...)
 		if len(ps.hand) >= maxHand {
-			m.emit(protocol.Event{Kind: "burn", Target: m.pid(caster)})
+			m.emitBurn(caster, c)
 			return
 		}
 		ps.hand = append(ps.hand, c)
@@ -1093,8 +1093,8 @@ func (m *Match) randomFriendlyExcept(owner int, except *minion) *minion {
 // each discard is logged only as a burn (no name). Used by `voidwyrm_tyrant`'s onset.
 func (m *Match) discardHand(pi int) {
 	ps := m.state[pi]
-	for range ps.hand {
-		m.emit(protocol.Event{Kind: "burn", Target: m.pid(pi)})
+	for _, c := range ps.hand {
+		m.emitBurn(pi, c)
 	}
 	ps.hand = nil
 }

@@ -88,61 +88,6 @@ export function projectile(fromSelector: string, target: string | DOMRect, icon:
   anim.onfinish = () => node.remove()
 }
 
-// burnCard shows a drawn-but-discarded card (overdraw) igniting at a player's
-// deck pile and burning away. The card identity is hidden, so it's a card back.
-export function burnCard(side: 'self' | 'opp') {
-  const ref =
-    document.querySelector<HTMLElement>(`.deck-pile.${side} .deck-card-back`) ??
-    document.querySelector<HTMLElement>(`.deck-pile.${side}`)
-  if (!ref) return
-  const r = ref.getBoundingClientRect()
-  const node = document.createElement('div')
-  node.className = 'card-back burn-card'
-  Object.assign(node.style, {
-    position: 'fixed',
-    left: `${r.left}px`,
-    top: `${r.top}px`,
-    width: `${r.width || 52}px`,
-    height: `${r.height || 74}px`,
-    zIndex: '80',
-    pointerEvents: 'none',
-  })
-  const flame = document.createElement('div')
-  flame.className = 'burn-flame'
-  flame.textContent = '🔥'
-  node.appendChild(flame)
-  document.body.appendChild(node)
-  // Fly from the deck pile to screen center, then burn up there.
-  const w = r.width || 52
-  const h = r.height || 74
-  const cx = window.innerWidth / 2 - (r.left + w / 2)
-  const cy = window.innerHeight / 2 - (r.top + h / 2)
-  const anim = node.animate(
-    [
-      { transform: 'translate(0,0) scale(1) rotate(0)', opacity: 1, filter: 'brightness(1)' },
-      {
-        transform: `translate(${cx}px, ${cy}px) scale(1.6) rotate(-4deg)`,
-        opacity: 1,
-        filter: 'brightness(1.1)',
-        offset: 0.5,
-      },
-      {
-        transform: `translate(${cx}px, ${cy}px) scale(1.7) rotate(3deg)`,
-        opacity: 1,
-        filter: 'brightness(1.5) sepia(.7) hue-rotate(-25deg)',
-        offset: 0.75,
-      },
-      {
-        transform: `translate(${cx}px, ${cy - 30}px) scale(1.2) rotate(10deg)`,
-        opacity: 0,
-        filter: 'brightness(2.4) sepia(1)',
-      },
-    ],
-    { duration: 1500, easing: 'ease-in' },
-  )
-  anim.onfinish = () => node.remove()
-}
-
 // fatigueBurst flies a black skull card from a player's (empty) deck pile to
 // screen center, holds, then fades — the deck punishing them. Hero flash follows.
 export function fatigueBurst(side: 'self' | 'opp') {

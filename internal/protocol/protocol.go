@@ -398,8 +398,8 @@ type Event struct {
 	// negated), which the secret's own Name/Card can't convey.
 	Note string `json:"note,omitempty"`
 	// Card is the played card, set on "play" events so the client can reveal an
-	// opponent's cast (the opponent's hand is otherwise hidden). Omitted for
-	// secrets (hidden) and all other event kinds.
+	// opponent's cast (the opponent's hand is otherwise hidden). Also set on
+	// "burn" events so the destroyed card's face is shown to both players.
 	Card *CardView `json:"card,omitempty"`
 }
 

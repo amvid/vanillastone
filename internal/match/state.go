@@ -120,12 +120,19 @@ func (m *Match) drawCard(pi int) {
 	c := ps.deck[0]
 	ps.deck = ps.deck[1:]
 	if len(ps.hand) >= maxHand {
-		// Overdraw: the card is destroyed. Its identity is hidden, so the shared
-		// log only records that a card was burned.
-		m.emit(protocol.Event{Kind: "burn", Target: m.pid(pi)})
+		// Overdraw: the card is destroyed. Its face is revealed to both players so
+		// the burn animation can show what was lost.
+		m.emitBurn(pi, c)
 		return
 	}
 	ps.hand = append(ps.hand, c)
+}
+
+// emitBurn logs a destroyed card (overdraw or full-hand discard). The card face
+// is carried so the client's burn animation can reveal it to both players.
+func (m *Match) emitBurn(pi int, c cards.Card) {
+	cv := cardView(c)
+	m.emit(protocol.Event{Kind: "burn", Target: m.pid(pi), Card: &cv})
 }
 
 // thawAfterTurn unfreezes player pi's characters that did not attack this turn,
@@ -188,7 +195,7 @@ func (m *Match) bounceMinion(mn *minion, owner int) {
 		base = mn.card
 	}
 	if len(m.state[owner].hand) >= maxHand {
-		m.emit(protocol.Event{Kind: "burn", Target: m.pid(owner)})
+		m.emitBurn(owner, base)
 		return
 	}
 	m.state[owner].hand = append(m.state[owner].hand, base)
