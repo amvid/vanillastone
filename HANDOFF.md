@@ -23,7 +23,7 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-for the new cards just started. Art now: **145/193 collectible art files placed** + 1 token
+for the new cards just started. Art now: **160/193 collectible art files placed** + 1 token
 (`mana_surge`); `pyrebolt` is now counted as collectible Basic Mage art. Prev:
 art in progress — 104/140 collectible art files placed + 2 tokens:
 `pyrebolt`, `mana_surge`; collectibles placed = all 32 legendaries + all 13 neutral epics + first
@@ -60,11 +60,28 @@ switching to Hunter card art in batches of 5 before returning to the remaining B
 neutrals. Hunter art placed: `apex_saurian` (128KB), `duelists_longbow` (118KB),
 `mane_lioness` (99KB), `blasting_shot` (104KB), `tundra_charger` (111KB),
 `volley_shot` (115KB), `kennel_master` (127KB), `call_the_pack` (107KB),
-`feral_command` (100KB), `culling_shot` (133KB). Hunter collectibles now **10/25**
-placed. Next raw preview batch: `hawkeye_bow`, `unleash_the_pack`, `famished_vulture`,
-`carrion_hyena`, `blasting_snare`.
-After Hunter collectible cards, generate Hunter tokens: `frenzy_boar`, `pride_lion`,
-`guardian_bear`, `savanna_cub`, `snarling_hound`, `coil_serpent`.
+`feral_command` (100KB), `culling_shot` (133KB), `hawkeye_bow` (133KB),
+`unleash_the_pack` (125KB), `famished_vulture` (122KB), `carrion_hyena` (125KB),
+`blasting_snare` (136KB), `snaring_trap` (142KB), `marksman_trap` (147KB),
+`feint_trap` (131KB), `serpent_trap` (143KB), `keen_arrow` (106KB), `quarry_brand` (103KB),
+`scout_ahead` (114KB), `signal_flare` (126KB), `bestial_fury` (115KB), and
+`packleader_wolf` (111KB). **Hunter collectible art complete: 25/25.**
+Next session: start token art. User corrected the immediate Hunter-token queue to exactly **6 tokens**:
+`frenzy_boar`, `pride_lion`, `guardian_bear`, `savanna_cub`, `snarling_hound`, `coil_serpent`.
+The broader token backlog below also needs art. After Hunter tokens, return to the remaining
+Basic/default neutral collectible queue if desired.
+
+Token art backlog is larger than Hunter. Missing token art includes Mage tokens
+`mirage_image`, `critter`, `conjured_decoy`; Hunter tokens `frenzy_boar`, `pride_lion`,
+`guardian_bear`, `savanna_cub`, `snarling_hound`, `coil_serpent`; Ylena dream tokens
+`dream_daydream`, `dream_verdant_drake`, `dream_gleeful_sister`, `dream_waking_nightmare`,
+`dream_emerald_reckoning`; and many neutral summon/generated tokens such as `tideling_scout`,
+`thornback_boar`, `clockwork_whelp`, `broken_golem`, `errant_squire`, `hornelder_heir`,
+`tutors_pupil`, `snarl_pup`, `emberwing_whelp`, `gorehound_whelp`, `thornback_saurian`,
+`bramble_squirrel`, `thornwood_satyr`, `imp_whelp`, Warhorn anthem/recruit/grunt/reaver tokens,
+and Gearmaster Cog tokens. `mana_surge` already has token art.
+IMPORTANT: place card art only into `web/public/art/`; do **not** manually copy card art into
+`web/static/art/`. The build copies public assets when needed.
 Workflow: generate a batch of up to 5 raw previews with the locked cel-shaded/top-35%-empty style,
 stop for user review. When user says `continue`, that means approve/place the current preview batch,
 copy the approved raws from the current `.codex/generated_images/...` folder to
