@@ -275,20 +275,24 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			m.silence(ref.minion)
 		}
 	case cards.EffectHeal:
-		healed := 0
-		if ref.minion != nil {
-			before := ref.minion.health
-			ref.minion.health = min(ref.minion.health+eff.Amount, ref.minion.maxHP())
-			healed = ref.minion.health - before
-			m.emit(protocol.Event{Kind: "heal", Target: ref.minion.uid, Amount: healed})
-		} else {
-			before := m.state[ref.owner].heroHP
-			m.state[ref.owner].heroHP = min(m.state[ref.owner].heroHP+eff.Amount, heroMaxHP)
-			healed = m.state[ref.owner].heroHP - before
-			m.emit(protocol.Event{Kind: "heal", Target: m.pid(ref.owner), Amount: healed})
-		}
-		if healed > 0 {
-			m.fireTriggers(caster, cards.OnHeal, nil) // global: "whenever a character is healed"
+		// Heals share the target resolver, so a single-target heal (default ref) and a
+		// mass heal (AreaFriendlyChars: `darkscale_mender`) take the same path.
+		for _, t := range m.damageTargets(caster, eff, ref) {
+			healed := 0
+			if t.minion != nil {
+				before := t.minion.health
+				t.minion.health = min(t.minion.health+eff.Amount, t.minion.maxHP())
+				healed = t.minion.health - before
+				m.emit(protocol.Event{Kind: "heal", Target: t.minion.uid, Amount: healed})
+			} else {
+				before := m.state[t.owner].heroHP
+				m.state[t.owner].heroHP = min(m.state[t.owner].heroHP+eff.Amount, heroMaxHP)
+				healed = m.state[t.owner].heroHP - before
+				m.emit(protocol.Event{Kind: "heal", Target: m.pid(t.owner), Amount: healed})
+			}
+			if healed > 0 {
+				m.fireTriggers(caster, cards.OnHeal, nil) // global: "whenever a character is healed"
+			}
 		}
 	case cards.EffectBuff:
 		// Buffs share the target resolver, so they support adjacency
@@ -298,6 +302,14 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		scale := 1
 		if eff.PerCardInHand {
 			scale = len(m.state[caster].hand)
+		}
+		if eff.PerOtherFriendlyMinion {
+			scale = 0
+			for _, mn := range m.state[caster].board {
+				if mn != ref.minion { // every friendly minion except the source itself
+					scale++
+				}
+			}
 		}
 		for _, t := range m.damageTargets(caster, eff, ref) {
 			if t.minion == nil {
@@ -323,7 +335,14 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			amt = 1
 		}
 		for i := 0; i < n; i++ {
-			pool := m.otherChars(ref.minion)
+			// AreaEnemyChars scopes the missiles to enemy characters (`arcane_barrage`);
+			// the default spreads among all other characters (`powder_tosser`).
+			var pool []charRef
+			if eff.Area == cards.AreaEnemyChars {
+				pool = m.enemyChars(caster)
+			} else {
+				pool = m.otherChars(ref.minion)
+			}
 			if len(pool) == 0 {
 				break
 			}
@@ -389,14 +408,18 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			w.durability += eff.BuffHP
 		}
 	case cards.EffectDestroyWeapon:
-		// Destroy the opponent's weapon; the caster draws cards equal to its
-		// remaining durability (fatigue/over-draw handled by drawCard).
+		// Destroy the opponent's weapon. With DrawWeaponDurability the caster also
+		// draws cards equal to its remaining durability (`relic_breaker`); plain
+		// destroy (`corroding_ooze`) draws nothing. Fatigue/over-draw via drawCard.
 		opp := 1 - caster
 		w := m.state[opp].weapon
 		if w == nil {
 			return
 		}
-		draws := w.durability
+		draws := 0
+		if eff.DrawWeaponDurability {
+			draws = w.durability
+		}
 		m.emit(protocol.Event{Kind: "weaponBreak", Source: m.pid(opp), Name: w.card.Name})
 		m.state[opp].weapon = nil
 		for i := 0; i < draws; i++ {
@@ -783,6 +806,9 @@ func (m *Match) combatStrike(src, dst *minion) {
 	if src.has(cards.KeywordLifesteal) {
 		m.lifestealHeal(src.owner, dealt)
 	}
+	if dealt > 0 && src.has(cards.KeywordFreezeOnHit) {
+		m.freezeMinion(dst) // `frostfont_elemental`: Freeze anything it damages
+	}
 }
 
 // lifestealHeal restores the player's hero by amt (capped at the hero max) and
@@ -993,6 +1019,13 @@ func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []char
 			return nil
 		}
 		return []charRef{{minion: pool[m.rng.Intn(len(pool))], owner: opp}}
+	case eff.Area == cards.AreaFriendlyChars:
+		// The caster's hero and every friendly minion (`darkscale_mender` mass heal).
+		out := []charRef{{owner: caster}}
+		for _, mn := range m.state[caster].board {
+			out = append(out, charRef{minion: mn, owner: caster})
+		}
+		return out
 	case eff.Area == cards.AreaFriendlyTribe:
 		var out []charRef
 		for _, mn := range m.state[caster].board {
@@ -1090,6 +1123,19 @@ func (m *Match) otherChars(src *minion) []charRef {
 			if mn != src && mn.health > 0 {
 				out = append(out, charRef{minion: mn, owner: pi})
 			}
+		}
+	}
+	return out
+}
+
+// enemyChars returns every enemy character (the opponent's hero plus their live
+// minions) from caster's perspective. Used by enemy-scoped missiles (`arcane_barrage`).
+func (m *Match) enemyChars(caster int) []charRef {
+	opp := 1 - caster
+	out := []charRef{{owner: opp}} // enemy hero is always a candidate
+	for _, mn := range m.state[opp].board {
+		if mn.health > 0 {
+			out = append(out, charRef{minion: mn, owner: opp})
 		}
 	}
 	return out

@@ -278,6 +278,9 @@ func (m *Match) Attack(c Sender, attackerID, targetID string) (bool, string) {
 		if atk.has(cards.KeywordLifesteal) {
 			m.lifestealHeal(pi, dealt)
 		}
+		if dealt > 0 && atk.has(cards.KeywordFreezeOnHit) {
+			m.freezeHero(1 - pi) // `frostfont_elemental`: Freeze the hero it damages
+		}
 	} else {
 		tgt := findMinion(opp.board, targetID)
 		if tgt == nil {

@@ -290,7 +290,7 @@ var neutralCards = []Card{
 
 	{ID: "relic_breaker", Name: "Relic Breaker", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityLegendary, Cost: 5, Attack: 5, Health: 4,
 		Text:     "Onset: Destroy your opponent's weapon and draw cards equal to its Durability.",
-		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDestroyWeapon, Target: TargetNone}}}},
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDestroyWeapon, Target: TargetNone, DrawWeaponDurability: true}}}},
 
 	// --- Tribe auras + tribe-synergy minions ---
 
@@ -533,7 +533,163 @@ var neutralCards = []Card{
 		SpellDamage: 1,
 		Triggers:    []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDraw, Amount: 1, Target: TargetNone, ReqDeckAllOdd: true}}}},
 
+	// --- Basic set (the free starter cards). No rarity gem (Basic cards have
+	// none). Mechanics 1:1 with the genre's staple starter set; names + art
+	// wholly original (custom IP). Three Basic neutrals need engine work and land
+	// in a later batch: a heal-all-friendly-characters minion, a
+	// +1/+1-per-other-friendly-minion warlord, and a destroy-enemy-weapon minion
+	// (the latter gated on weapons, Phase 8).
+
+	// 1-cost
+	{ID: "sylvan_archer", Name: "Sylvan Archer", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 1,
+		Text:     "Onset: Deal 1 damage.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDamage, Amount: 1, Target: TargetAny}}}},
+
+	{ID: "hearthguard_footman", Name: "Hearthguard Footman", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 2,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "brineherald", Name: "Brineherald", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 1, Tribe: TribeGilkin,
+		Text: "Your other Gilkin have +1 Attack.",
+		Aura: &Aura{Atk: 1, Tribe: TribeGilkin}},
+
+	{ID: "reef_raider", Name: "Reef Raider", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 2, Health: 1, Tribe: TribeGilkin},
+
+	{ID: "tusker_runt", Name: "Tusker Runt", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 1, Tribe: TribeBeast,
+		Text: "Charge.", Keywords: []Keyword{KeywordCharge}},
+
+	{ID: "hexbone_healer", Name: "Hexbone Healer", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 2, Health: 1,
+		Text:     "Onset: Restore 2 Health.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectHeal, Amount: 2, Target: TargetAny}}}},
+
+	// 2-cost
+	{ID: "corroding_ooze", Name: "Corroding Ooze", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 3, Health: 2,
+		Text:     "Onset: Destroy your opponent's weapon.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDestroyWeapon, Target: TargetNone}}}},
+
+	{ID: "mirefang_raptor", Name: "Mirefang Raptor", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 3, Health: 2, Tribe: TribeBeast},
+
+	{ID: "finblade_warrior", Name: "Finblade Warrior", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 1, Tribe: TribeGilkin,
+		Text: "Charge.", Keywords: []Keyword{KeywordCharge}},
+
+	{ID: "frostpaw_grunt", Name: "Frostpaw Grunt", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 2,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "runescale_kobold", Name: "Runescale Kobold", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 2,
+		Text: "Spell Damage +1.", SpellDamage: 1},
+
+	{ID: "tideling_hunter", Name: "Tideling Hunter", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 1, Tribe: TribeGilkin,
+		Text:     "Onset: Summon a 1/1 Tideling Scout.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectSummon, Summon: "tideling_scout", Count: 1, Target: TargetNone}}}},
+
+	{ID: "tinker_novice", Name: "Tinker Novice", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 1, Health: 1,
+		Text:     "Onset: Draw a card.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDraw, Amount: 1, Target: TargetNone}}}},
+
+	{ID: "river_snapper", Name: "River Snapper", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 3, Tribe: TribeBeast},
+
+	// 3-cost
+	{ID: "spire_mage", Name: "Spire Mage", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 1, Health: 4,
+		Text: "Spell Damage +1.", SpellDamage: 1},
+
+	{ID: "forge_rifleman", Name: "Forge Rifleman", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 2, Health: 2,
+		Text:     "Onset: Deal 1 damage.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDamage, Amount: 1, Target: TargetAny}}}},
+
+	{ID: "ironfur_bear", Name: "Ironfur Bear", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 3, Health: 3, Tribe: TribeBeast,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "magma_brute", Name: "Magma Brute", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 5, Health: 1, Tribe: TribeElemental},
+
+	{ID: "warband_leader", Name: "Warband Leader", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 2, Health: 2,
+		Text: "Your other minions have +1 Attack.",
+		Aura: &Aura{Atk: 1}},
+
+	{ID: "razorthorn_hunter", Name: "Razorthorn Hunter", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 2, Health: 3,
+		Text:     "Onset: Summon a 1/1 Thornback Boar.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectSummon, Summon: "thornback_boar", Count: 1, Target: TargetNone}}}},
+
+	{ID: "sunderlight_cleric", Name: "Sunderlight Cleric", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 3, Health: 2,
+		Text:     "Onset: Give a friendly minion +1/+1.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectBuff, BuffAtk: 1, BuffHP: 1, Target: TargetFriendlyMinion}}}},
+
+	{ID: "silverback_elder", Name: "Silverback Elder", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 1, Health: 4, Tribe: TribeBeast,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "dire_rider", Name: "Dire Rider", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 3, Health: 1,
+		Text: "Charge.", Keywords: []Keyword{KeywordCharge}},
+
+	// 4-cost
+	{ID: "frostwind_brute", Name: "Frostwind Brute", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 4, Health: 5},
+
+	{ID: "whelpforge_mechanic", Name: "Whelpforge Mechanic", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 2, Health: 4,
+		Text:     "Onset: Summon a 2/1 Clockwork Whelp.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectSummon, Summon: "clockwork_whelp", Count: 1, Target: TargetNone}}}},
+
+	{ID: "tinker_inventor", Name: "Tinker Inventor", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 2, Health: 4,
+		Text:     "Onset: Draw a card.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDraw, Amount: 1, Target: TargetNone}}}},
+
+	{ID: "marsh_snapjaw", Name: "Marsh Snapjaw", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 2, Health: 7, Tribe: TribeBeast},
+
+	{ID: "runefist_ogre", Name: "Runefist Ogre", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 4, Health: 4,
+		Text: "Spell Damage +1.", SpellDamage: 1},
+
+	{ID: "bulwark_shieldmaster", Name: "Bulwark Shieldmaster", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 3, Health: 5,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "bastion_knight", Name: "Bastion Knight", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 2, Health: 5,
+		Text: "Charge.", Keywords: []Keyword{KeywordCharge}},
+
+	// 5-cost
+	{ID: "harbor_bodyguard", Name: "Harbor Bodyguard", Type: TypeMinion, Class: ClassNeutral, Cost: 5, Attack: 5, Health: 4,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "darkscale_mender", Name: "Darkscale Mender", Type: TypeMinion, Class: ClassNeutral, Cost: 5, Attack: 4, Health: 5,
+		Text:     "Onset: Restore 2 Health to all friendly characters.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectHeal, Amount: 2, Target: TargetNone, Area: AreaFriendlyChars}}}},
+
+	{ID: "frostpaw_warlord", Name: "Frostpaw Warlord", Type: TypeMinion, Class: ClassNeutral, Cost: 5, Attack: 4, Health: 4,
+		Text:     "Onset: Gain +1/+1 for each other friendly minion.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectBuff, BuffAtk: 1, BuffHP: 1, Target: TargetSelf, PerOtherFriendlyMinion: true}}}},
+
+	{ID: "gorebound_berserker", Name: "Gorebound Berserker", Type: TypeMinion, Class: ClassNeutral, Cost: 5, Attack: 2, Health: 7,
+		Text: "Enrage: +3 Attack.", Enrage: &Aura{Atk: 3}},
+
+	{ID: "duskblade", Name: "Duskblade", Type: TypeMinion, Class: ClassNeutral, Cost: 5, Attack: 4, Health: 4,
+		Text:     "Onset: Deal 3 damage to the enemy hero.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDamage, Amount: 3, Target: TargetNone, Area: AreaEnemyHero}}}},
+
+	{ID: "ironpike_commando", Name: "Ironpike Commando", Type: TypeMinion, Class: ClassNeutral, Cost: 5, Attack: 4, Health: 2,
+		Text:     "Onset: Deal 2 damage.",
+		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDamage, Amount: 2, Target: TargetAny}}}},
+
+	// 6-cost
+	{ID: "elder_spellweaver", Name: "Elder Spellweaver", Type: TypeMinion, Class: ClassNeutral, Cost: 6, Attack: 4, Health: 7,
+		Text: "Spell Damage +1.", SpellDamage: 1},
+
+	{ID: "crag_ogre", Name: "Crag Ogre", Type: TypeMinion, Class: ClassNeutral, Cost: 6, Attack: 6, Health: 7},
+
+	{ID: "arena_champion", Name: "Arena Champion", Type: TypeMinion, Class: ClassNeutral, Cost: 6, Attack: 6, Health: 5,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "reckless_skyrider", Name: "Reckless Skyrider", Type: TypeMinion, Class: ClassNeutral, Cost: 6, Attack: 5, Health: 2,
+		Text: "Charge.", Keywords: []Keyword{KeywordCharge}},
+
+	// 7-cost
+	{ID: "molten_hound", Name: "Molten Hound", Type: TypeMinion, Class: ClassNeutral, Cost: 7, Attack: 9, Health: 5, Tribe: TribeBeast},
+
+	{ID: "battlehorn_champion", Name: "Battlehorn Champion", Type: TypeMinion, Class: ClassNeutral, Cost: 7, Attack: 6, Health: 6,
+		Text: "Your other minions have +1/+1.",
+		Aura: &Aura{Atk: 1, HP: 1}},
+
+	{ID: "war_colossus", Name: "War Colossus", Type: TypeMinion, Class: ClassNeutral, Cost: 7, Attack: 7, Health: 7},
+
 	// --- Tokens (summon-only; excluded from decks and Seek) ---
+
+	// Basic-set tokens (Tideling Hunter, Razorthorn Hunter, Whelpforge Mechanic).
+	{ID: "tideling_scout", Name: "Tideling Scout", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 1, Tribe: TribeGilkin, Token: true},
+	{ID: "thornback_boar", Name: "Thornback Boar", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 1, Tribe: TribeBeast, Token: true},
+	{ID: "clockwork_whelp", Name: "Clockwork Whelp", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 1, Tribe: TribeMech, Token: true},
 
 	{ID: "broken_golem", Name: "Broken Golem", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 2, Health: 1, Token: true},
 	{ID: "errant_squire", Name: "Errant Squire", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 2, Health: 2, Token: true},

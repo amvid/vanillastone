@@ -143,47 +143,51 @@ const (
 	AreaAllCharacters     AreaRule = "allCharacters"     // both heroes and every minion on both boards
 	AreaOtherCharacters   AreaRule = "otherCharacters"   // every character except the anchor minion (self-anchored)
 	AreaOtherMinions      AreaRule = "otherMinions"      // every minion on both boards except the anchor minion (self-anchored)
+	AreaFriendlyChars     AreaRule = "friendlyChars"     // the caster's hero AND every friendly minion (`darkscale_mender`)
+	AreaEnemyChars        AreaRule = "enemyChars"        // the enemy hero AND every enemy minion (`arcane_barrage` missiles)
 )
 
 // Effect is an effect's data-driven behavior. Amount is damage/heal magnitude;
 // BuffAtk/BuffHP are buff deltas; Summon/Count drive token summons. Target/Area
 // decide who it hits.
 type Effect struct {
-	Kind              EffectKind `json:"kind"`
-	Amount            int        `json:"amount,omitempty"`
-	BuffAtk           int        `json:"buffAtk,omitempty"`
-	BuffHP            int        `json:"buffHP,omitempty"`
-	Target            TargetRule `json:"target"`
-	Area              AreaRule   `json:"area,omitempty"`
-	Summon            string     `json:"summon,omitempty"`            // token card ID (EffectSummon)
-	Count             int        `json:"count,omitempty"`             // number of tokens (default 1)
-	Freeze            bool       `json:"freeze,omitempty"`            // also Freeze each character the effect hits
-	Lifesteal         bool       `json:"lifesteal,omitempty"`         // damage dealt heals the caster's hero
-	Pool              SeekPool   `json:"pool,omitempty"`              // EffectSeek: which card pool to offer
-	Generate          string     `json:"generate,omitempty"`          // EffectGenerate: card ID added to the caster's hand
-	Transform         string     `json:"transform,omitempty"`         // EffectTransform: token card ID the target becomes
-	Grant             []Keyword  `json:"grant,omitempty"`             // EffectBuff: keywords granted to each target (e.g. Taunt)
-	Temporary         bool       `json:"temporary,omitempty"`         // EffectBuff: the buff lasts only until the end of the controller's turn
-	MaxAttack         int        `json:"maxAttack,omitempty"`         // AreaRandomEnemyMinion: only consider minions with Attack <= this (0 = no filter)
-	PerCardInHand     bool       `json:"perCardInHand,omitempty"`     // EffectBuff: scale the buff by the caster's current hand size
-	ReqAttack         int        `json:"reqAttack,omitempty"`         // targeted effect: the target minion must have Attack >= this (0 = no requirement)
-	ReqTaunt          bool       `json:"reqTaunt,omitempty"`          // targeted effect: the target minion must have Taunt
-	ReqTribe          Tribe      `json:"reqTribe,omitempty"`          // targeted effect: the target minion must be of this tribe (`shellback_crab`)
-	DrawIfFrozen      int        `json:"drawIfFrozen,omitempty"`      // EffectDamage: draw this many cards if the target minion was Frozen (`glacial_splinter`)
-	SelfBuffAtk       int        `json:"selfBuffAtk,omitempty"`       // onset rider: buff the played minion by this Attack after the effect resolves (`shellback_crab`)
-	SelfBuffHP        int        `json:"selfBuffHP,omitempty"`        // onset rider: buff the played minion by this Health after the effect resolves (`shellback_crab`)
-	GrantSpellDamage  int        `json:"grantSpellDamage,omitempty"`  // EffectBuff: grant the target minion +N Spell Damage (`runeward_sage`)
-	ToOpponent        bool       `json:"toOpponent,omitempty"`        // EffectGenerate: add the card(s) to the OPPONENT's hand instead of the caster's (`grovelord_brakka`)
-	DestroyNextTurn   bool       `json:"destroyNextTurn,omitempty"`   // EffectBuff: destroy the buffed minion at the start of its owner's next turn (`dream_waking_nightmare`)
-	ExceptCardID      string     `json:"exceptCardID,omitempty"`      // AreaAllCharacters/AllMinions: skip minions with this card ID (`dream_emerald_reckoning` spares Dreamwardens)
-	Tribe             Tribe      `json:"tribe,omitempty"`             // AreaFriendlyTribe: restrict the buff to other friendly minions of this tribe
-	SummonForOpponent bool       `json:"summonForOpponent,omitempty"` // EffectSummon: summon onto the OPPONENT's board instead of the caster's
-	DiscardHand       bool       `json:"discardHand,omitempty"`       // EffectDestroy: also discard the caster's remaining hand (`voidwyrm_tyrant`)
-	FrozenDamage      int        `json:"frozenDamage,omitempty"`      // EffectDamage: if the (single) target is already Frozen, deal this instead of freezing (`frostlance`)
-	ThenDraw          int        `json:"thenDraw,omitempty"`          // EffectDamage: the caster draws this many cards after the damage resolves
-	CountMax          int        `json:"countMax,omitempty"`          // EffectSummon: when > Count, summon a random Count..CountMax tokens
-	ReqOppMinions     int        `json:"reqOppMinions,omitempty"`     // EffectMindControl: only fire if the opponent controls at least this many minions (`mesmer_adept`)
-	ReqDeckAllOdd     bool       `json:"reqDeckAllOdd,omitempty"`     // EffectDraw: only fire if every card left in the caster's deck is odd-cost (`shadowtail_familiar`)
+	Kind                   EffectKind `json:"kind"`
+	Amount                 int        `json:"amount,omitempty"`
+	BuffAtk                int        `json:"buffAtk,omitempty"`
+	BuffHP                 int        `json:"buffHP,omitempty"`
+	Target                 TargetRule `json:"target"`
+	Area                   AreaRule   `json:"area,omitempty"`
+	Summon                 string     `json:"summon,omitempty"`                 // token card ID (EffectSummon)
+	Count                  int        `json:"count,omitempty"`                  // number of tokens (default 1)
+	Freeze                 bool       `json:"freeze,omitempty"`                 // also Freeze each character the effect hits
+	Lifesteal              bool       `json:"lifesteal,omitempty"`              // damage dealt heals the caster's hero
+	Pool                   SeekPool   `json:"pool,omitempty"`                   // EffectSeek: which card pool to offer
+	Generate               string     `json:"generate,omitempty"`               // EffectGenerate: card ID added to the caster's hand
+	Transform              string     `json:"transform,omitempty"`              // EffectTransform: token card ID the target becomes
+	Grant                  []Keyword  `json:"grant,omitempty"`                  // EffectBuff: keywords granted to each target (e.g. Taunt)
+	Temporary              bool       `json:"temporary,omitempty"`              // EffectBuff: the buff lasts only until the end of the controller's turn
+	MaxAttack              int        `json:"maxAttack,omitempty"`              // AreaRandomEnemyMinion: only consider minions with Attack <= this (0 = no filter)
+	PerCardInHand          bool       `json:"perCardInHand,omitempty"`          // EffectBuff: scale the buff by the caster's current hand size
+	PerOtherFriendlyMinion bool       `json:"perOtherFriendlyMinion,omitempty"` // EffectBuff: scale the buff by the caster's OTHER friendly minions (`frostpaw_warlord`)
+	ReqAttack              int        `json:"reqAttack,omitempty"`              // targeted effect: the target minion must have Attack >= this (0 = no requirement)
+	ReqTaunt               bool       `json:"reqTaunt,omitempty"`               // targeted effect: the target minion must have Taunt
+	ReqTribe               Tribe      `json:"reqTribe,omitempty"`               // targeted effect: the target minion must be of this tribe (`shellback_crab`)
+	DrawIfFrozen           int        `json:"drawIfFrozen,omitempty"`           // EffectDamage: draw this many cards if the target minion was Frozen (`glacial_splinter`)
+	SelfBuffAtk            int        `json:"selfBuffAtk,omitempty"`            // onset rider: buff the played minion by this Attack after the effect resolves (`shellback_crab`)
+	SelfBuffHP             int        `json:"selfBuffHP,omitempty"`             // onset rider: buff the played minion by this Health after the effect resolves (`shellback_crab`)
+	GrantSpellDamage       int        `json:"grantSpellDamage,omitempty"`       // EffectBuff: grant the target minion +N Spell Damage (`runeward_sage`)
+	ToOpponent             bool       `json:"toOpponent,omitempty"`             // EffectGenerate: add the card(s) to the OPPONENT's hand instead of the caster's (`grovelord_brakka`)
+	DestroyNextTurn        bool       `json:"destroyNextTurn,omitempty"`        // EffectBuff: destroy the buffed minion at the start of its owner's next turn (`dream_waking_nightmare`)
+	ExceptCardID           string     `json:"exceptCardID,omitempty"`           // AreaAllCharacters/AllMinions: skip minions with this card ID (`dream_emerald_reckoning` spares Dreamwardens)
+	Tribe                  Tribe      `json:"tribe,omitempty"`                  // AreaFriendlyTribe: restrict the buff to other friendly minions of this tribe
+	SummonForOpponent      bool       `json:"summonForOpponent,omitempty"`      // EffectSummon: summon onto the OPPONENT's board instead of the caster's
+	DiscardHand            bool       `json:"discardHand,omitempty"`            // EffectDestroy: also discard the caster's remaining hand (`voidwyrm_tyrant`)
+	FrozenDamage           int        `json:"frozenDamage,omitempty"`           // EffectDamage: if the (single) target is already Frozen, deal this instead of freezing (`frostlance`)
+	ThenDraw               int        `json:"thenDraw,omitempty"`               // EffectDamage: the caster draws this many cards after the damage resolves
+	CountMax               int        `json:"countMax,omitempty"`               // EffectSummon: when > Count, summon a random Count..CountMax tokens
+	ReqOppMinions          int        `json:"reqOppMinions,omitempty"`          // EffectMindControl: only fire if the opponent controls at least this many minions (`mesmer_adept`)
+	ReqDeckAllOdd          bool       `json:"reqDeckAllOdd,omitempty"`          // EffectDraw: only fire if every card left in the caster's deck is odd-cost (`shadowtail_familiar`)
+	DrawWeaponDurability   bool       `json:"drawWeaponDurability,omitempty"`   // EffectDestroyWeapon: also draw cards = the broken weapon's durability (`relic_breaker`); plain destroy leaves it false (`corroding_ooze`)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -276,16 +280,17 @@ type Trigger struct {
 type Keyword string
 
 const (
-	KeywordTaunt      Keyword = "taunt"      // enemies must attack this first
-	KeywordCharge     Keyword = "charge"     // may attack anything the turn it is played
-	KeywordRush       Keyword = "rush"       // may attack minions (not heroes) the turn it is played
-	KeywordAegis      Keyword = "aegis"      // first damage instance is negated
-	KeywordTwinstrike Keyword = "twinstrike" // may attack twice per turn
-	KeywordStealth    Keyword = "stealth"    // untargetable by the enemy until it attacks
-	KeywordPoisonous  Keyword = "poisonous"  // any damage it deals to a minion destroys it
-	KeywordLifesteal  Keyword = "lifesteal"  // damage it deals heals its controller's hero
-	KeywordElusive    Keyword = "elusive"    // cannot be targeted by spells or hero powers (either side)
-	KeywordCantAttack Keyword = "cantAttack" // can never attack
+	KeywordTaunt       Keyword = "taunt"       // enemies must attack this first
+	KeywordCharge      Keyword = "charge"      // may attack anything the turn it is played
+	KeywordRush        Keyword = "rush"        // may attack minions (not heroes) the turn it is played
+	KeywordAegis       Keyword = "aegis"       // first damage instance is negated
+	KeywordTwinstrike  Keyword = "twinstrike"  // may attack twice per turn
+	KeywordStealth     Keyword = "stealth"     // untargetable by the enemy until it attacks
+	KeywordPoisonous   Keyword = "poisonous"   // any damage it deals to a minion destroys it
+	KeywordLifesteal   Keyword = "lifesteal"   // damage it deals heals its controller's hero
+	KeywordElusive     Keyword = "elusive"     // cannot be targeted by spells or hero powers (either side)
+	KeywordCantAttack  Keyword = "cantAttack"  // can never attack
+	KeywordFreezeOnHit Keyword = "freezeOnHit" // Freezes any character it deals combat damage to (`frostfont_elemental`)
 )
 
 // Tribe is a minion's creature type (drives tribal synergies). Most minions have

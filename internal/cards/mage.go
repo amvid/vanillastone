@@ -87,13 +87,57 @@ var mageCards = []Card{
 		Text:   "Secret: When your hero takes fatal damage, prevent it and become Immune this turn.",
 		Secret: &SecretDef{Trigger: OnFatalDamage, Kind: SecretIceBlock}},
 
-	// --- Tokens (summon/generate-only; excluded from decks and Seek) ---
+	// --- Basic set (the free starter Mage cards). No rarity gem (Basic cards have
+	// none). Pyrebolt (the burn spell `emberforge_magus` adds to hand) is now
+	// collectible — it was a token; the magus still generates it.
 
-	// Pyrebolt is the burn spell `emberforge_magus` adds to hand. It is
-	// NOT a Classic collectible, so it is a token (never built into a deck).
-	{ID: "pyrebolt", Name: "Pyrebolt", Type: TypeSpell, Class: ClassMage, Cost: 4, Token: true,
+	{ID: "arcane_barrage", Name: "Arcane Barrage", Type: TypeSpell, Class: ClassMage, Cost: 1,
+		Text:   "Deal 3 damage randomly split among all enemies.",
+		Effect: &Effect{Kind: EffectMissiles, Amount: 1, Count: 3, Target: TargetNone, Area: AreaEnemyChars}},
+
+	{ID: "conjured_mirage", Name: "Conjured Mirage", Type: TypeSpell, Class: ClassMage, Cost: 1,
+		Text:   "Summon two 0/2 minions with Taunt.",
+		Effect: &Effect{Kind: EffectSummon, Summon: "mirage_image", Count: 2, Target: TargetNone}},
+
+	{ID: "arcane_burst", Name: "Arcane Burst", Type: TypeSpell, Class: ClassMage, Cost: 2,
+		Text:   "Deal 1 damage to all enemy minions.",
+		Effect: &Effect{Kind: EffectDamage, Amount: 1, Target: TargetNone, Area: AreaEnemyMinions}},
+
+	{ID: "rimebolt", Name: "Rimebolt", Type: TypeSpell, Class: ClassMage, Cost: 2,
+		Text:   "Deal 3 damage to a character and Freeze it.",
+		Effect: &Effect{Kind: EffectDamage, Amount: 3, Target: TargetAny, Freeze: true}},
+
+	{ID: "arcane_study", Name: "Arcane Study", Type: TypeSpell, Class: ClassMage, Cost: 3,
+		Text:   "Draw 2 cards.",
+		Effect: &Effect{Kind: EffectDraw, Amount: 2, Target: TargetNone}},
+
+	{ID: "glacial_halt", Name: "Glacial Halt", Type: TypeSpell, Class: ClassMage, Cost: 3,
+		Text:   "Freeze all enemy minions.",
+		Effect: &Effect{Kind: EffectDamage, Amount: 0, Target: TargetNone, Area: AreaEnemyMinions, Freeze: true}},
+
+	{ID: "pyrebolt", Name: "Pyrebolt", Type: TypeSpell, Class: ClassMage, Cost: 4,
 		Text:   "Deal 6 damage.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 6, Target: TargetAny}},
+
+	{ID: "hexform", Name: "Hexform", Type: TypeSpell, Class: ClassMage, Cost: 4,
+		Text:   "Transform a minion into a 1/1 Critter.",
+		Effect: &Effect{Kind: EffectTransform, Transform: "critter", Target: TargetMinion}},
+
+	{ID: "cinderstorm", Name: "Cinderstorm", Type: TypeSpell, Class: ClassMage, Cost: 7,
+		Text:   "Deal 5 damage to all enemy minions.",
+		Effect: &Effect{Kind: EffectDamage, Amount: 5, Target: TargetNone, Area: AreaEnemyMinions}},
+
+	{ID: "frostfont_elemental", Name: "Frostfont Elemental", Type: TypeMinion, Class: ClassMage, Cost: 4, Attack: 3, Health: 6, Tribe: TribeElemental,
+		Text:     "Freeze any character damaged by this minion.",
+		Keywords: []Keyword{KeywordFreezeOnHit}},
+
+	// --- Tokens (summon/generate-only; excluded from decks and Seek) ---
+
+	// Mirage Image (Conjured Mirage) and Critter (Hexform) are Basic-set tokens.
+	{ID: "mirage_image", Name: "Mirage Image", Type: TypeMinion, Class: ClassMage, Cost: 0, Attack: 0, Health: 2, Token: true,
+		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},
+
+	{ID: "critter", Name: "Critter", Type: TypeMinion, Class: ClassMage, Cost: 1, Attack: 1, Health: 1, Tribe: TribeBeast, Token: true},
 
 	// Conjured Decoy is the 1/3 Decoy Ward summons to soak a redirected spell.
 	{ID: "conjured_decoy", Name: "Conjured Decoy", Type: TypeMinion, Class: ClassMage, Cost: 1, Attack: 1, Health: 3, Token: true},

@@ -4104,3 +4104,126 @@ func TestRelayIntentToOpponentOnly(t *testing.T) {
 		t.Fatalf("over-length intent must be dropped, got %d", len(b.msgs)-bMsgs)
 	}
 }
+
+// Arcane Barrage fires three 1-damage missiles among ENEMY characters only,
+// never the caster's own board. WHY: an enemy-scoped missile spell must spare
+// the caster's hero and minions even when they are valid "any character" targets
+// for the all-chars variant. With no enemy minions, all three hit the enemy hero.
+func TestEnemyMissilesHitOnlyEnemies(t *testing.T) {
+	m, a, _ := newMatch()
+	place(m, 0, "ally", "granite_warden", 1, 7, true) // a friendly minion that must be spared
+	setHandSolo(m, 0, "arcane_barrage")
+	if ok, msg := m.PlayCard(a, 0, ""); !ok {
+		t.Fatalf("arcane barrage should play: %s", msg)
+	}
+	st := lastState(t, a)
+	if got := heroMaxHP - st.Opp.HeroHP; got != 3 {
+		t.Fatalf("all 3 missiles should hit the enemy hero, dealt %d", got)
+	}
+	if st.Self.HeroHP != heroMaxHP {
+		t.Fatalf("the caster's hero must not be hit, hp=%d", st.Self.HeroHP)
+	}
+	if boardMinion(m, 0, "ally").health != 7 {
+		t.Fatalf("the caster's own minion must not be hit, hp=%d", boardMinion(m, 0, "ally").health)
+	}
+}
+
+// Darkscale Mender restores 2 Health to every friendly character (hero + minions)
+// and touches nothing on the enemy side. WHY: the mass-heal area is friendly-only,
+// so a damaged enemy minion must stay damaged while all friendly characters mend.
+func TestMassHealFriendlyCharacters(t *testing.T) {
+	m, a, _ := newMatch()
+	m.state[0].heroHP = heroMaxHP - 5
+	place(m, 0, "ally", "granite_warden", 1, 7, true)
+	boardMinion(m, 0, "ally").health = 3
+	place(m, 1, "foe", "granite_warden", 1, 7, false)
+	boardMinion(m, 1, "foe").health = 3
+	setHandSolo(m, 0, "darkscale_mender")
+	if ok, msg := m.PlayCard(a, 0, ""); !ok {
+		t.Fatalf("darkscale mender should play: %s", msg)
+	}
+	if m.state[0].heroHP != heroMaxHP-3 {
+		t.Fatalf("friendly hero should heal 2 (25->27), got %d", m.state[0].heroHP)
+	}
+	if boardMinion(m, 0, "ally").health != 5 {
+		t.Fatalf("friendly minion should heal 2 (3->5), got %d", boardMinion(m, 0, "ally").health)
+	}
+	if boardMinion(m, 1, "foe").health != 3 {
+		t.Fatalf("enemy minion must not be healed, got %d", boardMinion(m, 1, "foe").health)
+	}
+}
+
+// Frostpaw Warlord's onset grants +1/+1 for each OTHER friendly minion. WHY: the
+// scaler counts the board minus the warlord itself, so with two other minions it
+// becomes a 6/6 — not 4/4 (uncounted) and not 8/8 (counting itself).
+func TestBuffPerOtherFriendlyMinion(t *testing.T) {
+	m, a, _ := newMatch()
+	place(m, 0, "m1", "frostpaw_grunt", 2, 2, true)
+	place(m, 0, "m2", "frostpaw_grunt", 2, 2, true)
+	setHandSolo(m, 0, "frostpaw_warlord")
+	if ok, msg := m.PlayCard(a, 0, ""); !ok {
+		t.Fatalf("frostpaw warlord should play: %s", msg)
+	}
+	board := lastState(t, a).Self.Board
+	var warlord *protocol.MinionView
+	for i := range board {
+		if board[i].Name == "Frostpaw Warlord" {
+			warlord = &board[i]
+		}
+	}
+	if warlord == nil {
+		t.Fatal("warlord should be on board")
+	}
+	if warlord.Attack != 6 || warlord.Health != 6 {
+		t.Fatalf("warlord should be 6/6 with two other minions, got %d/%d", warlord.Attack, warlord.Health)
+	}
+}
+
+// Frostfont Elemental Freezes whatever it deals combat damage to — a struck
+// minion and the enemy hero alike — while never freezing itself. WHY: the
+// freeze-on-hit keyword fires off the damage the elemental DEALS, on both the
+// minion-trade and face-attack paths.
+func TestFreezeOnHitCombat(t *testing.T) {
+	m, a, _ := newMatch()
+	place(m, 0, "ele", "frostfont_elemental", 3, 6, true)
+	place(m, 1, "wall", "marsh_snapjaw", 2, 7, false) // non-Taunt body that survives the hit
+	if ok, msg := m.Attack(a, "ele", "wall"); !ok {
+		t.Fatalf("elemental should attack the wall: %s", msg)
+	}
+	wall := boardMinion(m, 1, "wall")
+	if wall.health != 4 || !wall.frozen {
+		t.Fatalf("struck minion should be 7-3=4 and frozen, got hp=%d frozen=%v", wall.health, wall.frozen)
+	}
+	if ele := boardMinion(m, 0, "ele"); ele.frozen {
+		t.Fatal("the elemental must not freeze itself")
+	}
+
+	// Face attack: a second elemental Freezes the enemy hero it hits.
+	place(m, 0, "ele2", "frostfont_elemental", 3, 6, true)
+	if ok, msg := m.Attack(a, "ele2", oppHeroTarget); !ok {
+		t.Fatalf("elemental should attack the hero: %s", msg)
+	}
+	if !m.state[1].frozen {
+		t.Fatal("enemy hero should be frozen after taking the elemental's hit")
+	}
+}
+
+// Corroding Ooze destroys the opponent's weapon and draws NOTHING — unlike
+// Relic Breaker, which draws cards equal to the broken weapon's Durability. WHY:
+// the plain weapon-destroy is the common case; only the opt-in flag adds the draw,
+// so the Ooze must leave the caster's hand untouched.
+func TestDestroyWeaponNoDraw(t *testing.T) {
+	m, a, _ := newMatch()
+	cleaver := getCard("ember_cleaver")
+	m.state[1].weapon = &weaponInst{card: cleaver, attack: cleaver.Attack, durability: cleaver.Durability}
+	setHandSolo(m, 0, "corroding_ooze")
+	if ok, msg := m.PlayCard(a, 0, ""); !ok {
+		t.Fatalf("corroding ooze should play: %s", msg)
+	}
+	if m.state[1].weapon != nil {
+		t.Fatal("the opponent's weapon should be destroyed")
+	}
+	if n := len(m.state[0].hand); n != 0 {
+		t.Fatalf("plain weapon-destroy must not draw, hand=%d", n)
+	}
+}
