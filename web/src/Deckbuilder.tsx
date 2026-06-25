@@ -256,12 +256,12 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   </button>
                 )
               })}
-              {/* Pad a short last page with invisible slots so the grid keeps a
-                 full page's width and height (never shrinks/reflows). */}
-              {pageCards.length > 0 &&
-                Array.from({ length: PER_PAGE - pageCards.length }, (_, i) => (
-                  <div key={`pad-${i}`} className="book-card placeholder" aria-hidden="true" />
-                ))}
+              {/* Pad a short (or empty) page with invisible slots so the grid keeps a
+                 full page's width and height (never shrinks/reflows) — including when
+                 zero cards match, where these hold the columns up under the message. */}
+              {Array.from({ length: PER_PAGE - pageCards.length }, (_, i) => (
+                <div key={`pad-${i}`} className="book-card placeholder" aria-hidden="true" />
+              ))}
               {pageCards.length === 0 && <p className="empty-collection">No cards match these filters.</p>}
             </div>
           </div>

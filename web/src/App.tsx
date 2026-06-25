@@ -66,6 +66,75 @@ function DeckSelect({
   )
 }
 
+// Generic styled dropdown (shares deck-select chrome) for plain value lists like
+// the AI class / AI deck pickers. Options may carry an art icon.
+function FancySelect({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: number | string; label: string; art?: string }[]
+  value: number | string
+  onChange: (v: number | string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  const sel = options.find((o) => o.value === value) ?? options[0]
+  if (!sel) return null
+  return (
+    <div className={'deck-select' + (open ? ' open' : '')} ref={ref}>
+      <button type="button" className="deck-select-trigger" onClick={() => setOpen((v) => !v)}>
+        {sel.art && <span className="deck-row-art" style={{ backgroundImage: `url('${sel.art}')` }} />}
+        <span className="deck-row-text">{sel.label}</span>
+        <span className="deck-select-caret">▾</span>
+      </button>
+      {open && (
+        <div className="deck-select-menu">
+          {options.map((o) => (
+            <button
+              key={String(o.value)}
+              type="button"
+              className={'deck-select-opt' + (o.value === value ? ' active' : '')}
+              onClick={() => {
+                onChange(o.value)
+                setOpen(false)
+              }}
+            >
+              {o.art && <span className="deck-row-art" style={{ backgroundImage: `url('${o.art}')` }} />}
+              <span className="deck-row-text">{o.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Client-side credential checks — mirror the server's authoritative rules
+// (internal/auth) for instant inline feedback. Return null = ok, else a reason.
+const USERNAME_RE = /^[A-Za-z0-9_]+$/
+function usernameError(u: string): string | null {
+  if (!u) return null // don't nag before the user types
+  if (u.length < 3) return 'at least 3 characters'
+  if (u.length > 20) return 'at most 20 characters'
+  if (!USERNAME_RE.test(u)) return 'letters, digits and _ only'
+  return null
+}
+function passwordError(p: string): string | null {
+  if (!p) return null
+  if (p.length < 6) return 'at least 6 characters'
+  if (p.length > 72) return 'at most 72 characters'
+  return null
+}
+
 export function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -466,9 +535,10 @@ export function App() {
   }, [connect])
 
   const onRegister = async () => {
+    setStatus('creating account…')
     try {
-      await register(username, password)
-      setStatus('registered, now log in')
+      await register(username.trim(), password)
+      await onLogin() // seamless: drop straight into the lobby
     } catch (err) {
       setStatus('register failed: ' + (err as Error).message)
     }
@@ -476,7 +546,7 @@ export function App() {
 
   const onLogin = async () => {
     try {
-      const token = await login(username, password)
+      const token = await login(username.trim(), password)
       localStorage.setItem(TOKEN_KEY, token)
       giveUpRef.current = false // fresh session: re-enable auto-reconnect
       retriesRef.current = 0
@@ -730,32 +800,49 @@ export function App() {
 
   if (phase === 'auth' || phase === 'connecting') {
     const busy = phase === 'connecting'
+    const uErr = usernameError(username.trim())
+    const pErr = passwordError(password)
+    const filled = username.trim().length > 0 && password.length > 0
+    const canSubmit = !busy && filled && !uErr && !pErr
     return (
       <div className="lobby-screen">
         <div className="lobby-card">
           <h1 className="logo">Vanillastone</h1>
           <p className="welcome">Register once, then log in.</p>
 
-          <input
-            className="auth-input"
-            placeholder="username"
-            value={username}
-            disabled={busy}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            className="auth-input"
-            type="password"
-            placeholder="password"
-            value={password}
-            disabled={busy}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !busy) onLogin()
-            }}
-          />
+          <div className="auth-field">
+            <input
+              className={'auth-input' + (uErr ? ' invalid' : '')}
+              placeholder="username"
+              value={username}
+              disabled={busy}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && canSubmit) onLogin()
+              }}
+            />
+            {uErr && <span className="field-err">{uErr}</span>}
+          </div>
 
-          <button className={'play-btn' + (busy ? ' waiting' : '')} onClick={onLogin} disabled={busy}>
+          <div className="auth-field">
+            <input
+              className={'auth-input' + (pErr ? ' invalid' : '')}
+              type="password"
+              placeholder="password"
+              value={password}
+              disabled={busy}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && canSubmit) onLogin()
+              }}
+            />
+            {pErr && <span className="field-err">{pErr}</span>}
+          </div>
+
+          <button className={'play-btn' + (busy ? ' waiting' : '')} onClick={onLogin} disabled={!canSubmit}>
             {busy ? (
               <>
                 <span className="play-spinner" />
@@ -765,7 +852,7 @@ export function App() {
               '▶ Login'
             )}
           </button>
-          <button className="build-btn" onClick={onRegister} disabled={busy}>
+          <button className="build-btn" onClick={onRegister} disabled={!canSubmit}>
             Register
           </button>
 
@@ -841,20 +928,22 @@ export function App() {
                   <span className="mode-desc">Practice against the computer.</span>
                   <label className="mode-aiclass">
                     <span>AI plays</span>
-                    <select value={aiClass} onChange={(e) => setAiClass(e.target.value)}>
-                      <option value="mage">Mage</option>
-                    </select>
+                    <FancySelect
+                      value={aiClass}
+                      onChange={(v) => setAiClass(String(v))}
+                      options={[{ value: 'mage', label: 'Mage', art: '/art/mage_hero.png' }]}
+                    />
                   </label>
                   <label className="mode-aiclass">
                     <span>AI deck</span>
-                    <select value={aiDeck} onChange={(e) => setAiDeck(Number(e.target.value))}>
-                      <option value={0}>Random deck</option>
-                      {decks.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
+                    <FancySelect
+                      value={aiDeck}
+                      onChange={(v) => setAiDeck(Number(v))}
+                      options={[
+                        { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
+                        ...decks.map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
+                      ]}
+                    />
                   </label>
                   <button
                     className="mode-go"
@@ -970,13 +1059,7 @@ export function App() {
               <h2>⚔️ {incomingInvites.length > 1 ? 'Challenges!' : 'Challenge!'}</h2>
               <label className="deck-pick">
                 <span>Your deck</span>
-                <select value={inviteDeck} onChange={(e) => setInviteDeck(Number(e.target.value))}>
-                  {decks.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
+                <DeckSelect value={inviteDeck} onChange={setInviteDeck} options={decks} />
               </label>
               <ul className="invite-queue">
                 {incomingInvites.map((from) => (

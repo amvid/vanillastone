@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/amvid/vanillastone/internal/store"
@@ -35,14 +36,32 @@ func TestRegisterUniqueness(t *testing.T) {
 func TestRegisterValidation(t *testing.T) {
 	a := newAuth(t)
 	cases := []struct{ user, pass string }{
-		{"ab", "password123"}, // username too short
-		{"alice", "short"},    // password too short
-		{"", "password123"},   // empty username
+		{"ab", "password123"},              // username too short
+		{"alice", "short"},                 // password too short
+		{"", "password123"},                // empty username
+		{"has space", "password123"},       // username with whitespace
+		{"bad!name", "password123"},        // username with punctuation
+		{"alice", strings.Repeat("x", 73)}, // password over bcrypt's 72-byte limit
 	}
 	for _, c := range cases {
 		if err := a.Register(c.user, c.pass); !errors.Is(err, ErrValidation) {
 			t.Fatalf("Register(%q,%q) should be ErrValidation, got %v", c.user, c.pass, err)
 		}
+	}
+}
+
+// TestRegisterTrimsUsername: surrounding whitespace is stripped, so a padded
+// signup and a clean login resolve to the same unique account.
+func TestRegisterTrimsUsername(t *testing.T) {
+	a := newAuth(t)
+	if err := a.Register("  bob  ", "password123"); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	if _, err := a.Login("bob", "password123"); err != nil {
+		t.Fatalf("Login after trimmed register: %v", err)
+	}
+	if err := a.Register("bob", "different456"); !errors.Is(err, ErrTaken) {
+		t.Fatalf("re-register trimmed name should be ErrTaken, got %v", err)
 	}
 }
 

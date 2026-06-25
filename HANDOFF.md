@@ -45,7 +45,7 @@ comments OR tests — public repo, git history is forever. Use our original card
 | Transport | WebSocket + JSON |
 | Client | **Web** (React + Vite + TS), NOT Godot |
 | Hosting | One Go binary serves client (`go:embed` dist) + runs `/ws` |
-| Accounts | Username + password, unique username, bcrypt. Register + login. No email/reset/roles |
+| Accounts | Username + password, unique username (`users.username UNIQUE`, trimmed, charset `[A-Za-z0-9_]{3,20}`), bcrypt. Register + login. No email/reset/roles |
 | Sessions | In-memory `token→username`. POST /login issues a 256-bit token. Dies on restart (re-login) |
 | Storage | SQLite via **`modernc.org/sqlite`** (pure Go, no CGO). Match state in-memory |
 | Cards | All players have all cards. Custom set |
@@ -218,7 +218,12 @@ mana + rarity filters, ascending-mana sort, mana-curve histogram.
 - **Play mode picker** — the lobby **Play** button opens a modal (`.mode-picker`, `App.tsx`):
   **vs AI** (class dropdown → random prebuilt deck), **vs Player** (queue), **Arena** (disabled,
   "Coming soon"). Shared **Your deck** selector lives in the modal. While queuing, Play flips to
-  the cancel toggle (modal suppressed).
+  the cancel toggle (modal suppressed). **AI plays / AI deck pickers** now use `FancySelect`
+  (generic styled dropdown sharing `.deck-select` chrome, with art icons) instead of raw
+  `<select>`s; constrained to the card via `.mode-aiclass .deck-select {flex:1;min-width:0}`.
+- **Collection empty-state fix** — `.book-grid` pads invisible `.book-card.placeholder` slots to
+  `PER_PAGE` even when **zero** cards match (was guarded by `pageCards.length > 0`), so the `1fr`
+  columns no longer collapse and the book keeps full size under the "No cards match" message.
 
 **AI opponent (vs-AI, Phase 14)** — server-authoritative, **no ML model**: a single-turn greedy
 planner over a board heuristic. Files in `internal/match/`: `clone.go` (`cloneForSim` — pure deep
@@ -243,6 +248,15 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **Auth UX + validation hardening (2026-06-25) — DONE.** Server (`internal/auth/auth.go`):
+  username trimmed + restricted to `[A-Za-z0-9_]{3,20}` (`usernameRe`), password bounded
+  6–72 (bcrypt's 72-byte input limit, rejected up front → clean 400 not 500). Login trims too,
+  so a padded signup resolves to the same unique account. New tests: charset/whitespace/long-pass
+  rejection + trim-uniqueness. Client (`App.tsx`): single username/password form with **Login**
+  (primary) + **Register** (secondary, below) buttons — no mode toggle. Per-field inline validation
+  mirroring the server (`usernameError`/`passwordError`), both buttons disabled until valid,
+  invalid-field red border (`.auth-input.invalid`), `.field-err` messages. Register **auto-logs-in**
+  on success.
 - **Gameplay-readability polish (2026-06-25) — DONE (see TASKS.md).** Client-only except #2.
   - **Log same-name bug**: dedup keyed on instance `uid` (was `cardId`), so a minion attacking
     another minion of the same card no longer collapses to an empty popup (`LogActor.uid`).

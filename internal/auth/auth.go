@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/amvid/vanillastone/internal/cards"
@@ -18,12 +20,18 @@ import (
 // is seeded with at registration. The player can rename or rebuild it later.
 const starterDeckName = "Mage Starter"
 
-// Validation bounds (basic, deliberately minimal).
+// Validation bounds. maxPassword is bcrypt's hard 72-byte input limit — a longer
+// password makes GenerateFromPassword error, so reject it up front for a clean 400.
 const (
 	minUsername = 3
 	maxUsername = 20
 	minPassword = 6
+	maxPassword = 72
 )
+
+// usernameRe restricts usernames to letters, digits, and underscore — no spaces or
+// punctuation, so the unique key is unambiguous and display-safe.
+var usernameRe = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 
 // Errors surfaced to HTTP handlers.
 var (
@@ -48,7 +56,8 @@ func New(s *store.Store) *Auth {
 // persisted starter Mage deck the player can rebuild later.
 // Returns ErrValidation or ErrTaken on failure.
 func (a *Auth) Register(username, password string) error {
-	if !validUsername(username) || len(password) < minPassword {
+	username = strings.TrimSpace(username)
+	if !validUsername(username) || !validPassword(password) {
 		return ErrValidation
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -65,6 +74,7 @@ func (a *Auth) Register(username, password string) error {
 // Login verifies credentials and returns a fresh session token. Returns
 // ErrBadCreds for both unknown user and wrong password (no user enumeration).
 func (a *Auth) Login(username, password string) (string, error) {
+	username = strings.TrimSpace(username)
 	u, err := a.store.GetUser(username)
 	if errors.Is(err, store.ErrNotFound) {
 		return "", ErrBadCreds
@@ -91,7 +101,11 @@ func (a *Auth) Username(token string) (string, bool) {
 }
 
 func validUsername(u string) bool {
-	return len(u) >= minUsername && len(u) <= maxUsername
+	return len(u) >= minUsername && len(u) <= maxUsername && usernameRe.MatchString(u)
+}
+
+func validPassword(p string) bool {
+	return len(p) >= minPassword && len(p) <= maxPassword
 }
 
 // newToken returns a random 256-bit hex session token.

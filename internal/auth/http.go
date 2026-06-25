@@ -25,7 +25,7 @@ func (a *Auth) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrTaken):
 		writeErr(w, http.StatusConflict, "username taken")
 	case errors.Is(err, ErrValidation):
-		writeErr(w, http.StatusBadRequest, "username 3-20 chars, password 6+ chars")
+		writeErr(w, http.StatusBadRequest, "username 3-20 chars (letters, digits, _); password 6-72 chars")
 	default:
 		writeErr(w, http.StatusInternalServerError, "server error")
 	}
