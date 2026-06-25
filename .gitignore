@@ -1,0 +1,34 @@
+# Binaries
+/vanillastone
+*.exe
+/cmd/server/server
+bin/
+tmp/
+
+# SQLite (player decks — runtime data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Web (Vite client, when scaffolded)
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Env / secrets
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+.zed/
+
+# Go
+*.test
+*.out
+
+# Private notes (reference card mapping — real names never in the public repo)
+.notes/

@@ -1,0 +1,36 @@
+services:
+  server:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "8080:8080"
+    volumes:
+      # Source mounted live -> wgo sees edits, rebuilds. wgo binary lives in
+      # /go/bin (outside /app), survives this overlay.
+      - .:/app
+      # Persist caches across restarts = fast rebuilds.
+      - go-build-cache:/root/.cache/go-build
+      - go-mod-cache:/go/pkg/mod
+
+  web:
+    build:
+      context: ./web
+      target: dev
+    ports:
+      - "5173:5173"
+    environment:
+      # Dev proxy points /ws, /register, /login at the Go server over the
+      # compose network (service name "server").
+      - VITE_PROXY_TARGET=http://server:8080
+    volumes:
+      # Live source mount; anon volume keeps container node_modules from being
+      # shadowed by the (empty) host node_modules.
+      - ./web:/app
+      - /app/node_modules
+    depends_on:
+      - server
+
+volumes:
+  go-build-cache:
+  go-mod-cache:

@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.md
+Dockerfile
+docker-compose.yml
+# web build artifacts (later)
+web/node_modules
+web/dist
+tmp

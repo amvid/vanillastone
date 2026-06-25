@@ -1,0 +1,10 @@
+#!/bin/sh
+# Build the React client before each commit so the embedded web/static the Go
+# binary serves is always current. Enable once with: make hooks
+set -e
+
+echo "pre-commit: building frontend…"
+( cd web && corepack pnpm install --frozen-lockfile && corepack pnpm build )
+
+# Stage the regenerated static output so it lands in this commit.
+git add web/static

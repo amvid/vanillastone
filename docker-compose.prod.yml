@@ -1,0 +1,19 @@
+# Production: one distroless binary serving the embedded client + /ws.
+# The image's web-build stage compiles the React client, so no host toolchain
+# is needed. Host port comes from $PORT (default 8080) -> container :8080.
+# Run via `make prod` (git pull + build + up). DB persisted in a named volume.
+services:
+  server:
+    build:
+      context: .
+      target: prod
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - DB_PATH=/data/vanillastone.db
+    volumes:
+      - vs-data:/data
+    restart: unless-stopped
+
+volumes:
+  vs-data:
