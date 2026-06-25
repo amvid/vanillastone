@@ -5,9 +5,9 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-25** (art in progress — 101/140 collectible art files placed + 2 tokens:
+Last updated: **2026-06-25** (art in progress — 102/140 collectible art files placed + 2 tokens:
 `pyrebolt`, `mana_surge`; collectibles placed = all 32 legendaries + all 13 neutral epics + first
-neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender` + all 16 non-legendary Mage collectible art files
+neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender`, `rune_warden` + all 16 non-legendary Mage collectible art files
 (`arcane_adept`, `warded_scholar`, `spellwarden_magus`, `glacial_splinter`, `arcane_wyrmling`,
 `frost_tempest`, `codex_of_insight`, `frostshear`, `frostlance`, `pyrecataclysm`, `nullrune`,
 `cinder_trap`, `echo_glass`, `glacial_ward`, `decoy_ward`, `frostward_aegis`);
@@ -142,7 +142,12 @@ mana + rarity filters, ascending-mana sort, mana-curve histogram.
   would show the art's empty top-35% sky band — instead it's zoomed `background-size: auto 160%`,
   `center bottom` to crop the sky and frame the face (tweak the 160% to taste). **Hover preview**
   (`.minion-preview`, `index.css`) is delayed **0.7s** via opacity/visibility + `transition-delay`
-  (NOT `display`, which can't delay); hides instantly on leave.
+  (NOT `display`, which can't delay); hides instantly on leave. **Battlecry token sequencing**
+  (`GameScreen.tsx` layout effect + `summonPop`): a minion played from hand flies in first; any
+  token it summons (Onset/battlecry, same event batch) `summonPop`s with a delay — `FLY_LAND`
+  (650ms, ≈ fly-in) so the played minion lands before the token pops, then `TOKEN_GAP` (320ms)
+  staggers multiple tokens. `summonPop(cid, dur, delay)` holds the token hidden via the first
+  keyframe + `fill:'backwards'` (no flash at final spot during the delay).
 - **CardFace** = full-bleed art + overlaid cost gem + name plate + rules box (font auto-shrinks
   by length) + type band; rarity shown by title colour. Card 164×236. Name band:
   `align-items:center` (title centred in band, not jammed to top), `padding:0 28px`
@@ -163,8 +168,8 @@ mana + rarity filters, ascending-mana sort, mana-curve histogram.
   `padding: 0` on `.card`/`.book-card`. Without that, no full-bleed/edge alignment will ever work.
   Style = **clean cel-shaded cartoon** (see `web/public/art/README.md` prefix). **Hand cards** use
   `CardArt`'s full-bleed `background-size:cover` anchored **`center bottom`** (crop eats the top sky,
-  keeps feet/tail). **101/140 collectible art files placed** + tokens `pyrebolt`, `mana_surge`: all 32 legendaries,
-  all 13 neutral epics, first neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender`, plus all non-legendary Mage collectibles:
+  keeps feet/tail). **102/140 collectible art files placed** + tokens `pyrebolt`, `mana_surge`: all 32 legendaries,
+  all 13 neutral epics, first neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender`, `rune_warden`, plus all non-legendary Mage collectibles:
   `arcane_adept`,
   `warded_scholar`, `spellwarden_magus`, `glacial_splinter`, `arcane_wyrmling`, `frost_tempest`,
   `codex_of_insight`, `frostshear`, `frostlance`, `pyrecataclysm`, `nullrune`, `cinder_trap`,
@@ -179,8 +184,8 @@ mana + rarity filters, ascending-mana sort, mana-curve histogram.
   `siege_engine` (3), `tidescry_oracle` (3), `stoneveil_watcher` (2), `glimmerwing_drake` (2),
   `wardstone_sentinel` (2), `dagger_tosser` (2), `ashflame_zealot` (2), `forge_hand` (2),
   `spellrage_acolyte` (2), `mana_leech` (2), `pocket_conjurer` (2), `addled_brewer` (2), and
-  `riled_rooster` (1), `brine_cutter` (1), and `dawn_tender` (1) placed after user approval.
-  Next preview target = `rune_warden` (1). User noted the recent batch skewed boy-heavy; vary upcoming
+  `riled_rooster` (1), `brine_cutter` (1), `dawn_tender` (1), and `rune_warden` (1) placed after
+  user approval. Next preview target = `acolyte_novice` (1). User noted the recent batch skewed boy-heavy; vary upcoming
   humanoid prompts with more women/girls where the card concept allows.
   Updated workflow: generate a raw
   preview and wait for user review; on `continue`, resize/compress/place/update notes, then start
@@ -325,9 +330,9 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
   (2-cost, 131KB), `ashflame_zealot` (2-cost, 145KB), `forge_hand` (2-cost, 144KB),
   `spellrage_acolyte` (2-cost, 140KB), `mana_leech` (2-cost, 143KB), `pocket_conjurer` (2-cost,
   143KB), `addled_brewer` (2-cost, 144KB), `riled_rooster` (1-cost, 128KB), `brine_cutter`
-  (1-cost, 142KB), and `dawn_tender` (1-cost, 136KB), generated raw for
+  (1-cost, 142KB), `dawn_tender` (1-cost, 136KB), and `rune_warden` (1-cost, 143KB), generated raw for
   user review, then placed after approval without assistant visual review. Next preview target:
-  `rune_warden` (1-cost rare). Going forward, vary humanoid prompts with more
+  `acolyte_novice` (1-cost rare). Going forward, vary humanoid prompts with more
   women/girls where suitable.
   Mage review batch 1 DONE: `arcane_adept` (512w, 110KB), `warded_scholar` (123KB),
   `spellwarden_magus` (121KB), `glacial_splinter` (130KB; first version rerolled lower/wider for

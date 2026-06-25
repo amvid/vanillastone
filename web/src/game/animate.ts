@@ -221,7 +221,9 @@ export function flyIn(minionCid: string, fromSelector: string, duration = 700) {
 // a onset/finalGasp (Bogling, Hatchling, a Mimic copy), which don't come
 // from a hand. It scales up from small with a slight overshoot at the same speed
 // as a played minion's fly-in, so summons read as a distinct "pop onto the board".
-export function summonPop(minionCid: string, duration = 700) {
+// `delay` holds the token hidden (first keyframe via fill:backwards) so a
+// battlecry token pops only after the minion that summoned it has landed.
+export function summonPop(minionCid: string, duration = 700, delay = 0) {
   const m = el(minionCid)
   if (!m) return
   entering.add(minionCid)
@@ -231,7 +233,7 @@ export function summonPop(minionCid: string, duration = 700) {
       { transform: 'scale(1.12) rotate(2deg)', opacity: 1, filter: 'brightness(1.4)', offset: 0.65 },
       { transform: 'scale(1) rotate(0)', opacity: 1, filter: 'brightness(1)' },
     ],
-    { duration, easing: 'cubic-bezier(.2,.85,.3,1.1)' },
+    { duration, delay, fill: 'backwards', easing: 'cubic-bezier(.2,.85,.3,1.1)' },
   )
   anim.onfinish = () => entering.delete(minionCid)
 }

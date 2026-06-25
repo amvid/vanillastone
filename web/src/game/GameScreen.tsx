@@ -459,13 +459,26 @@ export function GameScreen(props: GameScreenProps) {
       for (const e of ev) if (e.kind === 'summon' && e.target) summonIds.add(e.target)
       const playEv = ev.find((e) => e.kind === 'play')
       const playedName = playEv?.card?.name ?? playEv?.name
+      // A minion played from hand flies in; any token it then summons (e.g. an
+      // Onset/battlecry) should pop only AFTER it lands, so the cause reads before
+      // the effect. Tokens wait FLY_LAND for the played minion, then stagger so
+      // multiple tokens pop one-by-one rather than all at once.
+      const FLY_LAND = 650 // ≈ flyIn duration — the played minion has settled
+      const TOKEN_GAP = 320 // between successive token pops
+      const newMinions = [...snap.self.board, ...snap.opp.board].filter((mn) => !prev.has(mn.instanceId))
+      const hasPlayedMinion = newMinions.some(
+        (mn) => playedName && mn.name === playedName && summonIds.has(mn.instanceId),
+      )
       let flewPlayed = false
+      let tokenIdx = 0
       const animateNew = (mn: MinionView, from: string) => {
         if (!flewPlayed && playedName && mn.name === playedName && summonIds.has(mn.instanceId)) {
           flewPlayed = true
           flyIn(mn.instanceId, from)
         } else if (summonIds.has(mn.instanceId)) {
-          summonPop(mn.instanceId)
+          const delay = (hasPlayedMinion ? FLY_LAND : 0) + tokenIdx * TOKEN_GAP
+          tokenIdx++
+          summonPop(mn.instanceId, 700, delay)
         } else {
           flyIn(mn.instanceId, from)
         }
