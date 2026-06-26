@@ -26,8 +26,16 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-now: **189/218 collectible art files placed** + **41/41 token art files placed**. Latest art chunk
-on 2026-06-26 added 25 collectible cards: `spire_mage`, `forge_rifleman`, `ironfur_bear`,
+now: **218/218 collectible art files placed** + **41/41 token art files placed**. Final art chunk
+on 2026-06-26 added the last 4 collectible cards: `tavern_medic`, `thornvale_panther`,
+`tideblade_raider`, and `tidereaver`. Previous art chunk added 25 collectible cards:
+`anguished_scribe`, `carrion_fiend`,
+`dawn_crusader`, `dread_buccaneer`, `duskscale_drake`, `earthroot_healer`, `elder_brewkeeper`,
+`fang_alpha`, `frenzied_brave`, `gale_seer`, `goad_imp`, `granite_warden`,
+`hexbreaker_warden`, `highland_guardian`, `hushwing_owl`, `ironforge_brute`,
+`jungle_stalker`, `marsh_lurker`, `moonsilver_guardian`, `mote`, `pilfer_imp`,
+`plague_gremlin`, `powder_tosser`, `rime_elemental`, and `tavern_apprentice`. Previous art chunk
+added `spire_mage`, `forge_rifleman`, `ironfur_bear`,
 `magma_brute`, `warband_leader`, `sunderlight_cleric`, `silverback_elder`, `dire_rider`,
 `sylvan_archer`, `hearthguard_footman`, `brineherald`, `reef_raider`, `tusker_runt`,
 `hexbone_healer`, `corroding_ooze`, `mirefang_raptor`, `finblade_warrior`, `frostpaw_grunt`,
@@ -55,16 +63,12 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Next Session: Art Generation
+## Art Generation Complete
 
-User is starting a fresh session to continue the card-art workflow. Read this file, `.notes/art-prompts.md`,
-and `web/public/art/README.md`, then start making art for the **next 25 missing collectible cards**.
-Do **not** worry about cost, rarity, class, or old queue order; just pick 25 cards that still lack
-`web/public/art/<card_id>.png`, generate/place/process them one by one, and when exactly 25 new
-collectible card art files are finished, **stop and ping the user**. The user plans to start another
-fresh session with the same intent after each 25-card chunk. Current status before that next chunk:
-collectible art **189/218**, token art **41/41**, so **29 collectible cards remain** and **0 tokens
-remain**.
+Collectible card art is now complete: **218/218 collectible** and **41/41 token** art files are
+placed in `web/public/art/`. Final 4-card chunk completed on 2026-06-26:
+`tavern_medic` (133KB), `thornvale_panther` (126KB), `tideblade_raider` (122KB), and
+`tidereaver` (126KB). No missing collectible or token art remains.
 
 Historical context: **Basic Mage art is complete**:
 `cinderstorm`, `frostfont_elemental`, `hexform`, `arcane_study`, `glacial_halt`, `rimebolt`,
@@ -79,8 +83,15 @@ placed from this queue: `molten_hound`, `battlehorn_champion`, `war_colossus`,
 `sunderlight_cleric`, `silverback_elder`, `dire_rider`, `sylvan_archer`, `hearthguard_footman`,
 `brineherald`, `reef_raider`, `tusker_runt`, `hexbone_healer`, `corroding_ooze`,
 `mirefang_raptor`, `finblade_warrior`, `frostpaw_grunt`, `runescale_kobold`, `tinker_novice`,
-`river_snapper`, `silver_page`, `shadow_prowler`, `fledgling_hawk`, and `shield_lackey`.
-Last placed before stop: `shield_lackey` (1-cost neutral common minion, 114KB). User requested
+`river_snapper`, `silver_page`, `shadow_prowler`, `fledgling_hawk`, and `shield_lackey`, plus latest
+chunk `anguished_scribe`, `carrion_fiend`, `dawn_crusader`, `dread_buccaneer`,
+`duskscale_drake`, `earthroot_healer`, `elder_brewkeeper`, `fang_alpha`, `frenzied_brave`,
+`gale_seer`, `goad_imp`, `granite_warden`, `hexbreaker_warden`, `highland_guardian`,
+`hushwing_owl`, `ironforge_brute`, `jungle_stalker`, `marsh_lurker`, `moonsilver_guardian`,
+`mote`, `pilfer_imp`, `plague_gremlin`, `powder_tosser`, `rime_elemental`, and
+`tavern_apprentice`, plus final 4-card chunk `tavern_medic`, `thornvale_panther`,
+`tideblade_raider`, and `tidereaver`.
+Last placed before stop: `tidereaver` (2-cost neutral common Pirate minion, 126KB). User requested
 switching to Hunter card art in batches of 5 before returning to the remaining Basic/default
 neutrals. Hunter art placed: `apex_saurian` (128KB), `duelists_longbow` (118KB),
 `mane_lioness` (99KB), `blasting_shot` (104KB), `tundra_charger` (111KB),
@@ -108,9 +119,8 @@ and `dream_emerald_reckoning` (117KB). Remaining token art is now complete too: 
 `warsong_reaver`; and Gearmaster Cog tokens `cog_emboldener`, `cog_beacon`, `cog_polymorpher`,
 `cog_mender`, `cog_chick`. Current computed card/art status: deck-buildable cards **218** total
 (179 minions, 26 spells, 11 secrets, 2 weapons), hero powers **2**, tokens **41** total
-(33 minion tokens, 8 spell tokens). Art status: collectible **189/218**, token **41/41**,
-remaining token art **0**. Next session: continue the remaining collectible queue; 29 deck-buildable
-cards still lack art.
+(33 minion tokens, 8 spell tokens). Art status: collectible **218/218**, token **41/41**,
+remaining collectible art **0**, remaining token art **0**.
 IMPORTANT: place card art only into `web/public/art/`; do **not** manually copy card art into
 `web/static/art/`. The build copies public assets when needed.
 Workflow update (latest user instruction): for the 25-card chunk workflow, generate/place/process all
