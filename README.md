@@ -30,26 +30,20 @@ keywords) with a clean, authoritative game engine.
 
 Built deliberately, one phase at a time:
 
-| Phase | Scope                                                                                   | State |
-| ----: | --------------------------------------------------------------------------------------- | :---: |
-|     1 | Skeleton loop — connect, lobby, matchmaking, turn ping-pong                             |  ✅   |
-|     2 | Minions + combat (mana, summon sickness, hero HP, win/lose)                             |  ✅   |
-|     3 | Spells + targeting                                                                      |  ✅   |
-|     4 | Event bus + triggers (battlecry, deathrattle), event log                                |  ✅   |
-|     5 | Keywords wave 1 — taunt, charge, rush, divine shield, freeze                            |  ✅   |
-|     6 | Keywords wave 2 — windfury, stealth, poisonous, lifesteal, spell damage, aura, silence  |  ✅   |
-|     7 | Secrets + Discover (hidden state, mid-action prompts)                                   |  ✅   |
-|     8 | Hero power + weapons                                                                    |  ✅   |
-|     9 | Decks + SQLite (deckbuilder, mulligan, fatigue)                                         |  ✅   |
-|    10 | Polish — UI overhaul, reconnect, turn timer, animations, live player list               |  ✅   |
-|    11 | Spectator mode — watch a live match from a player's point of view                       |  ✅   |
-|    12 | Card set — initial core neutrals + Mage spells/secrets/weapons/hero power               |  ✅   |
-|    13 | **Expand the card set — fuller Mage toolkit + deeper neutral curve (original designs)** |  ✅   |
-|    14 | Play versus AI                                                                          |  ✅   |
-|    15 | Hunter — second class + Hunter cards                                                    |  ✅   |
-|    16 | Ladder                                                                                  |  ✅   |
-|    17 | Warrior class + Warrior cards                                                           |  ✅   |
-|    18 | Warlock — third class + Warlock cards                                                   |  ⏳   |
+| Phase | Scope                                                             | State |
+| ----: | ----------------------------------------------------------------- | :---: |
+|     1 | Core, mechanics                                                   |  ✅   |
+|     2 | Mage class + Mage cards                                           |  ✅   |
+|     3 | Spectator mode — watch a live match from a player's point of view |  ✅   |
+|     4 | Play versus AI                                                    |  ✅   |
+|     5 | Ladder                                                            |  ✅   |
+|     6 | Hunter class + Hunter cards                                       |  ✅   |
+|     7 | Warrior class + Warrior cards                                     |  ✅   |
+|     8 | Warlock class + Warlock cards                                     |  ⏳   |
+|     9 | Priest class + Priest cards                                       |  ⏳   |
+|    10 | Rogue class + Rogue cards                                         |  ⏳   |
+|    11 | Druid class + Druid cards                                         |  ⏳   |
+|    ?? | Polish UI, improve animations                                     |  ⏳   |
 
 ## Stack
 

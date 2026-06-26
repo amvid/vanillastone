@@ -36,7 +36,7 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-now: **218/218 collectible art files placed** + **41/41 token art files placed**. Final art chunk
+then: **218/218 collectible art files placed** + **41/41 token art files placed**. Final art chunk
 on 2026-06-26 added the last 4 collectible cards: `tavern_medic`, `thornvale_panther`,
 `tideblade_raider`, and `tidereaver`. Previous art chunk added 25 collectible cards:
 `anguished_scribe`, `carrion_fiend`,
@@ -65,8 +65,13 @@ Mage hero/UI art added: `mage_hero`, `fire_dart`; Hunter hero/UI art added: `hun
 `hunter_power` (`quick_shot` kept as the same icon alias); `hunter_hero` reworked on
 2026-06-26 into a wood elf woman so classes can vary by race/gender; Warrior hero art
 `warrior_hero` added on 2026-06-26 as an orc male portrait; Warrior hero-power art
-`shore_up` added on 2026-06-26 as a gain-2-Armor shield icon. Next session is Warrior art:
-generate all Warrior class card art from `.notes/classic-mapping.md` "WARRIOR";
+`shore_up` added on 2026-06-26 as a gain-2-Armor shield icon. Warrior card/token art added on
+2026-06-26: `goading_strike`, `war_frenzy`, `whipcrack_overseer`, `berserk_surge`,
+`hammer_blow`, `forgehold_smith`, `hone_edge`, `platewright`, `rallying_roar`,
+`ragebound_brute`, `deathblow_swing`, `bulwark_bash`, `pit_brawl`, `bloodwail`,
+`warchief_gorthak`, `steel_cyclone`, `headlong_rush`, `finishing_cut`, `wide_swing`,
+`valiant_strike`, `cindersplit_axe`, `bracing_guard`, `battle_marshal`, `ironguard_elite`,
+`runesteel_reaper`, plus token weapons `keenedge_blade` and `whetstone_blade`;
 all legendary art done; all epic art done; **all rare art done** (49/49 verified); common art started high-to-low by cost;
 prompt prefix overhauled to style-first + hard negatives + cartoon character-design + top-35% empty
 framing; CardFace art slot crops bottom-anchored; **board minions now render real art** (`MinionArt`,
@@ -77,40 +82,23 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Next Session: Warrior Art Generation
+## Next Session: Post-Warrior Polish
 
-User is starting a fresh session to create **all Warrior class card art**. Read this file,
-`.notes/art-prompts.md`, `web/public/art/README.md`, and `.notes/classic-mapping.md` section
-**"WARRIOR (Basic + Classic, 25)"** first. Warrior engine/card coding is still pending, but the
-mapping is ready for art.
+Warrior code and art are complete. Read this file, `.notes/art-prompts.md`,
+`web/public/art/README.md`, and `.notes/classic-mapping.md` "WARRIOR" before follow-up work.
 
-Already done for Warrior UI:
+Warrior UI/art now present:
 - `warrior_hero.png` — orc male Warrior hero portrait, 512w, 138KB.
 - `shore_up.png` — Warrior hero power icon, gain 2 Armor shield/plates, 512w, 146KB.
+- 25 Warrior collectible card arts in `web/public/art/<card_id>.png`, all 512w and 116-145KB.
+- 2 Warrior token-weapon arts: `keenedge_blade` (115KB) and `whetstone_blade` (141KB).
 
-Next session should generate/place/process Warrior card art into `web/public/art/<card_id>.png`.
-Do **not** overwrite `warrior_hero.png` or `shore_up.png` unless explicitly asked. Generate all 25
-Warrior collectible/class cards from the mapping:
-`goading_strike`, `war_frenzy`, `whipcrack_overseer`, `berserk_surge`, `hammer_blow`,
-`forgehold_smith`, `hone_edge`, `platewright`, `rallying_roar`, `ragebound_brute`,
-`deathblow_swing`, `bulwark_bash`, `pit_brawl`, `bloodwail`, `warchief_gorthak`,
-`steel_cyclone`, `headlong_rush`, `finishing_cut`, `wide_swing`, `valiant_strike`,
-`cindersplit_axe`, `bracing_guard`, `battle_marshal`, `ironguard_elite`, and
-`runesteel_reaper`.
+Suggested next work: quick in-client visual smoke test for Warrior deckbuilder/game surfaces, enrich
+curated/AI Warrior decks if needed, then move to the next class/content pass.
 
-Also generate the two Warrior token-weapon arts if the session includes generated/token assets:
-`keenedge_blade` (2/2 weapon from `forgehold_smith`) and `whetstone_blade` (1/3 weapon from
-`hone_edge`). Use the source-card prompt language so token weapons feel related.
-
-Use the established art workflow: generate one asset at a time, copy the raw from
-`.codex/generated_images/...` to `web/public/art/<card_id>.png`, resize to 512, compress below
-~150KB, update `.notes/art-prompts.md` and this handoff, then stop and ping the user when the
-Warrior art batch is complete. No user review is needed unless the user explicitly asks for previews
-or reworks. Keep the style cel-cartoon, original IP-safe, with Warrior red/steel/forge visual
-language where suitable.
-
-Historical context: previous collectible card art is complete: **218/218 collectible** and
-**41/41 token** art files are placed in `web/public/art/`. Final 4-card chunk completed on 2026-06-26:
+Historical context: collectible card art is complete through Warrior: **243/243 collectible** and
+**43/43 token** art files are placed in `web/public/art/`. Previous final neutral 4-card chunk
+completed on 2026-06-26:
 `tavern_medic` (133KB), `thornvale_panther` (126KB), `tideblade_raider` (122KB), and
 `tidereaver` (126KB). No missing collectible or token art remains.
 
@@ -161,9 +149,9 @@ and `dream_emerald_reckoning` (117KB). Remaining token art is now complete too: 
 `bramble_squirrel`, `thornwood_satyr`, `imp_whelp`, `jungle_gift`; Warhorn tokens
 `anthem_muster`, `anthem_warsong`, `anthem_ambush`, `tide_recruit`, `warsong_grunt`,
 `warsong_reaver`; and Gearmaster Cog tokens `cog_emboldener`, `cog_beacon`, `cog_polymorpher`,
-`cog_mender`, `cog_chick`. Current computed card/art status: deck-buildable cards **218** total
-(179 minions, 26 spells, 11 secrets, 2 weapons), hero powers **2**, tokens **41** total
-(33 minion tokens, 8 spell tokens). Art status: collectible **218/218**, token **41/41**,
+`cog_mender`, `cog_chick`. Current computed card/art status: deck-buildable cards **243** total
+(189 minions, 38 spells, 11 secrets, 5 weapons), hero powers **3**, tokens **43** total
+(33 minion tokens, 8 spell tokens, 2 weapon tokens). Art status: collectible **243/243**, token **43/43**,
 remaining collectible art **0**, remaining token art **0**.
 IMPORTANT: place card art only into `web/public/art/`; do **not** manually copy card art into
 `web/static/art/`. The build copies public assets when needed.
