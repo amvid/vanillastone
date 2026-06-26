@@ -62,6 +62,24 @@ func TestPlannerTakesLethal(t *testing.T) {
 	}
 }
 
+// TestPlannerSwingsWeaponForLethal: with an equipped weapon and the opponent in
+// range, the bot swings the hero at the face for the kill. Encodes WHY: the hero
+// attack must be an enumerated move — without it the bot equips weapons and never
+// uses them (and so misses weapon lethals), the user-reported bug.
+func TestPlannerSwingsWeaponForLethal(t *testing.T) {
+	m := aiMatch(1)
+	m.state[0].heroHP = 3
+	m.state[1].weapon = &weaponInst{card: cards.Card{Type: cards.TypeWeapon, Attack: 3, Durability: 2}, attack: 3, durability: 2}
+
+	mv, ok := m.planBest(1)
+	if !ok {
+		t.Fatal("planner found no move; expected the weapon swing")
+	}
+	if mv.kind != mAttack || mv.attacker != selfHeroTarget || mv.target != oppHeroTarget {
+		t.Fatalf("expected hero weapon swing at the face, got %+v", mv)
+	}
+}
+
 // TestPlannerDevelopsFromHand: an idle board with mana and a minion in hand should
 // develop the minion (board presence beats doing nothing).
 func TestPlannerDevelopsFromHand(t *testing.T) {

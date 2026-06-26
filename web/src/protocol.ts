@@ -126,6 +126,7 @@ export type Event = {
     | 'sethealth'
     | 'control'
     | 'startgame'
+    | 'draw'
   source?: string
   target?: string
   amount?: number

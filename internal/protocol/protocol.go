@@ -388,7 +388,7 @@ type OppConn struct {
 // id, or a player id (p1/p2) for a hero. Identifiers are match-global, so the
 // list is the same for both players (no hidden info here).
 type Event struct {
-	Kind   string `json:"kind"`             // play|onset|finalGasp|trigger|damage|heal|buff|summon|death|attack|freeze|shield|silence|secret|equip|weaponBreak|heropower|armor|mana|fatigue|burn
+	Kind   string `json:"kind"`             // play|onset|finalGasp|trigger|damage|heal|buff|summon|death|attack|freeze|shield|silence|secret|equip|weaponBreak|heropower|armor|mana|fatigue|burn|draw
 	Source string `json:"source,omitempty"` // acting entity (minion uid or player id)
 	Target string `json:"target,omitempty"` // affected entity (minion uid or player id)
 	Amount int    `json:"amount,omitempty"`

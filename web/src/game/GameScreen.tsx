@@ -297,12 +297,6 @@ export function GameScreen(props: GameScreenProps) {
   // Board minion ids from the previous render, to detect freshly-summoned minions
   // and fly them in. Null on the first render so an opening board doesn't animate.
   const prevCids = useRef<Set<string> | null>(null)
-  // Opponent hand count from the previous render: a drop with no new enemy minion
-  // means they played a non-minion card (spell/secret/weapon) → fly a card back; a
-  // rise means they drew → fly a card back in from their deck.
-  const prevOppHand = useRef<number | null>(null)
-  // Our own hand size last render: a rise means we drew → fly the new card in.
-  const prevSelfHand = useRef<number | null>(null)
   // Last-known screen rect of every character by data-cid, so an attack whose
   // target died this render can still lunge to where the target stood.
   const rectCache = useRef<Record<string, DOMRect>>({})
@@ -537,20 +531,31 @@ export function GameScreen(props: GameScreenProps) {
             if (r) settleFrom[mn.instanceId] = r
           }
     }
-    // Opponent's hand grew: they drew a card from their deck — fly a card back in.
-    // (A shrink is a play, now revealed via the 'play' event / cast showcase.)
-    // (Suppressed during the opening deal: the mulligan→play hand jump is the
-    // deal, not a single draw — see the intro effect above.)
-    const ph = prevOppHand.current
-    if (!intro && ph !== null && snap.opp.handCount > ph) {
-      const backs = document.querySelectorAll<HTMLElement>('.opp-hand .card-back')
-      const last = backs[backs.length - 1]
-      if (last) flyInEl(last, '.deck-pile.opp', 1100)
-    }
-    // Our hand grew (a draw): fly the newest card in from our deck pile.
+    // Draws: the server emits one `draw` event per card that reached a hand. Fly
+    // each newly-drawn card from its owner's deck pile. Counting events (not the
+    // net hand-size delta) is what makes a card that draws while being played still
+    // animate — the play shrinks the hand and the draw regrows it, so the delta is
+    // zero. (Suppressed during the opening deal; the intro effect handles that.)
     const sh = snap.self.hand?.length ?? 0
-    const psh = prevSelfHand.current
-    if (!intro && psh !== null && sh > psh) flyIn(`hand-${sh - 1}`, '.deck-pile.self', 1100)
+    if (!intro) {
+      let selfDraws = 0
+      let oppDraws = 0
+      for (const e of animRef.current?.events ?? []) {
+        if (e.kind !== 'draw') continue
+        if (e.target === snap.you) selfDraws++
+        else oppDraws++
+      }
+      // Our draws: fly the newest selfDraws hand cards in from our deck pile.
+      for (let k = 0; k < selfDraws; k++) flyIn(`hand-${sh - 1 - k}`, '.deck-pile.self', 1100)
+      // Opponent draws: fly the last oppDraws card-backs in from their deck pile.
+      if (oppDraws > 0) {
+        const backs = document.querySelectorAll<HTMLElement>('.opp-hand .card-back')
+        for (let k = 0; k < oppDraws; k++) {
+          const node = backs[backs.length - 1 - k]
+          if (node) flyInEl(node, '.deck-pile.opp', 1100)
+        }
+      }
+    }
 
     // Refresh the caches from the live DOM (merge: a character that left the board
     // keeps its last-known rect/HTML for one more action's animations).
@@ -574,8 +579,6 @@ export function GameScreen(props: GameScreenProps) {
     for (const id in settleFrom) settleShift(id, settleFrom[id])
 
     prevCids.current = cur
-    prevOppHand.current = snap.opp.handCount
-    prevSelfHand.current = sh
   }, [snap])
 
   // Replay this action's events as animations over the settled board. Event ids

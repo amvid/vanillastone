@@ -141,11 +141,12 @@ func heroPowerFace(hp cards.Card) int {
 
 // Planner scoring extremes + the lethal-lens magnitudes.
 const (
-	winScore     = 1e6  // resulting state kills the opponent — take it above all else
-	loseScore    = -1e6 // resulting state kills me — never choose a suicidal line
-	dangerWeight = 30.0 // penalty for ending in range of the opponent's next-turn lethal
-	epsilon      = 0.01 // a move must beat "do nothing" by at least this to be worth it
-	maxBotMoves  = 40   // hard per-turn action bound (planner loop backstop)
+	winScore       = 1e6  // resulting state kills the opponent — take it above all else
+	loseScore      = -1e6 // resulting state kills me — never choose a suicidal line
+	dangerWeight   = 30.0 // flat penalty for ending in range of the opponent's next-turn lethal
+	overkillWeight = 3.0  // extra penalty per point their next-turn burst exceeds my health
+	epsilon        = 0.01 // a move must beat "do nothing" by at least this to be worth it
+	maxBotMoves    = 40   // hard per-turn action bound (planner loop backstop)
 )
 
 // aiMove kinds.
@@ -208,6 +209,15 @@ func (m *Match) aiCandidates(seat int) []aiMove {
 			moves = append(moves, aiMove{kind: mAttack, attacker: a.uid, target: d.uid})
 		}
 		moves = append(moves, aiMove{kind: mAttack, attacker: a.uid, target: oppHeroTarget})
+	}
+
+	// The hero attacks too when it has a weapon (or granted attack) — into a minion
+	// or the face. Without this the bot would equip weapons and never swing them.
+	if heroCanAttack(ps) {
+		for _, d := range opp.board {
+			moves = append(moves, aiMove{kind: mAttack, attacker: selfHeroTarget, target: d.uid})
+		}
+		moves = append(moves, aiMove{kind: mAttack, attacker: selfHeroTarget, target: oppHeroTarget})
 	}
 
 	if !ps.heroPowerUsed && ps.mana >= m.effectiveCost(seat, ps.heroPower) {
@@ -285,10 +295,19 @@ func (m *Match) scoreForPlanner(seat int) float64 {
 		return loseScore
 	}
 	s := m.eval(seat)
-	// If the opponent could kill me next turn from this position, this line is bad
-	// — push the planner toward clearing their board / staying out of range.
-	if m.burstNextTurn(opp) >= m.state[seat].heroHP+m.state[seat].armor {
-		s -= dangerWeight
+	// If I can kill the opponent THIS turn, race — their next turn never comes, so
+	// don't let the danger term pull me into defensive trades instead of the kill.
+	myHP := m.state[seat].heroHP + m.state[seat].armor
+	oppHP := m.state[opp].heroHP + m.state[opp].armor
+	if m.burstNow(seat) >= oppHP {
+		return s
+	}
+	// Else, if the opponent could kill me next turn, this line is dangerous. The
+	// penalty is GRADED in their overkill (not a flat all-or-nothing): each
+	// defensive trade that shaves their burst improves the score, so the planner
+	// chains trades down to safety instead of stopping at the first one and facing.
+	if next := m.burstNextTurn(opp); next >= myHP {
+		s -= dangerWeight + float64(next-myHP+1)*overkillWeight
 	}
 	return s
 }

@@ -172,6 +172,12 @@ func (m *Match) drawCard(pi int) {
 		return
 	}
 	ps.hand = append(ps.hand, c)
+	// One event per card that reaches the hand (turn-start draw, cantrips,
+	// card-triggered draws). The client animates the card flying deck→hand off
+	// these — counting events, not the net hand-size delta, so a card that draws
+	// while being played (hand shrinks then regrows, delta zero) still animates.
+	// No card identity is carried, so an opponent's draw stays hidden.
+	m.emit(protocol.Event{Kind: "draw", Target: m.pid(pi)})
 }
 
 // emitBurn logs a destroyed card (overdraw or full-hand discard). The card face

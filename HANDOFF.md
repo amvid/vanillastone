@@ -438,6 +438,25 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **Gameplay improvements (2026-06-26) — DONE.** `go test -race ./...`, vet, gofmt, tsc, vite green.
+  - **Draw animation for ALL draws.** Server now emits a `draw` event per card that reaches a
+    hand (`drawCard`, `state.go`) — no card identity, so an opponent's draw stays hidden. Client
+    (`GameScreen.tsx`) flies each drawn card deck→hand by **counting `draw` events**, not the net
+    hand-size delta. Fixes card-triggered draws (cantrips, battlecry draws) that previously
+    "just appeared": a card that draws while being played nets a zero hand delta, so the old
+    delta heuristic animated nothing. `draw` skipped in the log (`format.ts`), added to the
+    `Event` kind unions (`protocol.go` / `protocol.ts`). Dropped the now-dead
+    `prevSelfHand`/`prevOppHand` refs.
+  - **AI improvements (`ai.go`).** (1) **Hero/weapon attacks are now enumerated** in
+    `aiCandidates` (`selfHeroTarget` into each enemy minion or the face when `heroCanAttack`) —
+    the bot equipped weapons but never swung them, and so missed weapon lethals. (2) **Graded
+    danger lens** in `scoreForPlanner`: the next-turn-lethal penalty was binary (all-or-nothing
+    at the threshold), so a defensive trade that didn't *fully* clear the lethal in one move
+    earned no credit and the bot went face and died. Now `dangerWeight` + `overkillWeight ×
+    (their burst − my HP)`, so each chip-away trade improves the score and the planner chains
+    trades to safety. Plus a **lethal-race short-circuit**: when `burstNow(seat) ≥ opp HP` the
+    danger term is skipped so the bot races the kill instead of trading. New test
+    `TestPlannerSwingsWeaponForLethal`; existing planner tests still green.
 - **Ranked stats + leaderboard (2026-06-26) — DONE.** First persistent match-result
   layer. `go test -race ./...`, vet, gofmt, tsc, vite all green.
   - **Ranking = hidden Elo, shown only as ladder rank.** `store`: new `ratings`

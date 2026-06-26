@@ -263,6 +263,8 @@ export function buildLog(
       }
       case 'startgame':
         return // revealed center-stage (cast showcase), not as a log row
+      case 'draw':
+        return // animation-only (deck→hand fly-in); routine, no log row
       case 'equip':
       case 'weaponBreak':
         open({ kind: e.kind, text, source: A(e.source), targets: [] })
