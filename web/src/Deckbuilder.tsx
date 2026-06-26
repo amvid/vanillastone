@@ -183,7 +183,8 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     }
   }
 
-  const remove = async (id: number) => {
+  const remove = async (id: number, name: string) => {
+    if (!confirm(`Delete deck "${name}"?`)) return
     setError('')
     try {
       await deleteDeck(token, id)
@@ -392,7 +393,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 <button className="copy-code" onClick={() => copyCode(d)} title="Copy deck code">
                   {copiedId === d.id ? '✓' : '⧉'}
                 </button>
-                <button className="del" onClick={() => remove(d.id)} title="Delete">
+                <button className="del" onClick={() => remove(d.id, d.name)} title="Delete">
                   ✕
                 </button>
               </div>
