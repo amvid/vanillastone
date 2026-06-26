@@ -5,6 +5,7 @@ import type { Deck, Pool } from './api'
 import type { CardView } from './protocol'
 import { CardFace } from './game/CardFace'
 import { cardColorClass } from './game/format'
+import { decodeDeck, encodeDeck } from './game/deckcode'
 
 const PER_PAGE = 8 // cards shown per book page (4 columns x 2 rows)
 
@@ -15,6 +16,7 @@ const CLASS_OPTIONS: { id: string; label: string }[] = [
   { id: 'mage', label: 'Mage' },
   { id: 'hunter', label: 'Hunter' },
   { id: 'warrior', label: 'Warrior' },
+  { id: 'warlock', label: 'Warlock' },
 ]
 
 const RARITIES = ['common', 'rare', 'epic', 'legendary'] as const
@@ -67,6 +69,10 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   // scrolls (overflow:auto), which would clip an absolutely-positioned preview,
   // and because it follows the mouse Y.
   const [preview, setPreview] = useState<{ card: CardView; x: number; y: number } | null>(null)
+  // Deck-code sharing: id of the deck whose code was just copied (transient
+  // "Copied" tag), and the import box's text while it is open (null = closed).
+  const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [importText, setImportText] = useState<string | null>(null)
 
   const reloadDecks = async () => setDecks(await listDecks(token))
 
@@ -183,6 +189,33 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
       await deleteDeck(token, id)
       await reloadDecks()
       if (editing?.id === id) setEditing(null)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  // copyCode writes a deck's share code to the clipboard and flags it copied.
+  const copyCode = async (d: Deck) => {
+    setError('')
+    try {
+      await navigator.clipboard.writeText(encodeDeck(d.class, d.cards, pool.cards))
+      setCopiedId(d.id)
+      setTimeout(() => setCopiedId((cur) => (cur === d.id ? null : cur)), 1500)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  // importCode decodes a pasted share code and saves it as a new deck. The
+  // codec only resolves ids → the server still validates legality on create.
+  const importCode = async () => {
+    if (!importText?.trim()) return
+    setError('')
+    try {
+      const { class: cls, cards } = decodeDeck(importText, pool.cards)
+      await createDeck(token, 'Imported Deck', cls, cards)
+      await reloadDecks()
+      setImportText(null)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -356,14 +389,40 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   />
                   <span className="deck-row-text">{d.name}</span>
                 </button>
+                <button className="copy-code" onClick={() => copyCode(d)} title="Copy deck code">
+                  {copiedId === d.id ? '✓' : '⧉'}
+                </button>
                 <button className="del" onClick={() => remove(d.id)} title="Delete">
                   ✕
                 </button>
               </div>
             ))}
-            <button className="new-deck" disabled={decks.length >= maxDecks} onClick={() => setPicking(true)}>
-              + New deck
-            </button>
+            <div className="deck-actions">
+              <button className="new-deck" disabled={decks.length >= maxDecks} onClick={() => setPicking(true)}>
+                + New deck
+              </button>
+              <button
+                className="new-deck"
+                disabled={decks.length >= maxDecks}
+                onClick={() => setImportText((t) => (t === null ? '' : null))}
+              >
+                Import code
+              </button>
+            </div>
+            {importText !== null && (
+              <div className="import-row">
+                <input
+                  value={importText}
+                  autoFocus
+                  placeholder="Paste deck code…"
+                  onChange={(e) => setImportText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && importCode()}
+                />
+                <button disabled={!importText.trim()} onClick={importCode}>
+                  Import
+                </button>
+              </div>
+            )}
           </div>
 
           {editing && (

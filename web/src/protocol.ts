@@ -15,7 +15,7 @@ export type CardView = {
   cardId: string
   name: string
   cardType: 'minion' | 'spell' | 'secret' | 'weapon' | 'heroPower'
-  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' // drives card color (mage = blue); absent/neutral = default
+  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' | 'warlock' // drives card color (mage = blue); absent/neutral = default
   rarity?: 'common' | 'rare' | 'epic' | 'legendary' // drives the rarity gem
   cost: number
   baseCost?: number // hand cards: printed cost (present so the client can colour a cost-modified card)
@@ -35,7 +35,7 @@ export type MinionView = {
   instanceId: string
   cardId: string
   name: string
-  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' // drives card color in the hover preview
+  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' | 'warlock' // drives card color in the hover preview
   cost: number // printed mana cost (for the full-card hover preview)
   attack: number
   health: number
@@ -80,6 +80,7 @@ export type PlayerView = {
   secretCount?: number
   heroPower?: CardView // the hero's reusable ability (public)
   heroPowerUsed?: boolean
+  heroArt?: string // overrides the class-derived hero portrait art id (hero replacement, e.g. overlord_xathul)
   weapon?: WeaponView // equipped weapon (public)
   heroAttack?: number // current hero attack (weapon attack)
   heroCanAttack?: boolean // hero may attack right now

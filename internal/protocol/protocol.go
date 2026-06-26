@@ -327,6 +327,7 @@ type PlayerView struct {
 	SecretCount   int          `json:"secretCount,omitempty"`
 	HeroPower     *CardView    `json:"heroPower,omitempty"`     // the hero's reusable ability (public)
 	HeroPowerUsed bool         `json:"heroPowerUsed,omitempty"` // already used this turn
+	HeroArt       string       `json:"heroArt,omitempty"`       // overrides the class-derived hero portrait art id (hero replacement, e.g. `overlord_xathul`)
 	Weapon        *WeaponView  `json:"weapon,omitempty"`        // equipped weapon, if any (public)
 	HeroAttack    int          `json:"heroAttack,omitempty"`    // current hero attack (weapon attack)
 	HeroCanAttack bool         `json:"heroCanAttack,omitempty"` // hero may attack right now

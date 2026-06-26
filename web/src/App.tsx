@@ -1157,6 +1157,7 @@ export function App() {
                         { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
                         { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
                         { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
+                        { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
                       ]}
                     />
                   </label>

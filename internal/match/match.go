@@ -84,6 +84,9 @@ type minion struct {
 	stealthed          bool
 	silenced           bool
 	destroyAtTurnStart bool // scheduled to die at the start of its owner's next turn (Nightmare)
+	destroyAtTurnEnd   bool // scheduled to die at the end of THIS turn (`forbidden_might`)
+	corrupted          bool // `creeping_rot`: scheduled to be destroyed at the start of corruptedBy's next turn
+	corruptedBy        int  // player index whose turn-start destroys this minion (valid only when corrupted)
 }
 
 // has reports whether the minion currently has keyword k: its card grants it and
@@ -211,6 +214,7 @@ type playerState struct {
 	secrets       []*secretInst
 	heroPower     cards.Card
 	heroPowerUsed bool
+	heroArt       string // overrides the class-derived hero portrait art id (`overlord_xathul` hero replacement); "" = class default
 	weapon        *weaponInst
 	heroAttacked  bool
 	immune        bool // hero ignores all damage this turn (e.g. `frostward_aegis`)

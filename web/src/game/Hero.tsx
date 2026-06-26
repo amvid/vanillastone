@@ -29,9 +29,12 @@ export function Hero(props: {
     .join(' ')
 
   // Hero portrait art + glyph are class-driven, inferred from the hero power's
-  // class (the snapshot has no separate hero-class field). Defaults to Mage.
+  // class (the snapshot has no separate hero-class field). Defaults to Mage. A
+  // hero-replacement (heroArt set, e.g. Overlord Xathul) overrides the portrait art.
   const heroClass = p.heroPower?.class ?? 'mage'
-  const heroIcon = heroClass === 'hunter' ? '🏹' : heroClass === 'warrior' ? '⚔️' : '🧙'
+  const heroIcon =
+    heroClass === 'hunter' ? '🏹' : heroClass === 'warrior' ? '⚔️' : heroClass === 'warlock' ? '🔮' : '🧙'
+  const heroArt = p.heroArt ? `/art/${p.heroArt}.png` : `/art/${heroClass}_hero.png`
 
   // Secret gems shown over the portrait, HS-style. Own secrets reveal their name
   // on hover; the opponent's are anonymous "?" tokens.
@@ -57,11 +60,7 @@ export function Hero(props: {
             ))}
           </div>
         )}
-        <span
-          className="hero-portrait-art"
-          style={{ backgroundImage: `url('/art/${heroClass}_hero.png')` }}
-          aria-hidden="true"
-        />
+        <span className="hero-portrait-art" style={{ backgroundImage: `url('${heroArt}')` }} aria-hidden="true" />
         <span className="hero-portrait-icon">{heroIcon}</span>
         {p.frozen && (
           <div className="hero-frost-badge" title="Frozen — can't attack this turn" aria-hidden="true">

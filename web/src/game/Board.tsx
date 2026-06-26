@@ -8,7 +8,7 @@ import { CardFace } from './CardFace'
 // as the hand card's CardArt), falling back to the placeholder type glyph until art
 // exists. The square art reserves its top ~35% for empty sky (the framing rule); the
 // portrait box is only slightly tall, so a plain cover would show that whole sky band.
-// Zoom in (height 160% of the box) anchored to the BOTTOM so the crop eats the top sky
+// Zoom in (height 125% of the box) anchored to the BOTTOM so the crop eats the top sky
 // and frames the creature's face/body instead.
 function MinionArt({ cardId }: { cardId: string }) {
   const [failed, setFailed] = useState(false)
@@ -17,7 +17,7 @@ function MinionArt({ cardId }: { cardId: string }) {
   return (
     <div
       className="m-portrait"
-      style={{ backgroundImage: `url(${src})`, backgroundSize: 'auto 160%', backgroundPosition: 'center bottom' }}
+      style={{ backgroundImage: `url(${src})`, backgroundSize: 'auto 125%', backgroundPosition: 'center bottom' }}
     >
       <img src={src} alt="" style={{ display: 'none' }} onError={() => setFailed(true)} />
     </div>

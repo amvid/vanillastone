@@ -117,6 +117,16 @@ func (m *Match) startTurn(pi int) {
 			mn.health = 0
 		}
 	}
+	// `creeping_rot`: a minion the active player corrupted (it lives on either board)
+	// is destroyed now, at the start of that player's turn.
+	for side := 0; side < 2; side++ {
+		for _, mn := range m.state[side].board {
+			if mn.corrupted && mn.corruptedBy == pi {
+				mn.health = 0
+				m.emit(protocol.Event{Kind: "destroy", Target: mn.uid, Name: mn.card.Name})
+			}
+		}
+	}
 	m.drawCard(pi) // draw for the turn (fatigue if the deck is empty)
 	m.fireTriggers(pi, cards.OnTurnStart, nil)
 	m.scheduleTurnTimer()
@@ -205,6 +215,9 @@ func (m *Match) clearTempBuffs() {
 				if mn.health > mn.maxHP() {
 					mn.health = mn.maxHP()
 				}
+			}
+			if mn.destroyAtTurnEnd {
+				mn.health = 0 // `forbidden_might`: dies now (finish() resolves it after the turn flips)
 			}
 		}
 	}

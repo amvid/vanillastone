@@ -5,7 +5,26 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-26** (**Warrior COMPLETE + ART COMPLETE** — third playable class. Full Basic +
+Last updated: **2026-06-26** (**Warlock COMPLETE + ART COMPLETE** — fourth playable class.
+Full Basic + Classic Warlock set in `internal/cards/warlock.go`: 27 collectible (10 Basic + 17
+Classic), hero power `soul_tithe` (Life Tap — draw a card + take 2), + 4 tokens (`runt_imp`,
+`infernal_eruption`, `gore_scythe`, `abyss_horror`). 1:1 mechanics, original names/text. Coded +
+unit-tested (`internal/match/warlock_mechanics_test.go`; `go test -race ./...`, vet, gofmt, tsc,
+vite all green). New engine: `AreaFriendlyHero` self-damage, `EffectDiscard` + `DiscardRandom`,
+`DrawIfKills`/`SummonRandomIfKills` riders, `HealHero` on `EffectDestroy`, `EffectDemonfire`
+(conditional friendly-Demon buff-or-damage), `EffectConsumeAdjacent`, `EffectShadowflame`,
+`EffectLoseMana`, `EffectCorrupt` (delayed destroy at caster's next turn start), `DestroyEndOfTurn`,
+`EffectTutorTribe` Count+Fallback, `CostAura.MinResult` floor, and **`EffectReplaceHero`** — the
+Lord-Jaraxxus-style hero swap (set HP 15, swap portrait via new `PlayerView.HeroArt`, swap hero
+power to `infernal_eruption`, equip `gore_scythe` 3/8, source minion removed). Client: purple
+`.card.warlock`, 🔮 glyph, `heroArt` portrait override in `Hero.tsx`, deckbuilder + vs-AI pickers.
+Class wired into `PlayableClasses`/`HeroPowerForClass`/`DefaultDeckFor`/`AIDecks`
+(`defaultWarlockDeck` + `aiWarlockAggro`). Warlock art is now placed and processed: 27/27
+collectible cards, hero/UI art (`warlock_hero`, `soul_tithe`, `overlord_xathul_hero`,
+`infernal_eruption`), and 3/3 non-hero-power tokens (`runt_imp`, `gore_scythe`, `abyss_horror`),
+all 512w and <150KB. `warlock_hero` is a gnome woman warlock per user direction; Xathul has
+separate card and replaced-hero portrait art. Prev: **Deck share codes** + Warlock code complete.
+Prev: **Warrior COMPLETE + ART COMPLETE** — third playable class. Full Basic +
 Classic Warrior set, 25 collectible cards (10 minions, 12 spells, 3 weapons) + hero power
 `shore_up` (Armor Up) + 2 weapon tokens, all 1:1 mechanics with original names/text; coded +
 unit-tested (`go test -race ./...`, vet, gofmt, tsc, vite all green). New engine: Armor/equip/
@@ -82,22 +101,25 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Next Session: Post-Warrior Polish
+## Next Session: Post-Warlock Polish
 
-Warrior code and art are complete. Read this file, `.notes/art-prompts.md`,
-`web/public/art/README.md`, and `.notes/classic-mapping.md` "WARRIOR" before follow-up work.
+Warlock code and art are complete. Read this file, `.notes/art-prompts.md`,
+`web/public/art/README.md`, and `.notes/classic-mapping.md` "WARLOCK" before follow-up work.
 
-Warrior UI/art now present:
-- `warrior_hero.png` — orc male Warrior hero portrait, 512w, 138KB.
-- `shore_up.png` — Warrior hero power icon, gain 2 Armor shield/plates, 512w, 146KB.
-- 25 Warrior collectible card arts in `web/public/art/<card_id>.png`, all 512w and 116-145KB.
-- 2 Warrior token-weapon arts: `keenedge_blade` (115KB) and `whetstone_blade` (141KB).
+Warlock UI/art now present:
+- `warlock_hero.png` — gnome woman Warlock hero portrait, 512w, 143KB.
+- `soul_tithe.png` — Warlock hero-power icon, draw + self-damage life-thread, 512w, 142KB.
+- `overlord_xathul_hero.png` — replaced-hero demon portrait, 512w, 149KB.
+- `infernal_eruption.png` — Xathul hero-power icon, meteor summon, 512w, 148KB.
+- 27 Warlock collectible card arts in `web/public/art/<card_id>.png`, all 512w and <150KB.
+- 3 Warlock token arts: `runt_imp` (148KB), `gore_scythe` (149KB), `abyss_horror` (148KB).
 
-Suggested next work: quick in-client visual smoke test for Warrior deckbuilder/game surfaces, enrich
-curated/AI Warrior decks if needed, then move to the next class/content pass.
+Suggested next work: quick in-client visual smoke test for Warlock deckbuilder/game surfaces,
+especially `EffectReplaceHero` portrait/power swap and `infernal_eruption` token summon, then enrich
+curated/AI Warlock decks if needed.
 
-Historical context: collectible card art is complete through Warrior: **243/243 collectible** and
-**43/43 token** art files are placed in `web/public/art/`. Previous final neutral 4-card chunk
+Historical context: collectible card art is complete through Warlock: **270/270 collectible** and
+**46/46 token** art files are placed in `web/public/art/`. Previous final neutral 4-card chunk
 completed on 2026-06-26:
 `tavern_medic` (133KB), `thornvale_panther` (126KB), `tideblade_raider` (122KB), and
 `tidereaver` (126KB). No missing collectible or token art remains.
@@ -194,7 +216,7 @@ comments OR tests — public repo, git history is forever. Use our original card
 | Storage | SQLite via **`modernc.org/sqlite`** (pure Go, no CGO). Match state in-memory |
 | Cards | All players have all cards. Custom set |
 | Mode | 1v1 only. No AI |
-| Hero | Mage + Hunter + Warrior (all three full sets coded + unit-tested; Warrior added 2026-06-26, art pending) |
+| Hero | Mage + Hunter + Warrior + Warlock (all four full sets coded + unit-tested; Warlock added 2026-06-26, art pending) |
 | Card design | Faithfully clone the **HS Classic + Hall of Fame** set: match cost/stats/effect, give wholly original names + art. Mechanics aren't copyrightable; names/art/flavor are |
 | RNG | Server-side, seeded |
 | Match persistence | In-memory (dies on restart) — OK for now; restart-survival is OUT |
@@ -277,6 +299,16 @@ attack model (`attacksMade < attacksPerTurn()`).
 Legendary 1-copy cap; others `MaxCopies=2`; `DeckSize=30`, `MaxDecksPerUser=10`. Curated
 `DefaultDeck()` = freeze/tempo Mage. Client: class picker, collection tabs (class/Neutral),
 mana + rarity filters, ascending-mana sort, mana-curve histogram.
+
+**Deck share codes** (`web/src/game/deckcode.ts`, client-only) — copy/paste a deck as a short
+string. Format `[classChar][3-char entry…][checksumChar]`, all lowercase alnum: class =
+`m/h/r/w`; entry = `[letter][base36 index][copies 1-9]` where letter+index is the card's token
+(first letter of id + base36 position among same-letter ids, ids sorted from the `/pool` list);
+trailing checksum hashes class+ids. Indices are **pool-relative** → codes are valid only for the
+pool version that made them; a stale/typo code resolves to different ids, fails the checksum, and
+is **rejected** (never silent wrong deck). Deckbuilder: per-row ⧉ copy button + "Import code" box;
+import decodes → `createDeck`, so the **server still validates** legality. Guard: a first-letter
+group >36 cards throws (widen the index char). Verified by node round-trip over all buildable ids.
 
 **Client UI** — HS-style table, fully redesigned (see TASKS.md history):
 - Board minions = **art objects** (portrait + rarity/atk/hp gems + name tag; full card on hover).
@@ -642,6 +674,35 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
   + Warrior deck/hero-power legality in `cards_test.go`. **Remaining: art** for the 25 cards + 2
   weapon tokens + `warrior_hero.png` + `shore_up.png` (placeholders until then — see
   `.notes/classic-mapping.md` "WARRIOR"); could also enrich curated/AI decks.
+- **Warlock — fourth class, CODE DONE (2026-06-26). Full Basic + Classic Warlock set is IN.** 27
+  collectible + hero power `soul_tithe` + 4 tokens, in `internal/cards/warlock.go`; class wired into
+  `PlayableClasses`/`HeroPowerForClass`/`DefaultDeckFor`/`AIDecks` (curated `defaultWarlockDeck` +
+  `aiWarlockAggro`). New engine in `cards.go` + `match/`: `AreaFriendlyHero` (self-damage / Life Tap);
+  `EffectDiscard` + `DiscardRandom` rider (`soul_ember`/`gnawing_fiend`/`terror_fiend`); `DrawIfKills`
+  (`mortal_whisper`) + `SummonRandomIfKills` GenTribe (`doom_kiss`) riders on `EffectDamage`; `HealHero`
+  rider on `EffectDestroy` (`dark_bargain` ReqTribe Demon + heal 5, `soul_harvest` heal 3);
+  `EffectDemonfire` conditional friendly-Demon buff-or-damage (`hexfire`, uses `Effect.Tribe` so it does
+  NOT restrict targeting); `EffectConsumeAdjacent` (`ravening_horror`, self-anchored via `AreaAdjacent`);
+  `EffectShadowflame` sacrifice+AoE-by-Attack (`gloomflare`); `EffectLoseMana` (`chained_brute`);
+  `EffectCorrupt` delayed destroy at the caster's next turn start (`creeping_rot`, via minion
+  `corrupted`/`corruptedBy` + a loop in `startTurn`); `DestroyEndOfTurn` on `EffectBuff` (`forbidden_might`,
+  via minion `destroyAtTurnEnd` cleared in `clearTempBuffs`); `EffectTutorTribe` Count + `TutorFallback`
+  (`call_the_brood` draws 2 Demons, `runt_imp` if none); `CostAura.MinResult` floor (`dark_gateway`:
+  cost −2, min 1); `EffectGenerateRandom` GenTribe Demon (`dark_summons`); Demon Attack aura via existing
+  `Aura{Tribe}` (`dread_warden`); Lifesteal spell (`siphon_vitae`); `AreaAllCharacters`/`AreaOtherCharacters`
+  AoE (`infernal_blaze`/`dread_colossus` — added `AreaOtherCharacters` to the battlecry self-anchor list);
+  `EffectDestroy`+`AreaAllMinions` (`the_unmaking`); `OnTurnEnd` random-friendly buff (`gloom_imp`). **The
+  Lord-Jaraxxus card `overlord_xathul`** = `EffectReplaceHero`: set HP 15, swap hero portrait via new
+  `playerState.heroArt` → `protocol.PlayerView.HeroArt` → `Hero.tsx` `heroArt` override (separate art id
+  `overlord_xathul_hero`), swap hero power to token `infernal_eruption` (Inferno! — summon a 6/6
+  `abyss_horror`), equip token weapon `gore_scythe` 3/8, and remove the played minion (it becomes the
+  hero). Client: purple `.card.warlock` + `.deck-card.warlock`, 🔮 glyph, deckbuilder + vs-AI Warlock
+  pickers, `'warlock'` added to the `protocol.ts` class unions. Tests: `internal/match/warlock_mechanics_test.go`
+  (one per mechanic incl. ReplaceHero/Inferno) + Warlock deck/hero-power legality in `cards_test.go`.
+  **Remaining: ART** for the 27 cards + 4 tokens + `warlock_hero.png` + `soul_tithe.png` +
+  `infernal_eruption.png` + `overlord_xathul_hero.png` (placeholders until then — see
+  `.notes/classic-mapping.md` + `.notes/art-prompts.md` "WARLOCK"). **CONFIRM 3 stats** (Void Terror 3/3,
+  Siphon Soul 6 mana, Bane of Doom deal 2 — used canonical, flagged in mapping).
 - **Scope:** card-clone phase is complete — next is balance/playtest/polish or a deliberate scope
   expansion (more classes, beyond Classic/HoF). **Discuss before starting** (phase-by-phase rule).
 

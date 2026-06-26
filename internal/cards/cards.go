@@ -22,11 +22,14 @@ const (
 	ClassMage    Class = "mage"
 	ClassHunter  Class = "hunter"
 	ClassWarrior Class = "warrior"
+	ClassWarlock Class = "warlock"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
-func PlayableClasses() []Class { return []Class{ClassMage, ClassHunter, ClassWarrior} }
+func PlayableClasses() []Class {
+	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock}
+}
 
 // classPlayable reports whether decks may be built for this class.
 func classPlayable(c Class) bool {
@@ -107,6 +110,15 @@ const (
 	EffectHeroAttack     EffectKind = "heroAttack"     // give the caster's hero +Amount Attack this turn only, no weapon needed (`valiant_strike`)
 	EffectDrawPerDamaged EffectKind = "drawPerDamaged" // draw a card for each damaged friendly character (hero + minions) (`war_frenzy`)
 	EffectBrawl          EffectKind = "brawl"          // destroy every minion on both boards except one chosen at random (`pit_brawl`)
+
+	// Warlock staples (Demons, shadow, self-damage, discard, soul-tap).
+	EffectDiscard         EffectKind = "discard"         // discard Count random cards from the caster's hand (`gnawing_fiend`, `terror_fiend`)
+	EffectDemonfire       EffectKind = "demonfire"       // deal Amount to a minion; if it is a friendly minion of ReqTribe, give it +BuffAtk/+BuffHP instead (`hexfire`)
+	EffectConsumeAdjacent EffectKind = "consumeAdjacent" // destroy both friendly minions adjacent to the source, buff it by the sum of their Attack/Health (`ravening_horror`)
+	EffectShadowflame     EffectKind = "shadowflame"     // destroy the target friendly minion, deal its Attack to every enemy minion (`gloomflare`)
+	EffectLoseMana        EffectKind = "loseMana"        // destroy Amount of the caster's Mana Crystals (`chained_brute`)
+	EffectReplaceHero     EffectKind = "replaceHero"     // replace the caster's hero: set Health to Amount, new HeroArt + HeroPowerID, equip EquipWeapon (`overlord_xathul`)
+	EffectCorrupt         EffectKind = "corrupt"         // mark the target enemy minion to be destroyed at the start of the caster's NEXT turn (`creeping_rot`)
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -154,6 +166,7 @@ const (
 	AreaOtherMinions      AreaRule = "otherMinions"      // every minion on both boards except the anchor minion (self-anchored)
 	AreaFriendlyChars     AreaRule = "friendlyChars"     // the caster's hero AND every friendly minion (`darkscale_mender`)
 	AreaEnemyChars        AreaRule = "enemyChars"        // the enemy hero AND every enemy minion (`arcane_barrage` missiles)
+	AreaFriendlyHero      AreaRule = "friendlyHero"      // the caster's own hero (self-damage / Life Tap — `ember_imp`, `abyssal_brute`, `soul_tithe`)
 )
 
 // Effect is an effect's data-driven behavior. Amount is damage/heal magnitude;
@@ -209,6 +222,16 @@ type Effect struct {
 	EquipWeapon            string     `json:"equipWeapon,omitempty"`            // EffectEquip: the weapon token id to equip
 	UpgradeIfWeapon        bool       `json:"upgradeIfWeapon,omitempty"`        // EffectEquip: if the caster already has a weapon, buff it +BuffAtk/+BuffHP instead of equipping (`hone_edge`)
 	GuardMinions           bool       `json:"guardMinions,omitempty"`           // EffectDraw: also stop the caster's minions dropping below 1 Health this turn (`rallying_roar`)
+
+	// Warlock riders/fields.
+	DiscardRandom       int    `json:"discardRandom,omitempty"`       // EffectDamage: after the damage, discard this many random cards from the caster's hand (`soul_ember`)
+	DrawIfKills         bool   `json:"drawIfKills,omitempty"`         // EffectDamage: draw a card if the (single) target minion died (`mortal_whisper`)
+	SummonRandomIfKills bool   `json:"summonRandomIfKills,omitempty"` // EffectDamage: if the (single) target minion died, summon a random minion from the GenClass/GenType/GenTribe pool for the caster (`doom_kiss`)
+	HealHero            int    `json:"healHero,omitempty"`            // EffectDestroy: after destroying, restore this much Health to the caster's hero (`dark_bargain`, `soul_harvest`)
+	DestroyEndOfTurn    bool   `json:"destroyEndOfTurn,omitempty"`    // EffectBuff: the buffed minion dies at the END of this turn (`forbidden_might`)
+	TutorFallback       string `json:"tutorFallback,omitempty"`       // EffectTutorTribe: token id added to hand for each draw that found no tribe card left (`call_the_brood`)
+	HeroArt             string `json:"heroArt,omitempty"`             // EffectReplaceHero: hero-portrait art id for the replaced hero (`overlord_xathul`)
+	HeroPowerID         string `json:"heroPowerID,omitempty"`         // EffectReplaceHero: the new hero power card id (`overlord_xathul` → `infernal_eruption`)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -371,6 +394,7 @@ type CostAura struct {
 	Scope               CostScope `json:"scope,omitempty"`
 	Type                Type      `json:"type,omitempty"`
 	FirstMinionEachTurn bool      `json:"firstMinionEachTurn,omitempty"`
+	MinResult           int       `json:"minResult,omitempty"` // a reducing aura (Delta<0) won't bring an affected card below this cost (`dark_gateway`: not less than 1)
 }
 
 // CostRule is an intrinsic per-card cost modifier: the card's own printed cost
@@ -467,7 +491,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -496,6 +520,8 @@ func HeroPowerForClass(c Class) Card {
 		return set["quick_shot"]
 	case ClassWarrior:
 		return set["shore_up"]
+	case ClassWarlock:
+		return set["soul_tithe"]
 	default:
 		return set["fire_dart"]
 	}
@@ -699,6 +725,39 @@ var defaultWarriorDeck = []string{
 	"warchief_gorthak",
 }
 
+// defaultWarlockDeck is a hand-curated, playable 30-card Warlock deck: a Demon
+// tempo/midrange list leaning on the class's payoffs (cheap Demons, Shadow Lance /
+// Hexfire / Doom Kiss removal, Ravening Horror + Dread Warden as board payoffs,
+// Gloomflare as a sacrifice clear) over a small neutral core, topped by the class
+// legendary hero-swap. Self-damage cards are kept light so the curve stays stable.
+// Kept 30 cards, ≤2 of any id, ≤1 legendary — TestDefaultWarlockDeckIsLegal enforces it.
+var defaultWarlockDeck = []string{
+	// 1-drops: cheap removal + a Demon body + a Taunt.
+	"mortal_whisper", "mortal_whisper",
+	"ember_imp", "ember_imp",
+	"hollow_guardian",
+	// 2-drops: removal/buff + a Demon body.
+	"hexfire", "hexfire",
+	"gnawing_fiend", "gnawing_fiend",
+	// 3-drops: removal + sticky Demon bodies.
+	"shadow_lance", "shadow_lance",
+	"ravening_horror", "ravening_horror",
+	"chained_brute", "chained_brute",
+	// 4-drops: Demon threat + sacrifice clear.
+	"abyssal_brute", "abyssal_brute",
+	"gloomflare", "gloomflare",
+	// 5-drops: Charge body + reach + neutral wall.
+	"terror_fiend", "terror_fiend",
+	"doom_kiss", "doom_kiss",
+	"harbor_bodyguard", "harbor_bodyguard",
+	// 6-drops: AoE Demon body.
+	"dread_colossus", "dread_colossus",
+	// 7-drops: Demon anthem Taunt.
+	"dread_warden", "dread_warden",
+	// Top end: legendary hero-swap finisher.
+	"overlord_xathul",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -715,6 +774,8 @@ func DefaultDeckFor(class Class) []string {
 		return append([]string(nil), defaultHunterDeck...)
 	case ClassWarrior:
 		return append([]string(nil), defaultWarriorDeck...)
+	case ClassWarlock:
+		return append([]string(nil), defaultWarlockDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}

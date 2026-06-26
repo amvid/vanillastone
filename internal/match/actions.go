@@ -106,7 +106,7 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 			bc.Kind == cards.EffectConsumeShields || bc.Kind == cards.EffectGainWeaponAttack ||
 			bc.Kind == cards.EffectTransformRandom ||
 			bc.Area == cards.AreaAdjacent || bc.Area == cards.AreaSplash || bc.Area == cards.AreaFriendlyTribe ||
-			bc.Area == cards.AreaOtherMinions) {
+			bc.Area == cards.AreaOtherMinions || bc.Area == cards.AreaOtherCharacters) {
 		bcRef = charRef{minion: mn, owner: pi}
 	}
 	// The opponent's "enemy plays a minion" secrets (e.g. Mimic) trigger as the

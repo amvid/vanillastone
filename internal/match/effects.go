@@ -185,6 +185,7 @@ func (m *Match) effectiveCost(pi int, card cards.Card) int {
 			cost += r.PerMissingHealth * (heroMaxHP - m.state[pi].heroHP) // `magma_behemoth`: per missing Health
 		}
 	}
+	floor := 0 // `dark_gateway`: a reducing aura that won't bring an affected card below MinResult
 	for ai := 0; ai < 2; ai++ {
 		for _, src := range m.state[ai].board {
 			ca := src.card.CostAura
@@ -201,7 +202,16 @@ func (m *Match) effectiveCost(pi int, card cards.Card) int {
 				continue
 			}
 			cost += ca.Delta
+			if ca.Delta < 0 && ca.MinResult > floor {
+				floor = ca.MinResult
+			}
 		}
+	}
+	// A reducing cost aura with a floor can't push the card below that floor, but it
+	// also never raises a card that was already cheaper (the floor only clamps the
+	// reduced result). Apply it before the absolute 0-floor.
+	if floor > 0 && cost < floor && card.Cost >= floor {
+		cost = floor
 	}
 	if cost < 0 {
 		return 0
@@ -305,6 +315,23 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if eff.DrawIfSurvives && ref.minion != nil && ref.minion.health > 0 {
 			m.drawCard(caster)
 		}
+		// `mortal_whisper`: draw a card if the single target minion died to the damage.
+		if eff.DrawIfKills && ref.minion != nil && ref.minion.health <= 0 {
+			m.drawCard(caster)
+		}
+		// `doom_kiss`: if the single target minion died, summon a random minion from the
+		// configured pool (a Demon) for the caster.
+		if eff.SummonRandomIfKills && ref.minion != nil && ref.minion.health <= 0 {
+			if ids := cards.RandomGenPoolIDs(eff.GenClass, eff.GenType, eff.GenRarity, eff.GenTribe); len(ids) > 0 {
+				if c, ok := cards.Get(ids[m.rng.Intn(len(ids))]); ok {
+					m.summonMinion(caster, c)
+				}
+			}
+		}
+		// `soul_ember`: discard random cards from the caster's hand after the damage.
+		if eff.DiscardRandom > 0 {
+			m.discardRandom(caster, eff.DiscardRandom)
+		}
 		for i := 0; i < eff.ThenDraw; i++ {
 			m.drawCard(caster) // Anthem of Ambush: draw after the damage
 		}
@@ -358,6 +385,9 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			t.minion.health += bh // a +health buff raises current health too
 			if eff.DestroyNextTurn {
 				t.minion.destroyAtTurnStart = true // Nightmare: dies at the owner's next turn start
+			}
+			if eff.DestroyEndOfTurn {
+				t.minion.destroyAtTurnEnd = true // `forbidden_might`: dies at the end of THIS turn
 			}
 			m.emit(protocol.Event{Kind: "buff", Target: t.minion.uid, BuffAtk: ba, BuffHP: bh})
 		}
@@ -646,6 +676,10 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if eff.DiscardHand {
 			m.discardHand(caster) // `voidwyrm_tyrant` also discards the caster's remaining hand
 		}
+		// `dark_bargain` / `soul_harvest`: restore Health to the caster's hero after the destroy.
+		if eff.HealHero > 0 {
+			m.lifestealHeal(caster, eff.HealHero)
+		}
 	case cards.EffectResummonDead:
 		// Summon the caster's minions that died this turn, as their base cards (no
 		// buffs), in death order. Board cap applies via summonMinion. Snapshot the
@@ -804,26 +838,157 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		m.state[caster].board = append(m.state[caster].board, mn)
 		m.emit(protocol.Event{Kind: "control", Source: m.pid(caster), Target: mn.uid, Name: mn.card.Name})
 	case cards.EffectTutorTribe:
-		// Draw a random card of Effect.Tribe from the caster's deck (`corsair_macaw`).
+		// Draw Count (default 1) random cards of Effect.Tribe from the caster's deck
+		// (`corsair_macaw`). `call_the_brood` draws 2 and, when the deck has no tribe card
+		// left, adds a TutorFallback token (`runt_imp`) to hand for that draw instead.
 		ps := m.state[caster]
-		var idxs []int
-		for i, c := range ps.deck {
-			if c.Tribe == eff.Tribe {
-				idxs = append(idxs, i)
+		n := eff.Count
+		if n < 1 {
+			n = 1
+		}
+		for k := 0; k < n; k++ {
+			var idxs []int
+			for i, c := range ps.deck {
+				if c.Tribe == eff.Tribe {
+					idxs = append(idxs, i)
+				}
+			}
+			var c cards.Card
+			if len(idxs) > 0 {
+				pick := idxs[m.rng.Intn(len(idxs))]
+				c = ps.deck[pick]
+				ps.deck = append(ps.deck[:pick], ps.deck[pick+1:]...)
+			} else if eff.TutorFallback != "" {
+				fb, ok := cards.Get(eff.TutorFallback)
+				if !ok {
+					continue
+				}
+				c = fb
+			} else {
+				continue
+			}
+			if len(ps.hand) >= maxHand {
+				m.emitBurn(caster, c)
+				continue
+			}
+			ps.hand = append(ps.hand, c)
+			m.emit(protocol.Event{Kind: "generate", Target: m.pid(caster)})
+		}
+	case cards.EffectDiscard:
+		// `gnawing_fiend` / `terror_fiend`: discard Count (default 1) random cards from
+		// the caster's hand. Identities hidden (logged as burns).
+		n := eff.Count
+		if n < 1 {
+			n = 1
+		}
+		m.discardRandom(caster, n)
+	case cards.EffectDemonfire:
+		// `hexfire`: deal Amount to the target minion; but if it is a FRIENDLY minion of
+		// ReqTribe, give it +BuffAtk/+BuffHP instead of damaging it.
+		if ref.minion == nil {
+			return
+		}
+		if ref.owner == caster && ref.minion.card.Tribe == eff.Tribe {
+			ref.minion.enchants = append(ref.minion.enchants, enchant{atk: eff.BuffAtk, hp: eff.BuffHP})
+			ref.minion.health += eff.BuffHP
+			m.emit(protocol.Event{Kind: "buff", Target: ref.minion.uid, BuffAtk: eff.BuffAtk, BuffHP: eff.BuffHP})
+			return
+		}
+		m.damageMinion(ref.minion, eff.Amount+sp, srcID)
+	case cards.EffectConsumeAdjacent:
+		// `ravening_horror`: destroy both friendly minions adjacent to the source, then
+		// buff the source by the sum of their Attack and Health. Self-anchored (ref is
+		// the source). The neighbours are read off the current board order.
+		if ref.minion == nil {
+			return
+		}
+		gainAtk, gainHP := 0, 0
+		for _, adj := range m.adjacentRefs(ref, false) {
+			if adj.minion == nil {
+				continue
+			}
+			gainAtk += adj.minion.atk()
+			gainHP += adj.minion.maxHP()
+			adj.minion.health = 0
+			m.emit(protocol.Event{Kind: "destroy", Target: adj.minion.uid, Name: adj.minion.card.Name})
+		}
+		if gainAtk > 0 || gainHP > 0 {
+			ref.minion.enchants = append(ref.minion.enchants, enchant{atk: gainAtk, hp: gainHP})
+			ref.minion.health += gainHP
+			m.emit(protocol.Event{Kind: "buff", Target: ref.minion.uid, BuffAtk: gainAtk, BuffHP: gainHP})
+		}
+	case cards.EffectShadowflame:
+		// `gloomflare`: destroy the chosen friendly minion and deal its Attack to every
+		// enemy minion. The Attack is read BEFORE the minion is destroyed.
+		if ref.minion == nil {
+			return
+		}
+		dmg := ref.minion.atk() + sp
+		ref.minion.health = 0
+		m.emit(protocol.Event{Kind: "destroy", Target: ref.minion.uid, Name: ref.minion.card.Name})
+		if dmg > 0 {
+			for _, mn := range append([]*minion(nil), m.state[1-caster].board...) {
+				m.damageMinion(mn, dmg, srcID)
 			}
 		}
-		if len(idxs) == 0 {
+	case cards.EffectLoseMana:
+		// `chained_brute`: destroy Amount of the caster's Mana Crystals (max mana down,
+		// current mana clamped to it). Floored at 0.
+		ps := m.state[caster]
+		n := eff.Amount
+		if n < 1 {
+			n = 1
+		}
+		ps.maxMana -= n
+		if ps.maxMana < 0 {
+			ps.maxMana = 0
+		}
+		if ps.mana > ps.maxMana {
+			ps.mana = ps.maxMana
+		}
+	case cards.EffectReplaceHero:
+		// `overlord_xathul`: replace the caster's hero. Set Health to Amount, swap in the
+		// new hero portrait art + hero power, and equip the weapon. Armor is left as-is.
+		ps := m.state[caster]
+		ps.heroHP = min(eff.Amount, heroMaxHP)
+		ps.heroArt = eff.HeroArt
+		if hp, ok := cards.Get(eff.HeroPowerID); ok {
+			ps.heroPower = hp
+		}
+		if eff.EquipWeapon != "" {
+			if wc, ok := cards.Get(eff.EquipWeapon); ok {
+				ps.weapon = &weaponInst{card: wc, attack: wc.Attack, durability: wc.Durability}
+				m.emit(protocol.Event{Kind: "equip", Source: m.pid(caster), Name: wc.Name})
+			}
+		}
+		m.emit(protocol.Event{Kind: "sethealth", Target: m.pid(caster), Amount: ps.heroHP})
+		// The played card itself does not stay on the board — it becomes the new hero.
+		// Remove the source minion (finish() clears it); no finalGasp.
+		if src := findMinion(ps.board, srcID); src != nil {
+			src.health = 0
+			m.emit(protocol.Event{Kind: "destroy", Target: src.uid, Name: src.card.Name})
+		}
+	case cards.EffectCorrupt:
+		// `creeping_rot`: mark the chosen enemy minion to be destroyed at the start of
+		// the caster's NEXT turn (the minion lives through the opponent's turn first).
+		if ref.minion == nil {
 			return
 		}
-		pick := idxs[m.rng.Intn(len(idxs))]
-		c := ps.deck[pick]
-		ps.deck = append(ps.deck[:pick], ps.deck[pick+1:]...)
-		if len(ps.hand) >= maxHand {
-			m.emitBurn(caster, c)
-			return
-		}
-		ps.hand = append(ps.hand, c)
-		m.emit(protocol.Event{Kind: "generate", Target: m.pid(caster)})
+		ref.minion.corrupted = true
+		ref.minion.corruptedBy = caster
+	}
+}
+
+// discardRandom discards n random cards from player pi's hand (fewer if the hand is
+// smaller). Each discard is hidden info, logged only as a burn. Used by Warlock
+// discard cards (`soul_ember`, `gnawing_fiend`, `terror_fiend`).
+func (m *Match) discardRandom(pi, n int) {
+	ps := m.state[pi]
+	for i := 0; i < n && len(ps.hand) > 0; i++ {
+		j := m.rng.Intn(len(ps.hand))
+		c := ps.hand[j]
+		ps.hand = append(ps.hand[:j], ps.hand[j+1:]...)
+		m.emitBurn(pi, c)
 	}
 }
 
@@ -1132,6 +1297,8 @@ func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []char
 		return out
 	case eff.Area == cards.AreaEnemyHero:
 		return []charRef{{owner: 1 - caster}}
+	case eff.Area == cards.AreaFriendlyHero:
+		return []charRef{{owner: caster}} // self-damage / Life Tap (`ember_imp`, `soul_tithe`)
 	case eff.Area == cards.AreaAllCharacters || eff.Area == cards.AreaOtherCharacters:
 		// Both heroes and every minion; AreaOtherCharacters omits the anchor minion.
 		out := []charRef{{owner: 0}, {owner: 1}}

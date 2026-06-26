@@ -110,6 +110,35 @@ var aiWarriorDecks = [][]string{
 	aiWarriorAggro,
 }
 
+// aiWarlockAggro is a fast Demon-tempo curve: cheap Demon bodies + reach (Soul
+// Ember, Doom Kiss) + the class legendary, leaning on the bot's lethal lens. Kept
+// light on self-damage so the bot doesn't burn itself out.
+var aiWarlockAggro = []string{
+	"mortal_whisper", "mortal_whisper",
+	"ember_imp", "ember_imp",
+	"hollow_guardian", "hollow_guardian",
+	"gnawing_fiend", "gnawing_fiend",
+	"hexfire", "hexfire",
+	"shadow_lance", "shadow_lance",
+	"ravening_horror", "ravening_horror",
+	"chained_brute", "chained_brute",
+	"soul_ember", "soul_ember",
+	"abyssal_brute", "abyssal_brute",
+	"terror_fiend", "terror_fiend",
+	"doom_kiss", "doom_kiss",
+	"gloomflare", "gloomflare",
+	"dread_colossus", "dread_colossus",
+	"dread_warden",
+	"overlord_xathul",
+}
+
+// aiWarlockDecks is the pool the AI draws from for a Warlock opponent (the curated
+// default plus an aggro flavor).
+var aiWarlockDecks = [][]string{
+	defaultWarlockDeck,
+	aiWarlockAggro,
+}
+
 // AIDecks returns copies of the prebuilt AI decks for a class, or nil if the
 // class has none. The caller picks one at random.
 func AIDecks(class Class) [][]string {
@@ -121,6 +150,8 @@ func AIDecks(class Class) [][]string {
 		src = aiHunterDecks
 	case ClassWarrior:
 		src = aiWarriorDecks
+	case ClassWarlock:
+		src = aiWarlockDecks
 	default:
 		return nil
 	}

@@ -39,10 +39,13 @@ Built deliberately, one phase at a time:
 |     5 | Ladder                                                            |  ✅   |
 |     6 | Hunter class + Hunter cards                                       |  ✅   |
 |     7 | Warrior class + Warrior cards                                     |  ✅   |
-|     8 | Warlock class + Warlock cards                                     |  ⏳   |
-|     9 | Priest class + Priest cards                                       |  ⏳   |
-|    10 | Rogue class + Rogue cards                                         |  ⏳   |
-|    11 | Druid class + Druid cards                                         |  ⏳   |
+|     8 | Warlock class + Warlock cards                                     |  ✅   |
+|     9 | Import/export decks                                               |  ✅   |
+|    10 | Priest class + Priest cards                                       |  ⏳   |
+|    11 | Rogue class + Rogue cards                                         |  ⏳   |
+|    12 | Druid class + Druid cards                                         |  ⏳   |
+|    13 | Paladin class + Paladin cards                                     |  ⏳   |
+|    14 | Shaman class + Shaman cards                                       |  ⏳   |
 |    ?? | Polish UI, improve animations                                     |  ⏳   |
 
 ## Stack
