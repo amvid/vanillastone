@@ -438,6 +438,20 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **Mobile optimization (2026-06-26) — login/lobby/collection done, game screen TODO.**
+  tsc + vite green. CSS-only, one `@media (max-width: 640px)` block appended to
+  `web/src/index.css`. Root cause of prior mobile breakage: every chrome screen uses
+  `transform: scale(--u * --ui-bias)`, and transform-scale keeps the element's ORIGINAL
+  layout footprint (a 320px card scaled down still occupies 320px) → overflow on narrow
+  phones. Fix = on mobile, drop the scale (`transform: none`) and lay screens out fluidly;
+  the natural px (tuned "small on a big monitor") read normal on a phone. Changes: lobby
+  card `width: min(92vw,360px)` unscaled; player-panel re-pinned to a bottom sheet; mode
+  picker `.mode-grid` stacks + width-clamped; class picker cards fluid; deckbuilder
+  `.builder` stacks book-over-deck-panel, absolute class rail → horizontal strip, book grid
+  `repeat(4,143px)` → `repeat(3,1fr)` with `aspect-ratio:143/197`, deck panel full-width.
+  **NOT YET VERIFIED on a real device** (no browser tooling / dev server in this session).
+  **Next: game screen** (`.game-stage` uses `scale(--u * --game-bias)` — same footprint
+  issue + landscape-only layout; harder, discuss before building).
 - **Gameplay improvements (2026-06-26) — DONE.** `go test -race ./...`, vet, gofmt, tsc, vite green.
   - **Draw animation for ALL draws.** Server now emits a `draw` event per card that reaches a
     hand (`drawCard`, `state.go`) — no card identity, so an opponent's draw stays hidden. Client

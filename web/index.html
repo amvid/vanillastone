@@ -8,6 +8,15 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Shown only on a portrait phone (CSS-gated): nudge to rotate, since the
+         game is built for landscape. -->
+    <div class="rotate-hint" aria-hidden="true">
+      <div class="rotate-hint-inner">
+        <span class="rotate-ico">📱</span>
+        <p class="rotate-title">Rotate your device</p>
+        <p class="rotate-sub">Vanillastone plays best in landscape</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

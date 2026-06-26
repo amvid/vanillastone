@@ -7,7 +7,24 @@ import { CardFace } from './game/CardFace'
 import { cardColorClass } from './game/format'
 import { decodeDeck, encodeDeck } from './game/deckcode'
 
-const PER_PAGE = 8 // cards shown per book page (4 columns x 2 rows)
+const PER_PAGE_DESKTOP = 8 // cards per page (4 columns x 2 rows)
+const PER_PAGE_MOBILE = 4 // landscape phone: one short row, no scroll
+// Landscape phones are wide but very short; show a single readable row there.
+const MOBILE_MQ = '(orientation: landscape) and (max-height: 600px)'
+
+// Page size adapts to the viewport: 4 on a landscape phone, 8 elsewhere.
+function usePerPage() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ).matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_MQ)
+    const on = () => setMobile(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return mobile ? PER_PAGE_MOBILE : PER_PAGE_DESKTOP
+}
 
 // All hero classes shown in the new-deck picker. Only those the server reports as
 // playable are selectable; the rest render as "coming soon" so the roadmap is
@@ -119,8 +136,9 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     return [...set].sort()
   }, [pool])
 
-  // Any tab/filter/deck change can shrink the list — snap back to the first page.
-  useEffect(() => setPage(0), [tab, manaFilter, rarityFilter, tribeFilter, activeClass])
+  const perPage = usePerPage()
+  // Any tab/filter/deck/page-size change can shrink the list — snap to page one.
+  useEffect(() => setPage(0), [tab, manaFilter, rarityFilter, tribeFilter, activeClass, perPage])
 
   if (!pool) {
     return (
@@ -134,8 +152,8 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
 
   const { deckSize, maxCopies, maxDecks } = pool
   const editCounts = editing ? counts(editing.cards) : {}
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const pageCards = filtered.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)
+  const pageCount = Math.max(1, Math.ceil(filtered.length / perPage))
+  const pageCards = filtered.slice(page * perPage, page * perPage + perPage)
 
   // Copy cap for a card: legendaries are limited to one (HS rule), others to
   // maxCopies. Server enforces this too.
@@ -319,9 +337,34 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   <path d="M12 2.5 20 7 V17 L12 21.5 4 17 V7 Z" strokeLinejoin="round" />
                 </svg>
               </button>
+              {/* Page + card count ride the rail's right end on a landscape phone
+                  (hidden on desktop, where they live in their own rows). */}
+              <span className="rail-meta">
+                <span className="rail-page">{page + 1} / {pageCount}</span>
+                <span className="rail-count">{filtered.length} cards</span>
+              </span>
             </div>
 
             <div className="book">
+              {/* Page nav lives on the book itself (full-height left/right edges)
+                  instead of a separate button row below — saves vertical space,
+                  same on desktop. */}
+              <button
+                className="book-nav prev"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+              <button
+                className="book-nav next"
+                disabled={page >= pageCount - 1}
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                aria-label="Next page"
+              >
+                ›
+              </button>
               <div className="book-grid">
               {pageCards.map((c) => {
                 const n = editCounts[c.cardId] ?? 0
@@ -341,7 +384,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               {/* Pad a short (or empty) page with invisible slots so the grid keeps a
                  full page's width and height (never shrinks/reflows) — including when
                  zero cards match, where these hold the columns up under the message. */}
-              {Array.from({ length: PER_PAGE - pageCards.length }, (_, i) => (
+              {Array.from({ length: perPage - pageCards.length }, (_, i) => (
                 <div key={`pad-${i}`} className="book-card placeholder" aria-hidden="true" />
               ))}
               {pageCards.length === 0 && <p className="empty-collection">No cards match these filters.</p>}
@@ -362,16 +405,8 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
             )}
             </div>
           </div>
-          <div className="pager">
-            <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-              ‹ Prev
-            </button>
-            <span className="page-no">
-              Page {page + 1} / {pageCount}
-            </span>
-            <button disabled={page >= pageCount - 1} onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
-              Next ›
-            </button>
+          <div className="book-page">
+            {page + 1} / {pageCount}
           </div>
         </main>
 

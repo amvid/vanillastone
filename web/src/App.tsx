@@ -15,6 +15,24 @@ const TOKEN_KEY = 'vs_token'
 // selection; the server backstops a hair later (see mulliganLimit).
 const MULLIGAN_SECS = 20
 
+// When an open dropdown has little room below the trigger (short/landscape
+// viewport), flip its menu above the trigger instead of letting it spill
+// off-screen. Returns true = render upward (adds the `.up` class).
+function useDropUp(open: boolean, ref: React.RefObject<HTMLDivElement>) {
+  const [up, setUp] = useState(false)
+  useEffect(() => {
+    if (!open || !ref.current) {
+      setUp(false)
+      return
+    }
+    const r = ref.current.getBoundingClientRect()
+    const below = window.innerHeight - r.bottom
+    // Flip only when below is tight AND there's genuinely more room above.
+    setUp(below < 240 && r.top > below)
+  }, [open, ref])
+  return up
+}
+
 /** Custom deck dropdown — options show the class art icon like the deck-builder rows. */
 function DeckSelect({
   options,
@@ -35,10 +53,11 @@ function DeckSelect({
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [open])
+  const up = useDropUp(open, ref)
   const sel = options.find((o) => o.id === value) ?? options[0]
   if (!sel) return null // no decks loaded yet
   return (
-    <div className={'deck-select' + (open ? ' open' : '')} ref={ref}>
+    <div className={'deck-select' + (open ? ' open' : '') + (up ? ' up' : '')} ref={ref}>
       <button type="button" className="deck-select-trigger" onClick={() => setOpen((v) => !v)}>
         <span className="deck-row-art" style={{ backgroundImage: `url('/art/${sel.class}_hero.png')` }} />
         <span className="deck-row-text">{sel.name}</span>
@@ -87,10 +106,11 @@ function FancySelect({
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [open])
+  const up = useDropUp(open, ref)
   const sel = options.find((o) => o.value === value) ?? options[0]
   if (!sel) return null
   return (
-    <div className={'deck-select' + (open ? ' open' : '')} ref={ref}>
+    <div className={'deck-select' + (open ? ' open' : '') + (up ? ' up' : '')} ref={ref}>
       <button type="button" className="deck-select-trigger" onClick={() => setOpen((v) => !v)}>
         {sel.art && <span className="deck-row-art" style={{ backgroundImage: `url('${sel.art}')` }} />}
         <span className="deck-row-text">{sel.label}</span>
@@ -154,6 +174,9 @@ function ProfileModal({ user, onClose }: { user: string; onClose: () => void }) 
   return (
     <div className="overlay" onClick={onClose}>
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-x" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
         <div className="stats-head">
           <span className="stats-title">{user}</span>
           {data && (
@@ -197,9 +220,6 @@ function ProfileModal({ user, onClose }: { user: string; onClose: () => void }) 
             </tbody>
           </table>
         )}
-        <button className="stats-close" onClick={onClose}>
-          Close
-        </button>
       </div>
     </div>
   )
@@ -222,6 +242,9 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
   return (
     <div className="overlay" onClick={onClose}>
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-x" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
         <div className="stats-head">
           <span className="stats-title">🏆 Leaderboard</span>
         </div>
@@ -252,9 +275,6 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
             </tbody>
           </table>
         )}
-        <button className="stats-close" onClick={onClose}>
-          Close
-        </button>
       </div>
     </div>
   )
@@ -1077,6 +1097,10 @@ export function App() {
     const waiting = phase === 'waiting'
     return (
       <div className="lobby-screen">
+        {/* On a landscape phone this wrapper becomes a single bordered panel
+            holding the lobby card + players list as two sections; on desktop it
+            is display:contents (no effect) so the panel stays fixed as before. */}
+        <div className="lobby-merge">
         <div className="lobby-card">
           <h1 className="logo">Vanillastone</h1>
           <p className="welcome">
@@ -1128,17 +1152,21 @@ export function App() {
         {playModal && !waiting && (
           <div className="overlay" onClick={() => setPlayModal(false)}>
             <div className="mode-picker" onClick={(e) => e.stopPropagation()}>
-              <h2>Choose how to play</h2>
-
-              {/* Your deck — shared by every mode. */}
-              <label className="mode-deck">
-                <span>Your deck</span>
-                <DeckSelect
-                  value={selectedDeck}
-                  onChange={setSelectedDeck}
-                  options={decks}
-                />
-              </label>
+              {/* Title + shared deck selector + close on one row. */}
+              <div className="mode-top">
+                <h2>Choose how to play</h2>
+                <label className="mode-deck">
+                  <span>Your deck</span>
+                  <DeckSelect
+                    value={selectedDeck}
+                    onChange={setSelectedDeck}
+                    options={decks}
+                  />
+                </label>
+                <button className="mode-close" onClick={() => setPlayModal(false)} aria-label="Close">
+                  ✕
+                </button>
+              </div>
 
               <div className="mode-grid">
                 <div className="mode-card">
@@ -1207,9 +1235,6 @@ export function App() {
                   <span className="mode-soon">Coming soon</span>
                 </div>
               </div>
-              <button className="mode-cancel" onClick={() => setPlayModal(false)}>
-                Cancel
-              </button>
             </div>
           </div>
         )}
@@ -1285,6 +1310,7 @@ export function App() {
               </aside>
             )
           })()}
+        </div>
 
         {challengeTarget !== null && (
           <div className="invite-overlay" onClick={() => setChallengeTarget(null)}>
