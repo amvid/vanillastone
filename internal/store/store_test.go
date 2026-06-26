@@ -88,3 +88,101 @@ func TestListDecksScoped(t *testing.T) {
 		t.Fatalf("alice should have 2 decks, got %d", len(decks))
 	}
 }
+
+// TestRecordResultStats verifies the ranked-stats round-trip: per-class W/L is
+// tallied (overall = sum across classes), hidden Elo moves zero-sum so the winner
+// outranks the loser, and a player with no games is unranked. The why: the ladder
+// must order by skill (rating), not raw winrate, and the profile must split W/L by
+// class without that split affecting the overall total.
+func TestRecordResultStats(t *testing.T) {
+	s := newStore(t)
+	// alice beats bob twice (once as mage, once as hunter); bob beats alice once.
+	if err := s.RecordResult("alice", "bob", "mage", "mage"); err != nil {
+		t.Fatalf("record 1: %v", err)
+	}
+	if err := s.RecordResult("alice", "bob", "hunter", "mage"); err != nil {
+		t.Fatalf("record 2: %v", err)
+	}
+	if err := s.RecordResult("bob", "alice", "mage", "mage"); err != nil {
+		t.Fatalf("record 3: %v", err)
+	}
+
+	ap, err := s.GetProfile("alice")
+	if err != nil {
+		t.Fatalf("profile alice: %v", err)
+	}
+	// Overall = sum across classes: 2W (mage+hunter) / 1L (mage).
+	if ap.Wins != 2 || ap.Losses != 1 {
+		t.Fatalf("alice overall want 2-1, got %d-%d", ap.Wins, ap.Losses)
+	}
+	if len(ap.Classes) != 2 {
+		t.Fatalf("alice should have 2 class rows, got %d", len(ap.Classes))
+	}
+	// alice won net more, so her hidden rating (and thus rank) must beat bob's.
+	bp, _ := s.GetProfile("bob")
+	if !(ap.Rating > bp.Rating) {
+		t.Fatalf("winner rating should exceed loser: alice=%d bob=%d", ap.Rating, bp.Rating)
+	}
+	if ap.Rank != 1 || bp.Rank != 2 {
+		t.Fatalf("ranks want alice=1 bob=2, got alice=%d bob=%d", ap.Rank, bp.Rank)
+	}
+	// Elo is zero-sum: what alice gained net, bob lost net (both started at base).
+	if (ap.Rating - baseRating) != (baseRating - bp.Rating) {
+		t.Fatalf("rating swing not zero-sum: alice=%d bob=%d base=%d", ap.Rating, bp.Rating, baseRating)
+	}
+
+	// A user who never played is unranked with no records.
+	np, err := s.GetProfile("nobody")
+	if err != nil {
+		t.Fatalf("profile nobody: %v", err)
+	}
+	if np.Ranked || np.Rank != 0 || np.Wins != 0 || len(np.Classes) != 0 {
+		t.Fatalf("unplayed user should be unranked/0-0, got %+v", np)
+	}
+}
+
+// TestTopPlayersOrder: the leaderboard orders by hidden rating (skill), so a
+// grinder with many net wins outranks a 1-0 player — the whole reason raw winrate
+// is not the sort key.
+func TestTopPlayersOrder(t *testing.T) {
+	s := newStore(t)
+	// grinder: many net wins. rookie: a single win (100% winrate, tiny sample).
+	for i := 0; i < 10; i++ {
+		s.RecordResult("grinder", "punching_bag", "mage", "mage")
+	}
+	s.RecordResult("rookie", "punching_bag", "mage", "mage")
+	top, err := s.TopPlayers(10)
+	if err != nil {
+		t.Fatalf("top: %v", err)
+	}
+	if len(top) == 0 || top[0].Username != "grinder" {
+		t.Fatalf("grinder should top the ladder over a 1-0 rookie, got %+v", top)
+	}
+}
+
+// TestRanksAreUnique: two players on the SAME hidden rating must still get
+// distinct ranks (tie-broken by username), so no two players ever occupy the same
+// ladder position — and that order matches the leaderboard.
+func TestRanksAreUnique(t *testing.T) {
+	s := newStore(t)
+	// alice and bob each win one game from base vs a different opponent, so both
+	// land on the identical post-win rating.
+	s.RecordResult("alice", "bag1", "mage", "mage")
+	s.RecordResult("bob", "bag2", "mage", "mage")
+	ap, _ := s.GetProfile("alice")
+	bp, _ := s.GetProfile("bob")
+	if ap.Rating != bp.Rating {
+		t.Fatalf("test setup: expected equal ratings, got alice=%d bob=%d", ap.Rating, bp.Rating)
+	}
+	if ap.Rank == bp.Rank {
+		t.Fatalf("tied ratings must not share a rank: alice=%d bob=%d", ap.Rank, bp.Rank)
+	}
+	if ap.Rank != 1 || bp.Rank != 2 {
+		t.Fatalf("tie-break by username: want alice=1 bob=2, got alice=%d bob=%d", ap.Rank, bp.Rank)
+	}
+	// Rank order must agree with the leaderboard order.
+	top, _ := s.TopPlayers(10)
+	if top[0].Username != "alice" || top[1].Username != "bob" {
+		t.Fatalf("leaderboard order must match ranks: %+v", top[:2])
+	}
+}

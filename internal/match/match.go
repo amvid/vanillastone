@@ -273,6 +273,17 @@ type Match struct {
 	aiSeat int
 	aiRng  *rand.Rand
 
+	// Ranked stats. class[pi] is each seat's deck class (for per-class W/L); rank[pi]
+	// is each seat's ladder position at match start (0 = unranked / AI), shown on the
+	// in-game nameplate. ranked marks a competitive (matchmaking-queue) game whose
+	// result is persisted; onEnd fires once when a hero dies, with the winning seat,
+	// so the transport can record the result. resultDone guards against a double-fire.
+	class      [2]cards.Class
+	rank       [2]int
+	ranked     bool
+	onEnd      func(winnerSeat int)
+	resultDone bool
+
 	// startGame[pi] is the "Start of Game" card that actually fired for seat pi
 	// (duskwarden_genmar / lunar_devourer), or nil. Revealed center-stage to both
 	// players once the mulligan ends (beginPlay) so they understand the Hero Power change.
@@ -297,6 +308,7 @@ func New(id string, a, b Sender, seed int64, deckA, deckB []cards.Card) *Match {
 		turnDuration: turnLimit,
 		observers:    make(map[Sender]int),
 		aiSeat:       -1, // human-vs-human unless EnableAI is called
+		class:        [2]cards.Class{cards.DeckClass(deckA), cards.DeckClass(deckB)},
 	}
 	// Start-of-Game passives (deck-construction gated) resolve off the full deck,
 	// before it is shuffled and the opening hand is dealt.

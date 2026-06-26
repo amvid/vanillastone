@@ -33,6 +33,8 @@ func main() {
 	mux.HandleFunc("/pool", au.HandlePool)
 	mux.HandleFunc("/decks", au.HandleDecks)
 	mux.HandleFunc("/decks/{id}", au.HandleDeck)
+	mux.HandleFunc("/profile", au.HandleProfile)
+	mux.HandleFunc("/leaderboard", au.HandleLeaderboard)
 	mux.HandleFunc("/ws", ts.HandleWS)
 	mux.Handle("/", http.FileServer(http.FS(web.FS())))
 

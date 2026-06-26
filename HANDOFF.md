@@ -5,7 +5,10 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-26** (**Hunter COMPLETE** — Phase A (class wiring + hero power + data-only
+Last updated: **2026-06-26** (**Ranked stats + leaderboard COMPLETE** — first persistent
+match-result layer: hidden Elo shown only as a unique ladder rank, per-class W/L, `/profile` +
+`/leaderboard`, in-game rank nameplates, win/loss rank-change. Matchmaking-queue games only — vs-AI
+and invites don't count. See "Open / next" Ranked stats. Prev: **Hunter COMPLETE** — Phase A (class wiring + hero power + data-only
 cards) AND phases B–E (all mechanic-gated cards: traps/secrets, conditional/random/splash damage,
 set-minion-health, keyword auras, minion Immune, seek-from-deck, weapon triggers) are now IN. The
 full Hunter set (Basic + Classic) is implemented + unit-tested; new engine vocab in `cards.go`, new
@@ -23,9 +26,11 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-now: **160/218 collectible art files placed** + **12/41 token art files placed**. Reworked
+now: **164/218 collectible art files placed** + **41/41 token art files placed**. Reworked
 `chronlord_zhal`, `dreamwarden_ylena`, `emberqueen_valtha`, and `spelltide_wyrm` on 2026-06-26;
-Ylena's five dream tokens are now also done. `pyrebolt` is counted as collectible Basic Mage art. Prev:
+Ylena's five dream tokens are now also done. Finished the remaining token backlog on 2026-06-26
+and also added missing source-card art for `tideling_hunter`, `razorthorn_hunter`, `reaper_golem`,
+and `errant_knight`. `pyrebolt` is counted as collectible Basic Mage art. Prev:
 art in progress — 104/140 collectible art files placed + 2 tokens:
 `pyrebolt`, `mana_surge`; collectibles placed = all 32 legendaries + all 13 neutral epics + first
 neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender`, `rune_warden`, `acolyte_novice`, `brackish_caller` + all 16 non-legendary Mage collectible art files
@@ -75,21 +80,18 @@ checked the source/spawning card first (`call_the_pack`, `mane_lioness`, `unleas
 legendary arts: `chronlord_zhal` (141KB), `dreamwarden_ylena` (122KB), `emberqueen_valtha` (117KB),
 and `spelltide_wyrm` (130KB). Ylena dream-token art complete: `dream_daydream` (101KB),
 `dream_verdant_drake` (118KB), `dream_gleeful_sister` (116KB), `dream_waking_nightmare` (122KB),
-and `dream_emerald_reckoning` (117KB). Current computed card/art status: deck-buildable cards
-**218** total (179 minions, 26 spells, 11 secrets, 2 weapons), hero powers **2**, tokens **41**
-total (33 minion tokens, 8 spell tokens). Art status: collectible **160/218**, token **12/41**,
-remaining token art **29**. Next session: return to the remaining Basic/default neutral collectible
-queue or continue the broader token backlog.
-
-Token art backlog is larger than Hunter. Missing token art includes Mage tokens
+and `dream_emerald_reckoning` (117KB). Remaining token art is now complete too: Mage tokens
 `mirage_image`, `critter`, `conjured_decoy`; neutral summon/generated tokens `tideling_scout`,
 `thornback_boar`, `clockwork_whelp`, `broken_golem`, `errant_squire`, `hornelder_heir`,
 `tutors_pupil`, `snarl_pup`, `emberwing_whelp`, `gorehound_whelp`, `thornback_saurian`,
 `bramble_squirrel`, `thornwood_satyr`, `imp_whelp`, `jungle_gift`; Warhorn tokens
 `anthem_muster`, `anthem_warsong`, `anthem_ambush`, `tide_recruit`, `warsong_grunt`,
 `warsong_reaver`; and Gearmaster Cog tokens `cog_emboldener`, `cog_beacon`, `cog_polymorpher`,
-`cog_mender`, `cog_chick`. `mana_surge`, all Hunter tokens, and all Ylena dream tokens already
-have token art.
+`cog_mender`, `cog_chick`. Current computed card/art status: deck-buildable cards **218** total
+(179 minions, 26 spells, 11 secrets, 2 weapons), hero powers **2**, tokens **41** total
+(33 minion tokens, 8 spell tokens). Art status: collectible **164/218**, token **41/41**,
+remaining token art **0**. Next session: return to the remaining Basic/default neutral
+collectible queue.
 IMPORTANT: place card art only into `web/public/art/`; do **not** manually copy card art into
 `web/static/art/`. The build copies public assets when needed.
 Workflow: generate a batch of up to 5 raw previews with the locked cel-shaded/top-35%-empty style,
@@ -344,6 +346,28 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **Ranked stats + leaderboard (2026-06-26) — DONE.** First persistent match-result
+  layer. `go test -race ./...`, vet, gofmt, tsc, vite all green.
+  - **Ranking = hidden Elo, shown only as ladder rank.** `store`: new `ratings`
+    (username→rating, base 1000) + `results` (username,class→W/L) tables. `RecordResult`
+    updates both players' Elo (zero-sum, K=24, ≥1/game) + per-class W/L in one tx, guarded by
+    `ratingMu` so concurrent finishes can't compute off a stale rating. **Rank is unique** — ties
+    broken by username (`rating > ? OR (rating = ? AND username < ?)`), matching the leaderboard
+    order (`rating DESC, username ASC`). Rating is NEVER sent to the client. Tests:
+    `TestRecordResultStats`, `TestTopPlayersOrder`, `TestRanksAreUnique`.
+  - **Only matchmaking-queue (random PvP) games count.** vs-AI and direct invites are NOT ranked.
+    `Match` gained `class[2]`/`rank[2]`/`ranked`/`onEnd`/`resultDone`; `finish()` fires the one-shot
+    `onEnd(winnerSeat)` BEFORE broadcasting `game_over` (so the write completes before clients are
+    notified — no test/teardown race). `transport.attachMatch` wires the hook (captures
+    ranked/players/oldRanks → no match-lock re-entry, runs synchronously); `handleFindMatch` queue
+    branch calls `m.SetRanked(true)`.
+  - **HTTP (public, no token):** `GET /profile?user=<name>` → rank + overall + per-class W/L/winrate;
+    `GET /leaderboard` → top 10. In `internal/auth/stats_http.go`.
+  - **Client:** `api.ts` `fetchProfile`/`fetchLeaderboard`; lobby **🏆 Leaderboard** + **👤 My profile**
+    buttons; online-player names + leaderboard rows are clickable → `ProfileModal`. In-game nameplates
+    show `#rank username` (from `PlayerView.rank`, a match-start snapshot). Win/loss screen shows a
+    rank-change line via new `rank_update` msg (`{oldRank,newRank}`): green up / red down / white same /
+    green "New rank" when `oldRank==0`.
 - **Auth UX + validation hardening (2026-06-25) — DONE.** Server (`internal/auth/auth.go`):
   username trimmed + restricted to `[A-Za-z0-9_]{3,20}` (`usernameRe`), password bounded
   6–72 (bcrypt's 72-byte input limit, rejected up front → clean 400 not 500). Login trims too,

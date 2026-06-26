@@ -108,6 +108,13 @@ func (m *Match) finish() {
 	if dead >= 0 {
 		m.over = true
 		m.stopTurnTimer()
+		// Persist the result exactly once (ranked games only; the callback checks)
+		// BEFORE announcing game over, so a player can never observe the end before
+		// the ladder is updated. The hook is non-blocking and touches no m.mu state.
+		if m.onEnd != nil && !m.resultDone {
+			m.resultDone = true
+			m.onEnd(1 - dead)
+		}
 		m.sendStateAll()
 		m.broadcast(protocol.Marshal(protocol.GameOver{
 			Type:   protocol.TypeGameOver,
@@ -302,6 +309,7 @@ func (m *Match) selfView(pi int, name string) protocol.PlayerView {
 	}
 	return protocol.PlayerView{
 		Name:          name,
+		Rank:          m.rank[pi],
 		HeroHP:        ps.heroHP,
 		Armor:         ps.armor,
 		Frozen:        ps.frozen,
@@ -328,6 +336,7 @@ func (m *Match) oppView(pi int, name string) protocol.PlayerView {
 	ps := m.state[pi]
 	return protocol.PlayerView{
 		Name:          name,
+		Rank:          m.rank[pi],
 		HeroHP:        ps.heroHP,
 		Armor:         ps.armor,
 		Frozen:        ps.frozen,

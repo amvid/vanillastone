@@ -65,6 +65,7 @@ export type MinionView = {
 
 export type PlayerView = {
   name?: string // display username
+  rank?: number // ladder position at match start (0/absent = unranked or AI)
   heroHP: number
   armor?: number // absorbs damage before health
   frozen?: boolean // hero frozen (blocks weapon attacks)
@@ -183,6 +184,7 @@ export type ServerMessage =
   | { type: 'opp_seek'; count: number } // opponent is choosing a Seek card
   | ({ type: 'opp_intent' } & OppIntent) // ephemeral: what the opponent is hovering / aiming at
   | { type: 'game_over'; winner: string }
+  | { type: 'rank_update'; oldRank: number; newRank: number } // ranked game end: your ladder change
   | { type: 'opp_conn'; connected: boolean } // opponent dropped / reconnected
   | { type: 'invite_received'; from: string } // someone challenged you
   | { type: 'invite_declined'; by: string } // your invite was refused / dropped

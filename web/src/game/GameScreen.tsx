@@ -32,6 +32,9 @@ export type GameScreenProps = {
   turnSecs: number
   turnNum: number
   winner: string | null
+  // Ladder rank change for a finished ranked game (null when unranked/AI), shown
+  // on the win/loss screen.
+  rankUpdate?: { oldRank: number; newRank: number } | null
   attacker: string | null
   spell: PendingSpell | null
   heroPowerArmed: boolean
@@ -70,6 +73,7 @@ export function GameScreen(props: GameScreenProps) {
     turnSecs,
     turnNum,
     winner,
+    rankUpdate,
     attacker,
     spell,
     heroPowerArmed,
@@ -956,8 +960,26 @@ export function GameScreen(props: GameScreenProps) {
                     : 'Defeat'}
               </div>
               {!spectator && <div className="go-sub">vs {snap.opp.name || 'Opponent'}</div>}
-              {/* Reserved for post-match details (rating change, rewards, …). */}
-              <div className="go-stats" />
+              {/* Ranked ladder change (ranked PvP only). Lower number = better:
+                  green when you climbed (or placed for the first time), red when you
+                  dropped, white when unchanged. */}
+              {!spectator && rankUpdate
+                ? (() => {
+                    const { oldRank, newRank } = rankUpdate
+                    const improved = oldRank === 0 || newRank < oldRank
+                    const worse = oldRank !== 0 && newRank > oldRank
+                    const cls = improved ? 'up' : worse ? 'down' : 'same'
+                    const arrow = improved ? '▲' : worse ? '▼' : '—'
+                    return (
+                      <div className={'go-rank ' + cls}>
+                        <span className="go-rank-num">Rank #{newRank}</span>
+                        <span className="go-rank-delta">
+                          {arrow} {oldRank === 0 ? 'New rank' : `from #${oldRank}`}
+                        </span>
+                      </div>
+                    )
+                  })()
+                : <div className="go-stats" />}
               <button className="go-exit" onClick={onBackToLobby}>
                 Back to lobby
               </button>
@@ -1066,8 +1088,14 @@ export function GameScreen(props: GameScreenProps) {
         <DeckPile side="opp" count={snap.opp.deckCount} />
         <DeckPile side="self" count={snap.self.deckCount} />
 
-        <div className="player-name opp">{snap.opp.name || 'Opponent'}</div>
-        <div className="player-name self">{snap.self.name || name}</div>
+        <div className="player-name opp">
+          {snap.opp.rank ? <span className="pn-rank">#{snap.opp.rank}</span> : null}
+          {snap.opp.name || 'Opponent'}
+        </div>
+        <div className="player-name self">
+          {snap.self.rank ? <span className="pn-rank">#{snap.self.rank}</span> : null}
+          {snap.self.name || name}
+        </div>
 
         {spectator ? (
           <div className="spectate-banner">

@@ -82,3 +82,32 @@ export async function deleteDeck(token: string, id: number): Promise<void> {
   const res = await fetch(`/decks/${id}`, { method: 'DELETE', headers: authHeaders(token) })
   if (!res.ok) throw new Error(await errorMessage(res, 'failed to delete deck'))
 }
+
+// --- Ranked stats (PvP-queue games only). Public reads, no token needed. ---
+
+export type ClassStat = { class: string; wins: number; losses: number; winrate: number }
+export type Profile = {
+  username: string
+  ranked: boolean
+  rank: number // 0 = unranked
+  wins: number
+  losses: number
+  winrate: number
+  classes: ClassStat[]
+}
+export type LeaderRow = { rank: number; username: string; wins: number; losses: number; winrate: number }
+
+// fetchProfile returns a player's ranked stats (rank + overall + per-class W/L).
+export async function fetchProfile(user: string): Promise<Profile> {
+  const res = await fetch(`/profile?user=${encodeURIComponent(user)}`)
+  if (!res.ok) throw new Error(await errorMessage(res, 'failed to load profile'))
+  return (await res.json()) as Profile
+}
+
+// fetchLeaderboard returns the top players by ladder rank.
+export async function fetchLeaderboard(): Promise<LeaderRow[]> {
+  const res = await fetch('/leaderboard')
+  if (!res.ok) throw new Error(await errorMessage(res, 'failed to load leaderboard'))
+  const data = (await res.json()) as { players: LeaderRow[] | null }
+  return data.players ?? []
+}

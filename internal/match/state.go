@@ -11,6 +11,42 @@ func (m *Match) Players() [2]Sender {
 	return m.players
 }
 
+// SetRanked marks the match competitive: its result is persisted when it ends.
+// Only matchmaking-queue games are ranked (not invites or vs-AI).
+func (m *Match) SetRanked(v bool) {
+	m.mu.Lock()
+	m.ranked = v
+	m.mu.Unlock()
+}
+
+// SetRanks records each seat's ladder position (0 = unranked / AI) for the
+// in-game nameplate. Call before play begins; the value is a match-start
+// snapshot and does not update mid-game.
+func (m *Match) SetRanks(r0, r1 int) {
+	m.mu.Lock()
+	m.rank = [2]int{r0, r1}
+	m.mu.Unlock()
+}
+
+// OnEnd registers a one-shot callback invoked with the winning seat index when a
+// hero dies. The transport uses it to persist a ranked result; the callback must
+// not block (it runs while the match lock is held).
+func (m *Match) OnEnd(fn func(winnerSeat int)) {
+	m.mu.Lock()
+	m.onEnd = fn
+	m.mu.Unlock()
+}
+
+// Ranked reports whether this match's result should be persisted.
+func (m *Match) Ranked() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.ranked
+}
+
+// SeatClass returns the deck class played at seat i (immutable after creation).
+func (m *Match) SeatClass(i int) cards.Class { return m.class[i] }
+
 // Over reports whether the match has finished (a hero died). Used by the
 // transport layer to count players still in active games.
 func (m *Match) Over() bool {

@@ -3736,3 +3736,176 @@ button {
   padding: 7px 18px;
   cursor: pointer;
 }
+
+/* --- Ranked stats: lobby buttons, profile / leaderboard modals, rank badges --- */
+
+/* Leaderboard + My-profile pair, sitting under the deck-builder button. */
+.lobby-stats-row {
+  display: flex;
+  gap: 8px;
+}
+.stats-btn {
+  flex: 1;
+  background: #2a3140;
+  border: 1px solid #4a5668;
+  color: #cde;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+}
+.stats-btn:hover {
+  background: #333c4d;
+}
+
+/* A clickable player name in the online list (now a <button>): strip the chrome. */
+.pl-name {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+.pl-name:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* Shared modal shell for profile + leaderboard. */
+.stats-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 360px;
+  max-width: 90vw;
+  padding: 24px 28px;
+  border-radius: 14px;
+  background: linear-gradient(#1c2230, #11151e);
+  border: 1px solid #3a4252;
+  box-shadow: 0 18px 50px #000b;
+}
+.stats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #2c3444;
+  padding-bottom: 10px;
+}
+.stats-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #e8e0c8;
+}
+.stats-rank {
+  font-size: 15px;
+  font-weight: bold;
+  color: #d8a23a;
+}
+.stats-loading,
+.stats-err {
+  color: #aeb8c8;
+  text-align: center;
+  margin: 8px 0;
+}
+.stats-err {
+  color: #e07a70;
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.stats-table th {
+  text-align: right;
+  color: #8aa;
+  font-weight: normal;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-bottom: 1px solid #2c3444;
+}
+.stats-table th:first-child {
+  text-align: left;
+}
+.stats-table td {
+  text-align: right;
+  padding: 6px 10px;
+  color: #cde;
+}
+.stats-table td:first-child {
+  text-align: left;
+}
+.stats-overall td {
+  font-weight: bold;
+  color: #e8e0c8;
+  border-bottom: 1px solid #2c3444;
+}
+.stats-class {
+  text-transform: capitalize;
+  color: #9fc0e6;
+}
+.stats-empty {
+  color: #8aa;
+  text-align: center;
+}
+.stats-close {
+  align-self: center;
+  margin-top: 4px;
+  background: #2a3140;
+  border: 1px solid #4a5668;
+  color: #cde;
+  border-radius: 8px;
+  padding: 9px 24px;
+  cursor: pointer;
+}
+.stats-close:hover {
+  background: #333c4d;
+}
+
+/* Leaderboard rows are clickable (open that player's profile). */
+.lb-row {
+  cursor: pointer;
+}
+.lb-row:hover td {
+  background: #232b3a;
+}
+.lb-rank {
+  color: #d8a23a;
+  font-weight: bold;
+}
+.lb-name {
+  color: #9fc0e6;
+}
+
+/* Game-over rank-change line: green up, red down, white unchanged. */
+.go-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.go-rank-num {
+  font-size: 24px;
+  font-weight: bold;
+}
+.go-rank-delta {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.go-rank.up .go-rank-num,
+.go-rank.up .go-rank-delta {
+  color: #6ad08a;
+}
+.go-rank.down .go-rank-num,
+.go-rank.down .go-rank-delta {
+  color: #e07a70;
+}
+.go-rank.same .go-rank-num,
+.go-rank.same .go-rank-delta {
+  color: #e8e8e8;
+}
+
+/* In-game nameplate rank prefix. */
+.pn-rank {
+  color: #d8a23a;
+  margin-right: 6px;
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listDecks, login, register } from './api'
-import type { Deck } from './api'
+import { fetchLeaderboard, fetchProfile, listDecks, login, register } from './api'
+import type { Deck, LeaderRow, Profile } from './api'
 import { Deckbuilder } from './Deckbuilder'
 import type { CardView, Event, MinionView, OppIntent, PlayerInfo, ServerMessage, Snapshot } from './protocol'
 import type { CharKind, Counts, LogEntry, PendingSpell, Phase } from './game/types'
@@ -135,6 +135,131 @@ function passwordError(p: string): string | null {
   return null
 }
 
+/** ProfileModal — a player's ranked stats: rank, overall W/L/winrate, then a row
+ *  per class. Fetches on open. Per-class rows are cosmetic; overall = their sum. */
+function ProfileModal({ user, onClose }: { user: string; onClose: () => void }) {
+  const [data, setData] = useState<Profile | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    let live = true
+    setData(null)
+    setErr('')
+    fetchProfile(user)
+      .then((p) => live && setData(p))
+      .catch((e) => live && setErr(String(e.message ?? e)))
+    return () => {
+      live = false
+    }
+  }, [user])
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="stats-head">
+          <span className="stats-title">{user}</span>
+          {data && (
+            <span className="stats-rank">{data.ranked ? `Rank #${data.rank}` : 'Unranked'}</span>
+          )}
+        </div>
+        {err && <p className="stats-err">{err}</p>}
+        {!data && !err && <p className="stats-loading">Loading…</p>}
+        {data && (
+          <table className="stats-table">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>W</th>
+                <th>L</th>
+                <th>Win %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="stats-overall">
+                <td>Overall</td>
+                <td>{data.wins}</td>
+                <td>{data.losses}</td>
+                <td>{data.winrate}%</td>
+              </tr>
+              {data.classes.map((c) => (
+                <tr key={c.class}>
+                  <td className="stats-class">{c.class}</td>
+                  <td>{c.wins}</td>
+                  <td>{c.losses}</td>
+                  <td>{c.winrate}%</td>
+                </tr>
+              ))}
+              {data.classes.length === 0 && (
+                <tr>
+                  <td className="stats-empty" colSpan={4}>
+                    No ranked games yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+        <button className="stats-close" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** LeaderboardModal — the top 10 players by ladder rank. Rows are clickable to
+ *  open that player's profile. */
+function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (user: string) => void }) {
+  const [rows, setRows] = useState<LeaderRow[] | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    let live = true
+    fetchLeaderboard()
+      .then((r) => live && setRows(r))
+      .catch((e) => live && setErr(String(e.message ?? e)))
+    return () => {
+      live = false
+    }
+  }, [])
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="stats-head">
+          <span className="stats-title">🏆 Leaderboard</span>
+        </div>
+        {err && <p className="stats-err">{err}</p>}
+        {!rows && !err && <p className="stats-loading">Loading…</p>}
+        {rows && rows.length === 0 && <p className="stats-empty">No ranked games played yet.</p>}
+        {rows && rows.length > 0 && (
+          <table className="stats-table lb-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>W</th>
+                <th>L</th>
+                <th>Win %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.username} className="lb-row" onClick={() => onPick(r.username)}>
+                  <td className="lb-rank">{r.rank}</td>
+                  <td className="lb-name">{r.username}</td>
+                  <td>{r.wins}</td>
+                  <td>{r.losses}</td>
+                  <td>{r.winrate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <button className="stats-close" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -160,6 +285,12 @@ export function App() {
   const [turnSecs, setTurnSecs] = useState(0)
   const [turnNum, setTurnNum] = useState(0)
   const [winner, setWinner] = useState<string | null>(null)
+  // Ladder rank change for the just-finished ranked game (null for unranked/AI),
+  // shown on the win/loss screen.
+  const [rankUpdate, setRankUpdate] = useState<{ oldRank: number; newRank: number } | null>(null)
+  // Lobby overlays: a player's profile (by username) and the top-10 leaderboard.
+  const [profileUser, setProfileUser] = useState<string | null>(null)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   // Exactly one of these is active at a time: a minion picked to attack, or a
   // targeted spell awaiting its target.
   const [attacker, setAttacker] = useState<string | null>(null)
@@ -377,6 +508,7 @@ export function App() {
           if (msg.type === 'match_start') {
             setLog([])
             setAnim(null) // drop any leftover action animation from a prior match (else it replays on the new board)
+            setRankUpdate(null) // clear any prior game's rank change
             setOppOnline(true)
             setInvitedName(null)
             setIncomingInvites([])
@@ -492,6 +624,10 @@ export function App() {
           // From the rendered POV: our own when playing, the watched player's when
           // spectating ('you' then means the player we're watching).
           setWinner(msg.winner === povRef.current ? 'you' : 'opponent')
+          break
+        case 'rank_update':
+          // Ranked game ended: remember our ladder move for the win/loss screen.
+          setRankUpdate({ oldRank: msg.oldRank, newRank: msg.newRank })
           break
         case 'error':
           // Kicked because the same account logged in elsewhere: this window
@@ -908,6 +1044,15 @@ export function App() {
             📖 Build deck
           </button>
 
+          <div className="lobby-stats-row">
+            <button className="stats-btn" onClick={() => setShowLeaderboard(true)}>
+              🏆 Leaderboard
+            </button>
+            <button className="stats-btn" onClick={() => setProfileUser(name)}>
+              👤 My profile
+            </button>
+          </div>
+
           <button className="logout" onClick={onLogout} disabled={waiting}>
             Log out
           </button>
@@ -1030,10 +1175,14 @@ export function App() {
                     shown.map((p) => (
                       <li key={p.name} className={'pl-row pl-' + p.status}>
                         <span className={'pl-dot ' + p.status} />
-                        <span className="pl-name">
+                        <button
+                          className="pl-name"
+                          onClick={() => setProfileUser(p.name)}
+                          title={`View ${p.name}'s profile`}
+                        >
                           {p.name}
                           {p.name === name && ' (you)'}
-                        </span>
+                        </button>
                         {p.name !== name && p.status === 'lobby' ? (
                           invitedName === p.name ? (
                             <button className="pl-invite invited" onClick={onCancelInvite} title="Cancel invite">
@@ -1123,6 +1272,14 @@ export function App() {
             </div>
           </div>
         )}
+
+        {/* From the leaderboard a row opens that player's profile; both close back
+            to the lobby. Profile takes precedence so a leaderboard click stacks it
+            on top. */}
+        {showLeaderboard && (
+          <LeaderboardModal onClose={() => setShowLeaderboard(false)} onPick={(u) => setProfileUser(u)} />
+        )}
+        {profileUser && <ProfileModal user={profileUser} onClose={() => setProfileUser(null)} />}
       </div>
     )
   }
@@ -1158,6 +1315,7 @@ export function App() {
       turnSecs={turnSecs}
       turnNum={turnNum}
       winner={winner}
+      rankUpdate={rankUpdate}
       attacker={attacker}
       spell={spell}
       heroPowerArmed={heroPowerArmed}

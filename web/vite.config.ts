@@ -67,6 +67,8 @@ export default defineConfig({
       '/login': { target: proxyTarget },
       '/pool': { target: proxyTarget },
       '/decks': { target: proxyTarget },
+      '/profile': { target: proxyTarget },
+      '/leaderboard': { target: proxyTarget },
     },
   },
   // Build output goes into static/, which the Go server embeds (go:embed) and

@@ -185,6 +185,7 @@ const (
 	TypeSeek       = "seek"
 	TypeOppSeek    = "opp_seek"
 	TypeGameOver   = "game_over"
+	TypeRankUpdate = "rank_update"
 	TypeOppConn    = "opp_conn"
 	TypeError      = "error"
 
@@ -311,6 +312,7 @@ type MinionView struct {
 // are public.
 type PlayerView struct {
 	Name          string       `json:"name,omitempty"` // player's display username
+	Rank          int          `json:"rank,omitempty"` // ladder position at match start, 0 = unranked/AI
 	HeroHP        int          `json:"heroHP"`
 	Armor         int          `json:"armor,omitempty"` // absorbs damage before health
 	Frozen        bool         `json:"frozen,omitempty"`
@@ -453,6 +455,16 @@ type OppSeek struct {
 type GameOver struct {
 	Type   string `json:"type"`
 	Winner string `json:"winner"`
+}
+
+// RankUpdate is sent to each player of a ranked game when it ends, carrying their
+// ladder position before and after the result so the win/loss screen can show the
+// change (lower number = better). OldRank 0 means they were unranked before this
+// game (their first ranked match). Not sent for unranked games (vs-AI, invites).
+type RankUpdate struct {
+	Type    string `json:"type"`
+	OldRank int    `json:"oldRank"`
+	NewRank int    `json:"newRank"`
 }
 
 // Error reports a rejected action.

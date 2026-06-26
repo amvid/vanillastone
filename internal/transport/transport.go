@@ -364,6 +364,7 @@ func (s *Server) handleFindMatch(data []byte, c *Client) {
 		s.mu.Lock()
 		delete(s.queued, c.name) // matched immediately: no longer waiting
 		s.mu.Unlock()
+		m.SetRanked(true) // matchmaking-queue games count toward the ladder
 		s.attachMatch(m)
 	} else {
 		s.mu.Lock()
@@ -651,8 +652,10 @@ func (s *Server) byName(name string) *Client {
 	return s.byNameLocked(name)
 }
 
-// attachMatch records the match ref on both players so end_turn can find it, and
-// records each player's seat (match + slot id) so a dropped player can reconnect.
+// attachMatch records the match ref on both players so end_turn can find it,
+// records each player's seat (match + slot id) so a dropped player can reconnect,
+// stamps each seat's current ladder rank for the in-game nameplate, and wires the
+// end-of-game hook that persists a ranked result.
 func (s *Server) attachMatch(m *match.Match) {
 	s.mu.Lock()
 	for _, p := range m.Players() {
@@ -662,6 +665,45 @@ func (s *Server) attachMatch(m *match.Match) {
 		}
 	}
 	s.mu.Unlock()
+
+	// Ladder rank per seat (0 for the AI / a player with no ranked games yet).
+	players := m.Players()
+	rankOf := func(p match.Sender) int {
+		if _, ok := p.(*Client); ok {
+			return s.store.Rank(p.Name())
+		}
+		return 0
+	}
+	oldRanks := [2]int{rankOf(players[0]), rankOf(players[1])}
+	m.SetRanks(oldRanks[0], oldRanks[1])
+
+	// Persist the result when a hero dies. ranked/players/oldRanks are captured here
+	// (all known at match start) so the hook touches no match-locked state and can
+	// run synchronously inside the match — see Match.OnEnd. Unranked games (vs-AI,
+	// invites) are a no-op.
+	ranked := m.Ranked()
+	m.OnEnd(func(winnerSeat int) {
+		if !ranked {
+			return
+		}
+		ws, ls := winnerSeat, 1-winnerSeat
+		if err := s.store.RecordResult(
+			players[ws].Name(), players[ls].Name(),
+			string(m.SeatClass(ws)), string(m.SeatClass(ls)),
+		); err != nil {
+			log.Printf("record result %s beat %s: %v", players[ws].Name(), players[ls].Name(), err)
+			return
+		}
+		// Tell each player their new ladder position vs. where they started, for the
+		// win/loss screen's rank-change indicator. AI sends are no-ops.
+		for seat := 0; seat < 2; seat++ {
+			players[seat].Send(protocol.Marshal(protocol.RankUpdate{
+				Type:    protocol.TypeRankUpdate,
+				OldRank: oldRanks[seat],
+				NewRank: s.store.Rank(players[seat].Name()),
+			}))
+		}
+	})
 }
 
 // clearActive drops every seat entry pointing at m (both players), called when
