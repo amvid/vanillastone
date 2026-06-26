@@ -135,11 +135,6 @@ var neutralCards = []Card{
 		Text:     "Final Gasp: Summon a 2/1 Broken Golem.",
 		Triggers: []Trigger{{When: OnDeath, Effect: Effect{Kind: EffectSummon, Summon: "broken_golem", Count: 1, Target: TargetNone}}}},
 
-	{ID: "sapphire_drake", Name: "Sapphire Drake", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityRare, Cost: 5, Attack: 4, Health: 4,
-		Text:        "Spell Damage +1. Onset: Draw a card.",
-		SpellDamage: 1,
-		Triggers:    []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDraw, Amount: 1, Target: TargetNone}}}},
-
 	{ID: "errant_knight", Name: "Errant Knight", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityCommon, Cost: 5, Attack: 4, Health: 4,
 		Text:     "Onset: Summon a 2/2 Errant Squire.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectSummon, Summon: "errant_squire", Count: 1, Target: TargetNone}}}},

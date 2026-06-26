@@ -549,7 +549,7 @@ func TestOnsetSummon(t *testing.T) {
 func TestOnsetDrawsCard(t *testing.T) {
 	m, a, _ := newMatch()
 	m.state[0].mana, m.state[0].maxMana = 5, 5
-	drake, _ := cards.Get("sapphire_drake") // Onset: Draw a card.
+	drake, _ := cards.Get("cobalt_loreling") // Onset: Draw a card.
 	m.state[0].hand = []cards.Card{drake}
 	m.state[0].deck = testDeck([]string{"pebble_imp", "granite_watcher"})
 	m.sendStateAll()
