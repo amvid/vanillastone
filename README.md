@@ -48,8 +48,8 @@ Built deliberately, one phase at a time:
 |    14 | Play versus AI                                                                          |  ✅   |
 |    15 | Hunter — second class + Hunter cards                                                    |  ✅   |
 |    16 | Ladder                                                                                  |  ✅   |
-|    17 | Warlock — third class + Warlock cards                                                   |  ⏳   |
-|    18 | Warrior class + Warrior cards                                                           |  ⏳   |
+|    17 | Warrior class + Warrior cards                                                           |  ✅   |
+|    18 | Warlock — third class + Warlock cards                                                   |  ⏳   |
 
 ## Stack
 

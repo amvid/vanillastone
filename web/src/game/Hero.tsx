@@ -31,7 +31,7 @@ export function Hero(props: {
   // Hero portrait art + glyph are class-driven, inferred from the hero power's
   // class (the snapshot has no separate hero-class field). Defaults to Mage.
   const heroClass = p.heroPower?.class ?? 'mage'
-  const heroIcon = heroClass === 'hunter' ? '🏹' : '🧙'
+  const heroIcon = heroClass === 'hunter' ? '🏹' : heroClass === 'warrior' ? '⚔️' : '🧙'
 
   // Secret gems shown over the portrait, HS-style. Own secrets reveal their name
   // on hover; the opponent's are anonymous "?" tokens.

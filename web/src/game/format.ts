@@ -368,6 +368,7 @@ export function cardArtIcon(cardType: string): string {
 export function hpIcon(name: string): string {
   if (/fire/i.test(name)) return '🔥'
   if (/shot|arrow|quick/i.test(name)) return '🏹'
+  if (/shore|armor|guard|shield/i.test(name)) return '🛡️'
   return '✴️'
 }
 
@@ -449,6 +450,7 @@ export function cardTypeLabel(c: CardView): string {
 export function cardColorClass(c: CardView): string {
   if (c.class === 'mage') return ' mage'
   if (c.class === 'hunter') return ' hunter'
+  if (c.class === 'warrior') return ' warrior'
   return ''
 }
 

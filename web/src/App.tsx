@@ -260,6 +260,8 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
   )
 }
 
+const DEFAULT_TITLE = 'Vanillastone'
+
 export function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -379,6 +381,67 @@ export function App() {
   useEffect(() => {
     selectedDeckRef.current = selectedDeck
   }, [selectedDeck])
+
+  // Browser-tab title: while the tab is hidden, surface what needs attention
+  // (and a live counter) so the player notices from another tab. Restores the
+  // plain title once the tab is focused again.
+  const searchStartRef = useRef<number | null>(null)
+  const turnDeadlineRef = useRef<number | null>(null)
+  // Anchor the search timer on entering the queue and the turn timer on each
+  // snapshot, so the interval below can render a live countdown.
+  useEffect(() => {
+    searchStartRef.current = phase === 'waiting' ? Date.now() : null
+  }, [phase])
+  useEffect(() => {
+    turnDeadlineRef.current =
+      phase === 'playing' && !winner && turnSecs > 0 ? Date.now() + turnSecs * 1000 : null
+  }, [phase, winner, turnSecs, turnNum, myTurn])
+  // Latest state read by the interval without re-subscribing every tick.
+  const titleStateRef = useRef({ phase, myTurn, winner, incomingInvites, mulliganLeft })
+  titleStateRef.current = { phase, myTurn, winner, incomingInvites, mulliganLeft }
+  useEffect(() => {
+    // Returns the title text plus a blink icon for states that want the player
+    // back NOW (their move / a challenge / the result). Passive states (waiting,
+    // opponent's turn) carry no icon, so they don't flash.
+    const compute = (): { text: string; blink: string | null } => {
+      const { phase, myTurn, winner, incomingInvites, mulliganLeft } = titleStateRef.current
+      if (spectatingRef.current) return { text: DEFAULT_TITLE, blink: null }
+      if (winner) return { text: winner === 'you' ? 'You won!' : 'You lost', blink: '🎉' }
+      if (incomingInvites.length > 0) {
+        return { text: `${incomingInvites[incomingInvites.length - 1]} challenged you!`, blink: '⚔️' }
+      }
+      if (phase === 'matchfound') return { text: 'Match found!', blink: '⚔️' }
+      if (phase === 'mulligan') return { text: `Mulligan ${mulliganLeft}s`, blink: '🔄' }
+      if (phase === 'waiting' && searchStartRef.current != null) {
+        return { text: `Searching ${Math.floor((Date.now() - searchStartRef.current) / 1000)}s`, blink: null }
+      }
+      if (phase === 'playing' && turnDeadlineRef.current != null) {
+        const left = Math.max(0, Math.ceil((turnDeadlineRef.current - Date.now()) / 1000))
+        return myTurn
+          ? { text: `Your turn ${left}s`, blink: '🔔' }
+          : { text: `Opponent turn ${left}s`, blink: null }
+      }
+      return { text: DEFAULT_TITLE, blink: null }
+    }
+    let on = false
+    const apply = () => {
+      if (!document.hidden) {
+        document.title = DEFAULT_TITLE
+        return
+      }
+      on = !on
+      const { text, blink } = compute()
+      document.title = blink && on ? `${blink} ${text}` : text
+    }
+    apply()
+    const id = window.setInterval(apply, 700)
+    document.addEventListener('visibilitychange', apply)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', apply)
+      document.title = DEFAULT_TITLE
+    }
+  }, [])
 
   // Global UI scale knob. Every screen sizes its elements off --u (via
   // calc(px * var(--u)) tokens), so one viewport-driven value keeps the whole app
@@ -1093,6 +1156,7 @@ export function App() {
                       options={[
                         { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
                         { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
+                        { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
                       ]}
                     />
                   </label>

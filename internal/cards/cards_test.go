@@ -125,6 +125,15 @@ func TestDefaultHunterDeckIsLegal(t *testing.T) {
 	}
 }
 
+// TestDefaultWarriorDeckIsLegal: the curated Warrior fallback deck must be a legal
+// Warrior deck (so vs-AI / fallback queuing with Warrior never builds an illegal
+// game).
+func TestDefaultWarriorDeckIsLegal(t *testing.T) {
+	if err := ValidateDeck(DefaultDeckFor(ClassWarrior), ClassWarrior); err != nil {
+		t.Fatalf("default Warrior deck must be legal: %v", err)
+	}
+}
+
 // TestHeroPowerForClass: each playable class resolves to its own hero power card;
 // an unknown class falls back to the Mage hero power (never empty).
 func TestHeroPowerForClass(t *testing.T) {
@@ -133,6 +142,9 @@ func TestHeroPowerForClass(t *testing.T) {
 	}
 	if hp := HeroPowerForClass(ClassHunter); hp.ID != "quick_shot" {
 		t.Fatalf("Hunter hero power want quick_shot, got %q", hp.ID)
+	}
+	if hp := HeroPowerForClass(ClassWarrior); hp.ID != "shore_up" {
+		t.Fatalf("Warrior hero power want shore_up, got %q", hp.ID)
 	}
 	if hp := HeroPowerForClass(ClassNeutral); hp.ID != "fire_dart" {
 		t.Fatalf("unknown class must fall back to Mage hero power, got %q", hp.ID)

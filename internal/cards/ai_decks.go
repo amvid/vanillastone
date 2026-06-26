@@ -82,6 +82,34 @@ var aiHunterDecks = [][]string{
 	aiHunterAggro,
 }
 
+// aiWarriorAggro is a fast weapon/Charge curve: cheap weapons + Charge bodies +
+// burn reach (Valiant Strike, Deathblow Swing), leaning on the bot's lethal lens.
+var aiWarriorAggro = []string{
+	"goading_strike", "goading_strike",
+	"hammer_blow", "hammer_blow",
+	"cindersplit_axe", "cindersplit_axe",
+	"whipcrack_overseer", "whipcrack_overseer",
+	"battle_marshal", "battle_marshal",
+	"valiant_strike", "valiant_strike",
+	"headlong_rush", "headlong_rush",
+	"ragebound_brute", "ragebound_brute",
+	"ironguard_elite", "ironguard_elite",
+	"forgehold_smith", "forgehold_smith",
+	"finishing_cut", "finishing_cut",
+	"runesteel_reaper", "runesteel_reaper",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"deathblow_swing", "deathblow_swing",
+	"war_colossus",
+	"warchief_gorthak",
+}
+
+// aiWarriorDecks is the pool the AI draws from for a Warrior opponent (the curated
+// default plus an aggro flavor).
+var aiWarriorDecks = [][]string{
+	defaultWarriorDeck,
+	aiWarriorAggro,
+}
+
 // AIDecks returns copies of the prebuilt AI decks for a class, or nil if the
 // class has none. The caller picks one at random.
 func AIDecks(class Class) [][]string {
@@ -91,6 +119,8 @@ func AIDecks(class Class) [][]string {
 		src = aiMageDecks
 	case ClassHunter:
 		src = aiHunterDecks
+	case ClassWarrior:
+		src = aiWarriorDecks
 	default:
 		return nil
 	}

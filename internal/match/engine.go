@@ -252,7 +252,7 @@ func (m *Match) triggerSecrets(defender int, ev cards.EventType, ctx secretCtx) 
 func (m *Match) fireTriggers(controller int, when cards.EventType, subject *minion) {
 	var reactors []*minion
 	switch when {
-	case cards.OnAnyMinionDeath, cards.OnHeal, cards.OnSecretPlayed, cards.OnAnyTurnEnd:
+	case cards.OnAnyMinionDeath, cards.OnHeal, cards.OnSecretPlayed, cards.OnAnyTurnEnd, cards.OnAnyMinionDamage:
 		reactors = append(reactors, m.state[0].board...) // global events: both boards react
 		reactors = append(reactors, m.state[1].board...)
 	default:
@@ -271,6 +271,11 @@ func (m *Match) fireTriggers(controller int, when cards.EventType, subject *mini
 			if t.SubjectTribe != cards.TribeNone && (subject == nil || subject.card.Tribe != t.SubjectTribe) {
 				continue
 			}
+			// Attack-gated summon triggers (`battle_marshal`: "a minion with 3 or less
+			// Attack") fire only when the subject's Attack is at or below the cap.
+			if t.SubjectMaxAttack > 0 && (subject == nil || subject.atk() > t.SubjectMaxAttack) {
+				continue
+			}
 			// Probabilistic triggers (`lucky_angler`'s 50% draw): roll before firing.
 			if t.Chance > 0 && m.rng.Intn(100) >= t.Chance {
 				continue
@@ -280,6 +285,11 @@ func (m *Match) fireTriggers(controller int, when cards.EventType, subject *mini
 			switch e.Target {
 			case cards.TargetSelf:
 				ref = charRef{minion: mn, owner: mn.owner}
+			case cards.TargetSubject:
+				if subject == nil {
+					continue // `battle_marshal`: grant the keyword to the summoned minion
+				}
+				ref = charRef{minion: subject, owner: subject.owner}
 			case cards.TargetRandomFriendly:
 				pick := m.randomFriendlyExcept(mn.owner, mn)
 				if pick == nil {

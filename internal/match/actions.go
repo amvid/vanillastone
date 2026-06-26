@@ -418,7 +418,14 @@ func (m *Match) heroAttack(pi int, targetID string) (bool, string) {
 		}
 	}
 	ps.heroAttacked = true
-	m.useWeaponDurability(pi)
+	if targetID != oppHeroTarget && ps.weapon != nil && ps.weapon.card.WearByAttack {
+		// `bloodwail`: attacking a minion costs 1 Attack instead of 1 Durability.
+		if ps.weapon.attack--; ps.weapon.attack < 0 {
+			ps.weapon.attack = 0
+		}
+	} else {
+		m.useWeaponDurability(pi)
+	}
 	m.finish()
 	return true, ""
 }
@@ -491,13 +498,14 @@ func (m *Match) HeroPower(c Sender, targetID string) (bool, string) {
 // damaged-minion bonus (`grudge_smith`: +2 weapon Attack while it is damaged).
 // Zero with no weapon (the weapon bonus is inert without a weapon).
 func heroAttackValue(ps *playerState) int {
-	if ps.weapon == nil {
-		return 0
-	}
-	atk := ps.weapon.attack
-	for _, mn := range ps.board {
-		if !mn.silenced && mn.card.EnrageWeaponAtk > 0 && mn.health < mn.maxHP() {
-			atk += mn.card.EnrageWeaponAtk
+	// `valiant_strike` grants Attack with no weapon, so the bonus stands alone.
+	atk := ps.heroAtkThisTurn
+	if ps.weapon != nil {
+		atk += ps.weapon.attack
+		for _, mn := range ps.board {
+			if !mn.silenced && mn.card.EnrageWeaponAtk > 0 && mn.health < mn.maxHP() {
+				atk += mn.card.EnrageWeaponAtk // weapon bonus is inert without a weapon
+			}
 		}
 	}
 	return atk

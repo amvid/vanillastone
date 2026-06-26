@@ -215,6 +215,9 @@ type playerState struct {
 	heroAttacked  bool
 	immune        bool // hero ignores all damage this turn (e.g. `frostward_aegis`)
 
+	heroAtkThisTurn       int  // `valiant_strike`: bonus hero Attack for this turn only (no weapon needed); cleared at turn end
+	minMinHealth1ThisTurn bool // `rallying_roar`: this player's minions can't drop below 1 Health this turn; cleared at turn end
+
 	nextSecretFree        bool // `spellwarden_magus`: the next Secret played this turn costs 0 (consumed on play; cleared each turn start)
 	minionsPlayedThisTurn int  // `pocket_conjurer`: drives the "first minion each turn" cost discount (reset each turn start)
 	spellsFreeOnTurn      int  // `fizzle_sparkmuddle`: the turnNum during which this player's spells cost 0 (0 = never; a specific future turn)
@@ -472,6 +475,10 @@ func (m *Match) endTurnLocked() {
 	m.clearTempBuffs()                              // expire "this turn" buffs
 	m.state[0].immune = false                       // hero immunity (frostward_aegis) lasts only "this turn"
 	m.state[1].immune = false
+	m.state[0].heroAtkThisTurn = 0 // `valiant_strike`'s hero Attack lasts only "this turn"
+	m.state[1].heroAtkThisTurn = 0
+	m.state[0].minMinHealth1ThisTurn = false // `rallying_roar`'s damage floor lasts only "this turn"
+	m.state[1].minMinHealth1ThisTurn = false
 	m.turn = 1 - m.turn
 	m.turnNum++
 	m.startTurn(m.turn)

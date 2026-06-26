@@ -2585,6 +2585,10 @@ button {
   background: linear-gradient(#2a4a2c, #1a2f1b);
   border-color: #6fb35a;
 }
+.card.warrior {
+  background: linear-gradient(#5a2422, #3a1715);
+  border-color: #cc6450;
+}
 .card.secret {
   background: linear-gradient(#43295c, #2a1b3a);
   border-color: #b06fd8;
@@ -3525,6 +3529,9 @@ button {
 }
 .deck-card.hunter {
   border-left: 3px solid #6fb35a;
+}
+.deck-card.warrior {
+  border-left: 3px solid #cc6450;
 }
 .deck-card .cost {
   position: static;

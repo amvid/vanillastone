@@ -14,6 +14,7 @@ const PER_PAGE = 8 // cards shown per book page (4 columns x 2 rows)
 const CLASS_OPTIONS: { id: string; label: string }[] = [
   { id: 'mage', label: 'Mage' },
   { id: 'hunter', label: 'Hunter' },
+  { id: 'warrior', label: 'Warrior' },
 ]
 
 const RARITIES = ['common', 'rare', 'epic', 'legendary'] as const

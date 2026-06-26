@@ -20,12 +20,13 @@ type Class string
 const (
 	ClassNeutral Class = "neutral"
 	ClassMage    Class = "mage"
-	ClassHunter  Class = "hunter" // reserved; no cards yet (deck class only, "coming soon")
+	ClassHunter  Class = "hunter"
+	ClassWarrior Class = "warrior"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
-func PlayableClasses() []Class { return []Class{ClassMage, ClassHunter} }
+func PlayableClasses() []Class { return []Class{ClassMage, ClassHunter, ClassWarrior} }
 
 // classPlayable reports whether decks may be built for this class.
 func classPlayable(c Class) bool {
@@ -99,6 +100,13 @@ const (
 	EffectChipWeapon       EffectKind = "chipWeapon"       // remove Amount Durability from the opponent's weapon (`brine_cutter`)
 	EffectBuffWeapon       EffectKind = "buffWeapon"       // give the caster's weapon +BuffAtk Attack / +BuffHP Durability (`captain_brackwater`)
 	EffectDestroyWeapon    EffectKind = "destroyWeapon"    // destroy the opponent's weapon; the caster draws cards = its Durability (`relic_breaker`)
+
+	// Warrior staples.
+	EffectArmor          EffectKind = "armor"          // the caster's hero gains Amount Armor (hero power `shore_up`, `bracing_guard`)
+	EffectEquip          EffectKind = "equip"          // equip the EquipWeapon token; with UpgradeIfWeapon, instead buff an existing weapon (`forgehold_smith`, `hone_edge`)
+	EffectHeroAttack     EffectKind = "heroAttack"     // give the caster's hero +Amount Attack this turn only, no weapon needed (`valiant_strike`)
+	EffectDrawPerDamaged EffectKind = "drawPerDamaged" // draw a card for each damaged friendly character (hero + minions) (`war_frenzy`)
+	EffectBrawl          EffectKind = "brawl"          // destroy every minion on both boards except one chosen at random (`pit_brawl`)
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -126,6 +134,7 @@ const (
 	TargetRandomEnemy    TargetRule = "randomEnemy"    // server picks a random enemy character (RNG)
 	TargetSelf           TargetRule = "self"           // the effect's own source minion (edge triggers, e.g. self-buff)
 	TargetRandomFriendly TargetRule = "randomFriendly" // a random OTHER friendly minion (trigger effects)
+	TargetSubject        TargetRule = "subject"        // the minion that triggered the event (summon/death subject) (`battle_marshal`)
 )
 
 // AreaRule selects an untargeted group for mass effects.
@@ -193,6 +202,13 @@ type Effect struct {
 	SplashAmount           int        `json:"splashAmount,omitempty"`           // EffectDamage: also deal this to the (single) target minion's neighbours (`explosive_shot`)
 	CountPerEnemyMinion    bool       `json:"countPerEnemyMinion,omitempty"`    // EffectSummon: summon one token per enemy minion (`unleash_the_pack`)
 	FromDeck               bool       `json:"fromDeck,omitempty"`               // EffectSeek: offer 3 cards from the caster's own deck (and remove them) instead of the whole pool (`tracking`)
+	ReqDamaged             bool       `json:"reqDamaged,omitempty"`             // targeted effect: the target minion must be damaged (current Health below max) (`berserk_surge`, `finishing_cut`)
+	DrawIfSurvives         bool       `json:"drawIfSurvives,omitempty"`         // EffectDamage: draw a card if the (single) target minion is still alive after the damage (`hammer_blow`)
+	ScaleByArmor           bool       `json:"scaleByArmor,omitempty"`           // EffectDamage: the amount dealt equals the caster's current Armor (`bulwark_bash`)
+	ReqOwnHealthAtMost     int        `json:"reqOwnHealthAtMost,omitempty"`     // EffectDamage: if the caster's hero Health is <= this, deal AmountIfReq instead (`deathblow_swing`)
+	EquipWeapon            string     `json:"equipWeapon,omitempty"`            // EffectEquip: the weapon token id to equip
+	UpgradeIfWeapon        bool       `json:"upgradeIfWeapon,omitempty"`        // EffectEquip: if the caster already has a weapon, buff it +BuffAtk/+BuffHP instead of equipping (`hone_edge`)
+	GuardMinions           bool       `json:"guardMinions,omitempty"`           // EffectDraw: also stop the caster's minions dropping below 1 Health this turn (`rallying_roar`)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -215,17 +231,19 @@ const (
 
 	// Edge triggers (Phase 4 extended): fire on ongoing game events for minions
 	// already in play. All controller-scoped except OnAnyMinionDeath.
-	OnTurnStart      EventType = "on_turn_start"       // the controller's turn begins
-	OnTurnEnd        EventType = "on_turn_end"         // the controller's turn ends
-	OnAnyTurnEnd     EventType = "on_any_turn_end"     // ANY turn ends (either player's) — global (`cragmaw`)
-	OnSpellCast      EventType = "on_spell_cast"       // the controller casts a spell (incl. secrets)
-	OnFriendlySummon EventType = "on_friendly_summon"  // another friendly minion is summoned
-	OnFriendlyDeath  EventType = "on_friendly_death"   // another friendly minion dies
-	OnAnyMinionDeath EventType = "on_any_minion_death" // any minion (either side) dies
-	OnHeal           EventType = "on_heal"             // any character is healed (global)
-	OnSecretPlayed   EventType = "on_secret_played"    // any Secret is played (global)
-	OnPlayCard       EventType = "on_play_card"        // the controller plays any card (after it resolves)
-	OnDamage         EventType = "on_damage"           // this minion takes damage (fires on the damaged minion only — draw-on-damage minion)
+	OnTurnStart            EventType = "on_turn_start"             // the controller's turn begins
+	OnTurnEnd              EventType = "on_turn_end"               // the controller's turn ends
+	OnAnyTurnEnd           EventType = "on_any_turn_end"           // ANY turn ends (either player's) — global (`cragmaw`)
+	OnSpellCast            EventType = "on_spell_cast"             // the controller casts a spell (incl. secrets)
+	OnFriendlySummon       EventType = "on_friendly_summon"        // another friendly minion is summoned
+	OnFriendlyDeath        EventType = "on_friendly_death"         // another friendly minion dies
+	OnAnyMinionDeath       EventType = "on_any_minion_death"       // any minion (either side) dies
+	OnHeal                 EventType = "on_heal"                   // any character is healed (global)
+	OnSecretPlayed         EventType = "on_secret_played"          // any Secret is played (global)
+	OnPlayCard             EventType = "on_play_card"              // the controller plays any card (after it resolves)
+	OnDamage               EventType = "on_damage"                 // this minion takes damage (fires on the damaged minion only — draw-on-damage minion)
+	OnFriendlyMinionDamage EventType = "on_friendly_minion_damage" // a friendly minion (including this one) takes damage — `platewright`
+	OnAnyMinionDamage      EventType = "on_any_minion_damage"      // any minion on either board takes damage — global (`ragebound_brute`)
 
 	// Secret triggers (Phase 7+): fire on the ENEMY's action, from the secret
 	// owner's perspective.
@@ -278,11 +296,12 @@ const (
 // trigger; its finalGasp is an on_death trigger. Condition (edge triggers
 // only) further gates when it fires.
 type Trigger struct {
-	When         EventType        `json:"when"`
-	Effect       Effect           `json:"effect"`
-	Condition    TriggerCondition `json:"condition,omitempty"`
-	SubjectTribe Tribe            `json:"subjectTribe,omitempty"` // summon/death triggers: fire only when the subject minion is of this tribe
-	Chance       int              `json:"chance,omitempty"`       // percent chance the trigger fires (0 = always); `lucky_angler`'s 50% draw
+	When             EventType        `json:"when"`
+	Effect           Effect           `json:"effect"`
+	Condition        TriggerCondition `json:"condition,omitempty"`
+	SubjectTribe     Tribe            `json:"subjectTribe,omitempty"`     // summon/death triggers: fire only when the subject minion is of this tribe
+	SubjectMaxAttack int              `json:"subjectMaxAttack,omitempty"` // summon triggers: fire only when the subject minion's Attack is <= this (`battle_marshal`: 3)
+	Chance           int              `json:"chance,omitempty"`           // percent chance the trigger fires (0 = always); `lucky_angler`'s 50% draw
 }
 
 // Keyword is a static minion ability baked into the card (Phase 5 wave 1).
@@ -405,6 +424,7 @@ type Card struct {
 	Token            bool          `json:"token,omitempty"`            // summon-only; excluded from Seek/decks
 	WeaponSecretGain bool          `json:"weaponSecretGain,omitempty"` // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
 	ImmuneAttacking  bool          `json:"immuneAttacking,omitempty"`  // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
+	WearByAttack     bool          `json:"wearByAttack,omitempty"`     // weapons: attacking a MINION costs 1 Attack instead of 1 Durability (`bloodwail`)
 }
 
 // Has reports whether the card has the given keyword.
@@ -447,7 +467,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -474,6 +494,8 @@ func HeroPowerForClass(c Class) Card {
 	switch c {
 	case ClassHunter:
 		return set["quick_shot"]
+	case ClassWarrior:
+		return set["shore_up"]
 	default:
 		return set["fire_dart"]
 	}
@@ -645,6 +667,38 @@ var defaultHunterDeck = []string{
 	"apex_saurian",
 }
 
+// defaultWarriorDeck is a hand-curated, playable 30-card Warrior deck: a weapon /
+// Armor tempo list leaning on the class's payoffs (cheap weapons + Forgehold
+// Smith for face/trade reach, Ragebound Brute + Battle Marshal as damage payoffs,
+// Hammer Blow / Finishing Cut removal, Bracing Guard for Armor) over a sturdy
+// neutral midrange core, topped by the class legendary. Kept 30 cards, ≤2 of any
+// id, ≤1 legendary — TestDefaultWarriorDeckIsLegal enforces it.
+var defaultWarriorDeck = []string{
+	// 1-drops: cheap removal.
+	"hammer_blow", "hammer_blow",
+	"finishing_cut", "finishing_cut",
+	// 2-drops: weapon, bodies, Armor + reach.
+	"cindersplit_axe", "cindersplit_axe",
+	"whipcrack_overseer", "whipcrack_overseer",
+	"platewright", "platewright",
+	"battle_marshal", "battle_marshal",
+	"bracing_guard", "bracing_guard",
+	"valiant_strike", "valiant_strike",
+	// 3-drops: damage payoff.
+	"ragebound_brute", "ragebound_brute",
+	// 4-drops: weapon body + Charge body + neutral bodies.
+	"forgehold_smith", "forgehold_smith",
+	"ironguard_elite", "ironguard_elite",
+	"ironforge_brute",
+	"granite_warden",
+	// 5-drops: big weapon + sticky neutral wall.
+	"runesteel_reaper", "runesteel_reaper",
+	"harbor_bodyguard", "harbor_bodyguard",
+	// Top end: fat neutral + legendary finisher.
+	"war_colossus",
+	"warchief_gorthak",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -659,6 +713,8 @@ func DefaultDeckFor(class Class) []string {
 	switch class {
 	case ClassHunter:
 		return append([]string(nil), defaultHunterDeck...)
+	case ClassWarrior:
+		return append([]string(nil), defaultWarriorDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}

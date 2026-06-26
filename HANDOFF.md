@@ -5,7 +5,17 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-26** (**Ranked stats + leaderboard COMPLETE** — first persistent
+Last updated: **2026-06-26** (**Warrior COMPLETE + ART COMPLETE** — third playable class. Full Basic +
+Classic Warrior set, 25 collectible cards (10 minions, 12 spells, 3 weapons) + hero power
+`shore_up` (Armor Up) + 2 weapon tokens, all 1:1 mechanics with original names/text; coded +
+unit-tested (`go test -race ./...`, vet, gofmt, tsc, vite all green). New engine: Armor/equip/
+hero-attack/draw-per-damaged/brawl effects, damaged-target conditions, weapon-wear-by-attack
+(Gorehowl-style), on-minion-damage triggers (Armorsmith/Frothing analogues), min-1-HP-this-turn,
+summon-grant-Charge. Client wired (red `.card.warrior`, ⚔️ glyph, 🛡️ hero-power icon, deckbuilder
++ vs-AI pickers). Warrior card art is now placed and processed: 25/25 collectibles + 2/2 token
+weapons (`keenedge_blade`, `whetstone_blade`), all 512w and <150KB. Cast was deliberately varied
+across orcs, trolls, dwarves, gnomes, and humans plus spell/weapon-only scenes, with red/steel/forge
+visual language. Prev: **Ranked stats + leaderboard COMPLETE** — first persistent
 match-result layer: hidden Elo shown only as a unique ladder rank, per-class W/L, `/profile` +
 `/leaderboard`, in-game rank nameplates, win/loss rank-change. Matchmaking-queue games only — vs-AI
 and invites don't count. See "Open / next" Ranked stats. Prev: **Hunter COMPLETE** — Phase A (class wiring + hero power + data-only
@@ -52,7 +62,11 @@ neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_prote
 `frost_tempest`, `codex_of_insight`, `frostshear`, `frostlance`, `pyrecataclysm`, `nullrune`,
 `cinder_trap`, `echo_glass`, `glacial_ward`, `decoy_ward`, `frostward_aegis`);
 Mage hero/UI art added: `mage_hero`, `fire_dart`; Hunter hero/UI art added: `hunter_hero`,
-`hunter_power` (`quick_shot` kept as the same icon alias);
+`hunter_power` (`quick_shot` kept as the same icon alias); `hunter_hero` reworked on
+2026-06-26 into a wood elf woman so classes can vary by race/gender; Warrior hero art
+`warrior_hero` added on 2026-06-26 as an orc male portrait; Warrior hero-power art
+`shore_up` added on 2026-06-26 as a gain-2-Armor shield icon. Next session is Warrior art:
+generate all Warrior class card art from `.notes/classic-mapping.md` "WARRIOR";
 all legendary art done; all epic art done; **all rare art done** (49/49 verified); common art started high-to-low by cost;
 prompt prefix overhauled to style-first + hard negatives + cartoon character-design + top-35% empty
 framing; CardFace art slot crops bottom-anchored; **board minions now render real art** (`MinionArt`,
@@ -63,14 +77,44 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Art Generation Complete
+## Next Session: Warrior Art Generation
 
-Collectible card art is now complete: **218/218 collectible** and **41/41 token** art files are
-placed in `web/public/art/`. Final 4-card chunk completed on 2026-06-26:
+User is starting a fresh session to create **all Warrior class card art**. Read this file,
+`.notes/art-prompts.md`, `web/public/art/README.md`, and `.notes/classic-mapping.md` section
+**"WARRIOR (Basic + Classic, 25)"** first. Warrior engine/card coding is still pending, but the
+mapping is ready for art.
+
+Already done for Warrior UI:
+- `warrior_hero.png` — orc male Warrior hero portrait, 512w, 138KB.
+- `shore_up.png` — Warrior hero power icon, gain 2 Armor shield/plates, 512w, 146KB.
+
+Next session should generate/place/process Warrior card art into `web/public/art/<card_id>.png`.
+Do **not** overwrite `warrior_hero.png` or `shore_up.png` unless explicitly asked. Generate all 25
+Warrior collectible/class cards from the mapping:
+`goading_strike`, `war_frenzy`, `whipcrack_overseer`, `berserk_surge`, `hammer_blow`,
+`forgehold_smith`, `hone_edge`, `platewright`, `rallying_roar`, `ragebound_brute`,
+`deathblow_swing`, `bulwark_bash`, `pit_brawl`, `bloodwail`, `warchief_gorthak`,
+`steel_cyclone`, `headlong_rush`, `finishing_cut`, `wide_swing`, `valiant_strike`,
+`cindersplit_axe`, `bracing_guard`, `battle_marshal`, `ironguard_elite`, and
+`runesteel_reaper`.
+
+Also generate the two Warrior token-weapon arts if the session includes generated/token assets:
+`keenedge_blade` (2/2 weapon from `forgehold_smith`) and `whetstone_blade` (1/3 weapon from
+`hone_edge`). Use the source-card prompt language so token weapons feel related.
+
+Use the established art workflow: generate one asset at a time, copy the raw from
+`.codex/generated_images/...` to `web/public/art/<card_id>.png`, resize to 512, compress below
+~150KB, update `.notes/art-prompts.md` and this handoff, then stop and ping the user when the
+Warrior art batch is complete. No user review is needed unless the user explicitly asks for previews
+or reworks. Keep the style cel-cartoon, original IP-safe, with Warrior red/steel/forge visual
+language where suitable.
+
+Historical context: previous collectible card art is complete: **218/218 collectible** and
+**41/41 token** art files are placed in `web/public/art/`. Final 4-card chunk completed on 2026-06-26:
 `tavern_medic` (133KB), `thornvale_panther` (126KB), `tideblade_raider` (122KB), and
 `tidereaver` (126KB). No missing collectible or token art remains.
 
-Historical context: **Basic Mage art is complete**:
+**Basic Mage art is complete**:
 `cinderstorm`, `frostfont_elemental`, `hexform`, `arcane_study`, `glacial_halt`, `rimebolt`,
 `arcane_burst`, `arcane_barrage`, and `conjured_mirage` placed; `pyrebolt` already had art from its
 prior token pass. Previous queue was **Basic neutral set (43 cards)**, high-to-low by cost. Already
@@ -162,7 +206,7 @@ comments OR tests — public repo, git history is forever. Use our original card
 | Storage | SQLite via **`modernc.org/sqlite`** (pure Go, no CGO). Match state in-memory |
 | Cards | All players have all cards. Custom set |
 | Mode | 1v1 only. No AI |
-| Hero | Mage + Hunter (Hunter Phase A: foundation + data-only cards in; mechanic-gated cards pending) |
+| Hero | Mage + Hunter + Warrior (all three full sets coded + unit-tested; Warrior added 2026-06-26, art pending) |
 | Card design | Faithfully clone the **HS Classic + Hall of Fame** set: match cost/stats/effect, give wholly original names + art. Mechanics aren't copyrightable; names/art/flavor are |
 | RNG | Server-side, seeded |
 | Match persistence | In-memory (dies on restart) — OK for now; restart-survival is OUT |
@@ -596,6 +640,20 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
   - **No art yet** for the new Hunter cards (placeholders) and **not added to the curated/AI Hunter
     decks** — those still use the Phase-A list; enrich later if desired. **No client changes needed**
     (renderer is generic; targeting/secret visuals already cover them).
+- **Warrior — third class, DONE (2026-06-26). Full Basic + Classic Warrior set is IN.** 25
+  collectible cards + hero power `shore_up` + 2 weapon tokens (`keenedge_blade`, `whetstone_blade`),
+  in `internal/cards/warrior.go`; class wired into `PlayableClasses`/`HeroPowerForClass`/
+  `DefaultDeckFor`/`AIDecks` (curated `defaultWarriorDeck` + `aiWarriorAggro`). New engine in
+  `cards.go` + `match/`: `EffectArmor` (+ThenDraw), `EffectEquip` (+UpgradeIfWeapon),
+  `EffectHeroAttack` (this-turn hero Attack, no weapon, `heroAtkThisTurn`), `EffectDrawPerDamaged`,
+  `EffectBrawl`; Effect flags `ReqDamaged`, `DrawIfSurvives`, `ScaleByArmor`, `ReqOwnHealthAtMost`,
+  a BuffAtk rider on `EffectDamage`, `GuardMinions` (min-1-HP-this-turn clamp in `damageMinion`);
+  events `OnFriendlyMinionDamage` + `OnAnyMinionDamage` (fired in `damageMinion`); `TargetSubject`
+  + `Trigger.SubjectMaxAttack` (Warsong-style summon→Charge); `Card.WearByAttack` (Gorehowl-style
+  weapon wear in `heroAttack`). Tests: `internal/match/warrior_mechanics_test.go` (one per mechanic)
+  + Warrior deck/hero-power legality in `cards_test.go`. **Remaining: art** for the 25 cards + 2
+  weapon tokens + `warrior_hero.png` + `shore_up.png` (placeholders until then — see
+  `.notes/classic-mapping.md` "WARRIOR"); could also enrich curated/AI decks.
 - **Scope:** card-clone phase is complete — next is balance/playtest/polish or a deliberate scope
   expansion (more classes, beyond Classic/HoF). **Discuss before starting** (phase-by-phase rule).
 

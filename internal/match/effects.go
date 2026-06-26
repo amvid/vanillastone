@@ -77,6 +77,9 @@ func targetCondOK(eff *cards.Effect, ref charRef) bool {
 	if eff.ReqTribe != cards.TribeNone && (ref.minion == nil || ref.minion.card.Tribe != eff.ReqTribe) {
 		return false
 	}
+	if eff.ReqDamaged && (ref.minion == nil || ref.minion.health >= ref.minion.maxHP()) {
+		return false // `berserk_surge` / `finishing_cut`: target must already be damaged
+	}
 	return true
 }
 
@@ -244,6 +247,15 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if eff.ReqControlTribe != "" && m.controlsTribe(caster, eff.ReqControlTribe) {
 			amt = eff.AmountIfReq
 		}
+		// `deathblow_swing`: deal a larger amount when the caster's hero is at or below
+		// a Health threshold.
+		if eff.ReqOwnHealthAtMost > 0 && m.state[caster].heroHP <= eff.ReqOwnHealthAtMost {
+			amt = eff.AmountIfReq
+		}
+		// `bulwark_bash`: the amount dealt is the caster's current Armor.
+		if eff.ScaleByArmor {
+			amt = m.state[caster].armor
+		}
 		if amt > 0 {
 			amt += sp
 		}
@@ -281,6 +293,17 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			for i := 0; i < eff.DrawIfFrozen; i++ {
 				m.drawCard(caster)
 			}
+		}
+		// `goading_strike` / `whipcrack_overseer`: after damaging a single target minion,
+		// also give it +Attack (the buff persists even if the hit was lethal — it is moot
+		// once the minion dies in finish()).
+		if eff.BuffAtk != 0 && ref.minion != nil {
+			ref.minion.enchants = append(ref.minion.enchants, enchant{atk: eff.BuffAtk})
+			m.emit(protocol.Event{Kind: "buff", Target: ref.minion.uid, BuffAtk: eff.BuffAtk})
+		}
+		// `hammer_blow`: draw a card if the single target minion is still alive.
+		if eff.DrawIfSurvives && ref.minion != nil && ref.minion.health > 0 {
+			m.drawCard(caster)
 		}
 		for i := 0; i < eff.ThenDraw; i++ {
 			m.drawCard(caster) // Anthem of Ambush: draw after the damage
@@ -440,6 +463,67 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		for i := 0; i < draws; i++ {
 			m.drawCard(caster)
 		}
+	case cards.EffectArmor:
+		// `shore_up` / `bracing_guard`: the caster's hero gains Armor, then optionally draws.
+		m.gainArmor(caster, eff.Amount)
+		for i := 0; i < eff.ThenDraw; i++ {
+			m.drawCard(caster)
+		}
+	case cards.EffectEquip:
+		// `forgehold_smith` equips a token weapon. `hone_edge` instead buffs an existing
+		// weapon (+BuffAtk/+BuffHP) when UpgradeIfWeapon is set and the caster has one
+		// (the stat change shows up in the snapshot — weapon buffs emit no event here,
+		// matching EffectBuffWeapon).
+		ps := m.state[caster]
+		if eff.UpgradeIfWeapon && ps.weapon != nil {
+			ps.weapon.attack += eff.BuffAtk
+			ps.weapon.durability += eff.BuffHP
+			return
+		}
+		wc, ok := cards.Get(eff.EquipWeapon)
+		if !ok {
+			return
+		}
+		ps.weapon = &weaponInst{card: wc, attack: wc.Attack, durability: wc.Durability} // replaces any current weapon
+		m.emit(protocol.Event{Kind: "equip", Source: m.pid(caster), Name: wc.Name})
+	case cards.EffectHeroAttack:
+		// `valiant_strike`: the caster's hero gains Attack for this turn only, no weapon
+		// needed. The snapshot's HeroAttack reflects it (no separate event).
+		m.state[caster].heroAtkThisTurn += eff.Amount
+	case cards.EffectDrawPerDamaged:
+		// `war_frenzy`: draw a card for each damaged friendly character — the hero (Health
+		// below max) plus every friendly minion below its max Health.
+		ps := m.state[caster]
+		n := 0
+		if ps.heroHP < heroMaxHP {
+			n++
+		}
+		for _, mn := range ps.board {
+			if mn.health < mn.maxHP() {
+				n++
+			}
+		}
+		for i := 0; i < n; i++ {
+			m.drawCard(caster)
+		}
+	case cards.EffectBrawl:
+		// `pit_brawl`: collect every minion on both boards, keep one at random, destroy
+		// the rest. Deaths and finalGasps resolve in finish() via resolveDeaths.
+		var all []*minion
+		for pj := 0; pj < 2; pj++ {
+			all = append(all, m.state[pj].board...)
+		}
+		if len(all) <= 1 {
+			return
+		}
+		survivor := m.rng.Intn(len(all))
+		for i, mn := range all {
+			if i == survivor {
+				continue
+			}
+			mn.health = 0
+			m.emit(protocol.Event{Kind: "destroy", Target: mn.uid, Name: mn.card.Name})
+		}
 	case cards.EffectKillSecret:
 		// Destroy one random enemy Secret. Not named in the (shared) event log — the
 		// caster must not learn which secret it was.
@@ -520,6 +604,11 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		}
 		for i := 0; i < n; i++ {
 			m.drawCard(who)
+		}
+		// `rallying_roar`: also stop the caster's own minions dropping below 1 Health
+		// for the rest of this turn (cleared at the caster's turn end).
+		if eff.GuardMinions {
+			m.state[caster].minMinHealth1ThisTurn = true
 		}
 	case cards.EffectGenerate:
 		// Add Count copies (default 1) of a specific card to a hand — the caster's, or
@@ -754,6 +843,11 @@ func (m *Match) damageMinion(mn *minion, amt int, srcID string) int {
 		return 0
 	}
 	mn.health -= amt
+	// `rallying_roar`: while active, this player's minions can't be reduced below 1
+	// Health for the rest of its turn (the swing still counts as damage taken).
+	if m.state[mn.owner].minMinHealth1ThisTurn && mn.health < 1 {
+		mn.health = 1
+	}
 	m.emit(protocol.Event{Kind: "damage", Source: srcID, Target: mn.uid, Amount: amt})
 	// The damaged minion reacts to taking damage (a draw-on-damage minion: draw a card). Its
 	// own OnDamage triggers fire from its controller's perspective. Silenced minions
@@ -772,6 +866,11 @@ func (m *Match) damageMinion(mn *minion, amt int, srcID string) int {
 			m.applyEffect(mn.owner, &e, ref, 0, mn.uid)
 		}
 	}
+	// Other minions react to a minion taking damage: friendly-only (`platewright` gains
+	// Armor) and global (`ragebound_brute` grows). Subject is nil so the damaged minion
+	// itself can also react (e.g. Armorsmith triggers off its own damage).
+	m.fireTriggers(mn.owner, cards.OnFriendlyMinionDamage, nil)
+	m.fireTriggers(mn.owner, cards.OnAnyMinionDamage, nil)
 	return amt
 }
 
