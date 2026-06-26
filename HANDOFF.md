@@ -52,10 +52,18 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 ## Next Session: Art Generation
 
 User is starting a fresh session to continue the card-art workflow. Read this file, `.notes/art-prompts.md`,
-and `web/public/art/README.md`, then continue **1 card at a time**. **Basic Mage art is complete**:
+and `web/public/art/README.md`, then start making art for the **next 25 missing collectible cards**.
+Do **not** worry about cost, rarity, class, or old queue order; just pick 25 cards that still lack
+`web/public/art/<card_id>.png`, generate/place/process them one by one, and when exactly 25 new
+collectible card art files are finished, **stop and ping the user**. The user plans to start another
+fresh session with the same intent after each 25-card chunk. Current status before that next chunk:
+collectible art **164/218**, token art **41/41**, so **54 collectible cards remain** and **0 tokens
+remain**.
+
+Historical context: **Basic Mage art is complete**:
 `cinderstorm`, `frostfont_elemental`, `hexform`, `arcane_study`, `glacial_halt`, `rimebolt`,
 `arcane_burst`, `arcane_barrage`, and `conjured_mirage` placed; `pyrebolt` already had art from its
-prior token pass. Current queue: **Basic neutral set (43 cards)**, high-to-low by cost. Already
+prior token pass. Previous queue was **Basic neutral set (43 cards)**, high-to-low by cost. Already
 placed from this queue: `molten_hound`, `battlehorn_champion`, `war_colossus`,
 `elder_spellweaver`, `crag_ogre`, `arena_champion`, `reckless_skyrider`, `harbor_bodyguard`,
 `darkscale_mender`, `frostpaw_warlord`, `gorebound_berserker`, `duskblade`, and
