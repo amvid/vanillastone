@@ -172,7 +172,7 @@ export function GameScreen(props: GameScreenProps) {
     secretFxSeq.current++
     setSecretFx({ key: secretFxSeq.current, name })
     window.clearTimeout(secretFxTimer.current)
-    secretFxTimer.current = window.setTimeout(() => setSecretFx(null), 3200)
+    secretFxTimer.current = window.setTimeout(() => setSecretFx(null), 3500)
   }, [])
   // A burnt card's face flies from its owner's deck pile to center, growing small->full
   // with a flame, so both players see what was destroyed, then fades. bx/by = the deck
