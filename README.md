@@ -50,7 +50,6 @@ Built deliberately, one phase at a time:
 |    16 | Ladder                                                                                  |  ✅   |
 |    17 | Warlock — third class + Warlock cards                                                   |  ⏳   |
 |    18 | Warrior class + Warrior cards                                                           |  ⏳   |
-|   ??? | Art                                                                                     |  ⏳   |
 
 ## Stack
 

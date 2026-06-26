@@ -1188,6 +1188,38 @@ button {
   }
 }
 
+/* Your turn: a steady green outline on the chip and the side hairlines, so the
+   board reads "you're up" at a glance. ≤15s left (.low) flips both to red. */
+.midline.mine .turn-chip {
+  border-color: #6fdf7acc;
+  box-shadow:
+    0 0 12px 1px #4caf5066,
+    0 1px 5px #0007;
+}
+.midline.mine::before {
+  background: linear-gradient(90deg, transparent, #6fdf7a77 24%, #6fdf7a77 76%, transparent);
+}
+.midline.low .turn-chip {
+  border-color: #ff3b30;
+  box-shadow:
+    0 0 14px 2px #ff3b3066,
+    0 1px 5px #0007;
+}
+.midline.low::before {
+  background: linear-gradient(90deg, transparent, #ff3b30 24%, #ff3b30 76%, transparent);
+  animation: urgent-line 1s ease-in-out infinite;
+}
+@keyframes urgent-line {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px #ff3b3088);
+  }
+}
+
 /* Low-time urgency (≤15s on your turn): the turn chip flashes a red border + glow
    once per second so the player feels the clock. Keyed off .play-area.low-time so
    it only fires on your own turn and stops the instant the timer resets. */
@@ -1468,6 +1500,27 @@ button {
 /* Action/target state uses OUTLINE (drawn outside the box, offset clear of the
    border) so it's NEVER hidden by the Taunt frame or Aegis ring. These
    must always be visible — they tell the player what they can do. */
+/* Rarity-coloured frame + glow on the board object (matches the collection card
+   look). State borders (frozen/silenced, defined later) and the action `outline`
+   ring (ready/selected/targetable) layer over this — they win on purpose. */
+.minion.rarity-rare {
+  border-color: #4d93e0;
+  box-shadow:
+    0 3px 6px #0008,
+    0 0 10px 1px #2e7fe055;
+}
+.minion.rarity-epic {
+  border-color: #b86fe0;
+  box-shadow:
+    0 3px 6px #0008,
+    0 0 11px 1px #b455e866;
+}
+.minion.rarity-legendary {
+  border-color: #f0b84d;
+  box-shadow:
+    0 3px 6px #0008,
+    0 0 13px 2px #f0a02277;
+}
 .minion.ready {
   outline: 3px solid #6fdf7a;
   outline-offset: 2px;
@@ -1705,9 +1758,9 @@ button {
  * (HS-style); count shows on hover. */
 .deck-pile {
   position: absolute;
-  right: 84px;
-  width: 132px;
-  height: 174px;
+  right: 88px;
+  width: 104px;
+  height: 138px;
   cursor: help;
   z-index: 25;
 }
@@ -1717,24 +1770,12 @@ button {
 .deck-pile.self {
   bottom: 24%;
 }
-/* Deck cards match the hand card size (100x132) so the pile reads as real cards. */
+/* Smaller cards than the hand (the deck is tucked away to save table space). */
 .deck-card-back {
   position: absolute;
-  width: 120px;
-  height: 160px;
+  width: 96px;
+  height: 128px;
   z-index: 1;
-}
-/* Always-visible marker of the deck's location (shows through when low/empty). */
-.deck-outline {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 120px;
-  height: 160px;
-  border: 1px dashed #9a7ad688;
-  border-radius: 6px;
-  background: #ffffff0a;
-  z-index: 0;
 }
 .deck-card-back:nth-child(1) {
   left: 0;
@@ -1880,35 +1921,30 @@ button {
    RIGHT of the deck pile and vertically centered on it (deck = 174px tall, anchored
    24% in, so its center is 24% + 87px). Out of the flex flow so growing mana never
    shifts the board and the central battlefield keeps full width. */
+/* A small horizontal crystal strip sitting just right of the hero portrait (in the
+   self-row flex). 10 fixed slots so growth never shifts the row; no backing panel. */
 .mana-bar {
-  position: absolute;
-  right: 36px;
   display: flex;
   align-items: center;
   gap: 5px;
-  z-index: 26;
 }
-.mana-bar.self {
-  bottom: calc(24% + 87px);
-  transform: translateY(50%); /* center the column on the deck pile */
-  flex-direction: column-reverse; /* fill upward */
-}
-.mana-bar.opp {
-  top: calc(24% + 87px);
-  transform: translateY(-50%);
-  flex-direction: column; /* fill downward */
+.crystals {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .crystal {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   transform: rotate(45deg);
+  border-radius: 2px;
   background: #1b2740;
   border: 1px solid #3a5a8a;
 }
 .crystal.on {
-  background: #4aa8ff;
-  border-color: #9fd0ff;
-  box-shadow: 0 0 4px #4aa8ff;
+  background: radial-gradient(circle at 35% 30%, #ade0ff, #4aa8ff 70%);
+  border-color: #cfeaff;
+  box-shadow: 0 0 5px 1px #4aa8ffbb;
 }
 .crystal.spent {
   background: #24405f;
@@ -1921,11 +1957,12 @@ button {
   opacity: 0.3;
 }
 .crystal-count {
-  margin: 2px 0 0;
-  color: #9cf;
-  font-size: 12px;
+  margin-left: 4px;
+  color: #bfe4ff;
+  font-size: 13px;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px #000a;
   transform: none;
 }
 
@@ -2565,13 +2602,15 @@ button {
 
 /* Rarity coloured card title (replaces the rarity gem on card faces).
    Common keeps the default colour. */
-.name.rarity-rare {
+/* Scoped to `.card .name` (specificity 0,3,0) so it beats the shared overlay
+   nameplate rule (`.hand .card .name`, same specificity, defined earlier). */
+.card .name.rarity-rare {
   color: #5cb3ff;
 }
-.name.rarity-epic {
+.card .name.rarity-epic {
   color: #c77dff;
 }
-.name.rarity-legendary {
+.card .name.rarity-legendary {
   color: #ffb84d;
 }
 .card.selected {

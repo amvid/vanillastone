@@ -75,6 +75,7 @@ export function Board(props: {
         const hp = held?.[m.instanceId] ?? m.health
         const cls = ['minion']
         if (enemy) cls.push('enemy') // top row → hover tooltip opens downward
+        if (m.rarity) cls.push(`rarity-${m.rarity}`) // rarity-coloured frame + glow
         if (m.taunt) cls.push('taunt')
         if (m.frozen) cls.push('frozen')
         if (m.aegis) cls.push('shielded')

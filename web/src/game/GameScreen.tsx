@@ -1143,7 +1143,6 @@ export function GameScreen(props: GameScreenProps) {
 
         {/* Opponent (mirrors your side: mana on top, then hand backs). */}
         <div className="zone top">
-          <ManaBar side="opp" mana={snap.opp.mana} max={snap.opp.maxMana} />
           <CardBacks count={snap.opp.handCount} lift={oppLift} />
           <div className="self-row">
             {snap.opp.heroPower && (
@@ -1181,11 +1180,18 @@ export function GameScreen(props: GameScreenProps) {
               hpOverride={heldHp.oppHero}
               onClick={() => onChar('oppHero', 'oppHero')}
             />
+            <ManaBar side="opp" mana={snap.opp.mana} max={snap.opp.maxMana} />
           </div>
           <Board minions={snap.opp.board} enemy attacker={attacker} held={heldHp} targetable={targetable} onChar={onChar} />
         </div>
 
-        <div className="midline">
+        <div
+          className={
+            'midline' +
+            (!spectator && myTurn && !winner ? ' mine' : '') +
+            (!spectator && myTurn && !winner && lowTime ? ' low' : '')
+          }
+        >
           <div className="turn-chip">
             <span className={'turn-flag' + (myTurn ? ' mine' : '')}>
               {winner
@@ -1250,6 +1256,7 @@ export function GameScreen(props: GameScreenProps) {
               hpOverride={heldHp.selfHero}
               onClick={() => onChar('selfHero', 'selfHero')}
             />
+            <ManaBar side="self" mana={snap.self.mana} max={snap.self.maxMana} />
           </div>
 
         {/* Your hand */}
@@ -1286,7 +1293,6 @@ export function GameScreen(props: GameScreenProps) {
             )
           })}
           </div>
-          <ManaBar side="self" mana={snap.self.mana} max={snap.self.maxMana} />
         </div>
       </div>
 
@@ -1474,13 +1480,15 @@ function TurnTimer({ secs, onLow }: { secs: number; onLow?: (low: boolean) => vo
 function ManaBar({ side, mana, max }: { side: 'self' | 'opp'; mana: number; max: number }) {
   return (
     <div className={'mana-bar ' + side} title={`${mana}/${max} mana`}>
-      {Array.from({ length: 10 }, (_, i) => {
-        let cls = 'crystal'
-        if (i < mana) cls += ' on'
-        else if (i < max) cls += ' spent'
-        else cls += ' locked'
-        return <span key={i} className={cls} />
-      })}
+      <div className="crystals">
+        {Array.from({ length: 10 }, (_, i) => {
+          let cls = 'crystal'
+          if (i < mana) cls += ' on'
+          else if (i < max) cls += ' spent'
+          else cls += ' locked'
+          return <span key={i} className={cls} />
+        })}
+      </div>
       <span className="crystal-count">
         {mana}/{max}
       </span>
@@ -1499,7 +1507,6 @@ function DeckPile({ side, count }: { side: 'self' | 'opp'; count: number }) {
       {Array.from({ length: layers }, (_, i) => (
         <span key={i} className="deck-card-back" />
       ))}
-      <span className="deck-outline" />
       {count === 0 && <span className="deck-empty">∅</span>}
       <span className="deck-tip">{count} cards</span>
     </div>
