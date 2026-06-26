@@ -109,6 +109,7 @@ export function GameScreen(props: GameScreenProps) {
   // clamped to the viewport (so it tracks the mouse but never goes off-screen).
   const [logPop, setLogPop] = useState<{ entry: LogEntry; rightPx: number; topPx: number } | null>(null)
   const [confirmConcede, setConfirmConcede] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false) // mobile: cog menu (bottom-left)
   // The game-over modal appears 2s after the result lands, so the lethal action's
   // animation can play out first instead of being cut off by the overlay.
   const [winnerShown, setWinnerShown] = useState(false)
@@ -121,6 +122,34 @@ export function GameScreen(props: GameScreenProps) {
     return () => window.clearTimeout(id)
   }, [winner])
   const [lowTime, setLowTime] = useState(false) // ≤15s left on your turn → flash action outlines red
+  // Mobile (landscape phone): the hand peeks at the bottom edge and tapping it
+  // opens a focused overlay where the cards are big and playable. Tapping the
+  // backdrop closes it. Desktop is never affected — isMobile stays false and the
+  // peek/focused classes (and their CSS) only exist inside the landscape query.
+  const isMobile = useIsMobile()
+  const [handFocused, setHandFocused] = useState(false)
+  // Mobile: after tapping a minion in the focused hand we enter "placing" — the
+  // friendly board shows insertion slots and a tap drops the minion at that index
+  // (so you pick where it goes, not just the end). Null = not placing.
+  const [placing, setPlacing] = useState<{ handIndex: number; card: CardView } | null>(null)
+  // Drop out of focus / placing when it's not our turn / the game ends.
+  useEffect(() => {
+    if (!myTurn || winner) {
+      setHandFocused(false)
+      setPlacing(null)
+    }
+  }, [myTurn, winner])
+  // Mobile: the log detail popup opens on tap; close it on any tap outside a log
+  // row (a row tap is handled by its own toggle handler).
+  useEffect(() => {
+    if (!isMobile || !logPop) return
+    const onDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).closest('.log-row')) return
+      setLogPop(null)
+    }
+    window.addEventListener('pointerdown', onDown)
+    return () => window.removeEventListener('pointerdown', onDown)
+  }, [isMobile, logPop])
   // A card being dragged out of hand. hold-drag (mouse down + move + release) and
   // click-drag-click (click to lift → sticky, click again to drop) share this.
   // pos is the friendly-board slot for a minion (null = not over the table).
@@ -1088,8 +1117,8 @@ export function GameScreen(props: GameScreenProps) {
           </div>
         )}
 
-        <DeckPile side="opp" count={snap.opp.deckCount} />
-        <DeckPile side="self" count={snap.self.deckCount} />
+        <DeckPile side="opp" count={snap.opp.deckCount} mana={snap.opp.mana} max={snap.opp.maxMana} />
+        <DeckPile side="self" count={snap.self.deckCount} mana={snap.self.mana} max={snap.self.maxMana} />
 
         <div className="player-name opp">
           {snap.opp.rank ? <span className="pn-rank">#{snap.opp.rank}</span> : null}
@@ -1118,6 +1147,36 @@ export function GameScreen(props: GameScreenProps) {
               <button className="concede" onClick={() => setConfirmConcede(true)}>
                 Concede
               </button>
+            )}
+          </>
+        )}
+
+        {/* Mobile: a cog in the bottom-left opens a small menu (Concede for now);
+            the standalone Concede button is hidden on phones. */}
+        {isMobile && !spectator && !winner && (
+          <>
+            <button
+              className="game-cog"
+              aria-label="Menu"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              ⚙
+            </button>
+            {menuOpen && (
+              <>
+                <div className="game-menu-backdrop" onPointerDown={() => setMenuOpen(false)} />
+                <div className="game-menu">
+                  <button
+                    className="game-menu-item"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setConfirmConcede(true)
+                    }}
+                  >
+                    Concede
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}
@@ -1217,6 +1276,12 @@ export function GameScreen(props: GameScreenProps) {
             myTurn={!spectator && myTurn && !winner}
             attacker={attacker}
             dropIndex={drag && drag.card.cardType === 'minion' ? drag.pos : null}
+            placing={!!placing}
+            onPlace={(slot) => {
+              if (!placing) return
+              onHandCard(placing.handIndex, placing.card, slot)
+              setPlacing(null)
+            }}
             held={heldHp}
             targetable={targetable}
             onChar={onChar}
@@ -1262,8 +1327,47 @@ export function GameScreen(props: GameScreenProps) {
             <ManaBar side="self" mana={snap.self.mana} max={snap.self.maxMana} />
           </div>
 
-        {/* Your hand */}
-        <div className="hand">
+        {/* Mobile: dim backdrop behind the focused hand; tap it to close. */}
+        {isMobile && handFocused && (
+          <div className="hand-backdrop" onPointerDown={() => setHandFocused(false)} />
+        )}
+
+        {/* Mobile: while choosing where a minion goes, a hint banner. */}
+        {isMobile && placing && (
+          <div className="placing-hint">Tap a slot to place · tap hand to cancel</div>
+        )}
+
+        {/* Mobile: the card currently being committed (a minion awaiting its slot,
+            or a spell awaiting its target) shows full-size on the left so it's
+            clearly visible instead of sliced into the peek strip. */}
+        {isMobile &&
+          (() => {
+            const c = placing ? placing.card : spell ? snap.self.hand?.[spell.handIndex] : null
+            if (!c) return null
+            return (
+              <div className="chosen-card">
+                <div className={'card' + cardColorClass(c)}>
+                  <CardFace card={c} />
+                </div>
+              </div>
+            )
+          })()}
+
+        {/* Your hand. On a phone it peeks at the bottom edge; tapping the peek
+            opens the focused overlay (cards become big + playable). While placing
+            a minion, the same tap cancels the placement. */}
+        <div
+          className={'hand' + (isMobile ? (handFocused ? ' focused' : ' peek') : '')}
+          onClick={
+            isMobile
+              ? placing
+                ? () => setPlacing(null)
+                : !handFocused
+                  ? () => setHandFocused(true)
+                  : undefined
+              : undefined
+          }
+        >
           {(snap.self.hand ?? []).map((c, i) => {
             const affordable = myTurn && !winner && c.cost <= snap.self.mana
             const armed = spell?.handIndex === i
@@ -1278,7 +1382,29 @@ export function GameScreen(props: GameScreenProps) {
                   (armed ? ' selected aiming' : '') +
                   (drag?.handIndex === i ? ' dragging' : '')
                 }
-                onPointerDown={(e) => onCardPointerDown(i, c, e)}
+                onPointerDown={(e) => {
+                  // Mobile: skip the desktop drag entirely (touch has no hover and
+                  // the board sits behind the focus backdrop). A tap in the focused
+                  // overlay plays the card directly: a targeted card arms and the
+                  // overlay closes so the board targets become tappable; anything
+                  // else plays immediately (minions append at the end of the board).
+                  if (isMobile && handFocused) {
+                    e.preventDefault()
+                    if (!affordable || spectator) return // can't play → keep the overlay open
+                    const targeted = c.target && c.target !== 'none'
+                    if (!targeted && c.cardType === 'minion') {
+                      // Untargeted minion → pick a board slot next.
+                      setPlacing({ handIndex: i, card: c })
+                    } else {
+                      // Targeted card arms (board taps choose the target); an
+                      // untargeted spell casts immediately.
+                      onHandCard(i, c, undefined)
+                    }
+                    setHandFocused(false)
+                    return
+                  }
+                  onCardPointerDown(i, c, e)
+                }}
                 onMouseEnter={() => {
                   // Tell the opponent which hand card we're considering (HS lifts it).
                   hoverHandRef.current = i
@@ -1303,7 +1429,7 @@ export function GameScreen(props: GameScreenProps) {
         <div className="log-title">Log</div>
         {log.length === 0 && <div className="log-empty">—</div>}
         <div className="log-feed">
-          {log.slice(0, 25).map((e, i) => {
+          {log.slice(0, isMobile ? 8 : 25).map((e, i) => {
             const primary = e.source ?? e.targets[0]?.actor
             const died = e.targets.some((t) => t.died)
             return (
@@ -1311,13 +1437,28 @@ export function GameScreen(props: GameScreenProps) {
                 key={i}
                 className={'log-row k-' + e.kind}
                 onMouseEnter={(ev) => {
+                  if (isMobile) return // touch: open on tap (onClick), not hover
                   // Anchor the popup just left of the row, at its Y, clamped on-screen.
                   const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
                   const H = 200 // approx popup height for the clamp
                   const top = Math.min(Math.max(r.top + r.height / 2, 8 + H / 2), window.innerHeight - 8 - H / 2)
                   setLogPop({ entry: e, rightPx: window.innerWidth - r.left + 10, topPx: top })
                 }}
-                onMouseLeave={() => setLogPop(null)}
+                onMouseLeave={() => {
+                  if (!isMobile) setLogPop(null)
+                }}
+                onClick={(ev) => {
+                  // Mobile: tap a row to toggle its detail popup, anchored left of the row.
+                  if (!isMobile) return
+                  if (logPop?.entry === e) {
+                    setLogPop(null)
+                    return
+                  }
+                  const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+                  const H = 200
+                  const top = Math.min(Math.max(r.top + r.height / 2, 8 + H / 2), window.innerHeight - 8 - H / 2)
+                  setLogPop({ entry: e, rightPx: window.innerWidth - r.left + 10, topPx: top })
+                }}
               >
                 {primary && <LogChip actor={primary} />}
                 <span className="log-rel-icon">{kindIcon(e.kind)}</span>
@@ -1499,9 +1640,24 @@ function ManaBar({ side, mana, max }: { side: 'self' | 'opp'; mana: number; max:
   )
 }
 
+// useIsMobile is true only on a landscape phone (matches the CSS game breakpoint
+// `(orientation: landscape) and (max-height: 600px)`), so the focused-hand
+// interaction is wired up only where the mobile layout actually renders.
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: landscape) and (max-height: 600px)')
+    const apply = () => setMobile(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  return mobile
+}
+
 // DeckPile is the draw pile: a stack of face-down cards anchored on the right
 // (near End Turn, HS-style). Count shows in a hover tooltip.
-function DeckPile({ side, count }: { side: 'self' | 'opp'; count: number }) {
+function DeckPile({ side, count, mana, max }: { side: 'self' | 'opp'; count: number; mana: number; max: number }) {
   // Stack height reflects how full the deck is (30 = 100%): 3 layers >66%, 2
   // >33%, 1 above empty, none at 0. An outline always marks the deck's spot.
   const layers = count >= 20 ? 3 : count >= 10 ? 2 : count >= 1 ? 1 : 0
@@ -1512,6 +1668,12 @@ function DeckPile({ side, count }: { side: 'self' | 'opp'; count: number }) {
       ))}
       {count === 0 && <span className="deck-empty">∅</span>}
       <span className="deck-tip">{count} cards</span>
+      {/* Mobile mana readout: one crystal glyph + count, pinned over the deck
+          (the long crystal bar is hidden on phones). */}
+      <span className="deck-mana" aria-label={`${mana}/${max} mana`}>
+        <span className="deck-mana-gem" />
+        {mana}/{max}
+      </span>
     </div>
   )
 }

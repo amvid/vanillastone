@@ -1895,6 +1895,10 @@ button {
 .deck-pile:hover .deck-tip {
   display: block;
 }
+/* The over-deck mana badge is mobile-only (shown in the landscape game query). */
+.deck-mana {
+  display: none;
+}
 
 /* Opponent's hidden hand: face-down backs sized like our own hand cards. */
 .opp-hand {
@@ -2355,6 +2359,7 @@ button {
 .play-ghost,
 .seek-options .card,
 .dc-floating-preview .card,
+.chosen-card .card,
 .log-pop-card,
 .minion-preview {
   position: relative;
@@ -3314,6 +3319,7 @@ button {
   background: rgba(160, 24, 24, 0.22);
   border-radius: 9px;
   pointer-events: none;
+  z-index: 10; /* above the name band / stats so the whole ✕ shows, not just its top */
 }
 
 /* ---------------------------------------------------------------- *
@@ -4475,12 +4481,30 @@ button {
   }
   /* Tribe pips: smaller text so the whole row fits without clipping. */
   .tribe-pip {
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 0;
-    padding: 3px 4px;
+    padding: 3px 3px;
   }
   .tribe-bar {
-    gap: 4px;
+    gap: 3px;
+  }
+  /* Mana + rarity filters share ONE row: shrink the pips and don't wrap. */
+  .col-filters {
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .filter-row {
+    gap: 3px;
+  }
+  .mana-pip {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+  .rarity-pip {
+    padding: 3px 7px;
+    font-size: 11px;
   }
 
   /* The book holds the scrolling grid; tribe bar stays pinned at its bottom. */
@@ -4550,6 +4574,412 @@ button {
   .deck-row .copy-code,
   .deck-row .del {
     flex: 1 1 0;
+  }
+
+  /* --- Game screen --------------------------------------------- *
+   * Same root cause as the other screens: .game-stage scales but keeps its
+   * original (huge) footprint → overflow on a ~390px-tall phone. Fix = drop
+   * the scale, fill the viewport, and shrink every fixed-px element so the
+   * whole table (opp sliver → boards → peeking hand) fits. The hand peeks at
+   * the bottom edge and opens a focused overlay on tap (wired in GameScreen). */
+  .game-stage {
+    transform: none;
+    width: 100%;
+    height: 100dvh;
+  }
+  /* Framed table, echoing the collection book's outline. The 38px bottom padding
+     keeps the in-flow content (self board + hp/mana row) clear of the absolutely
+     positioned hand peek strip pinned at the bottom edge. */
+  .play-area {
+    padding: 4px 8px 32px;
+    margin: 3px;
+    border-radius: 14px;
+    border: 1px solid #6b5536;
+    box-shadow:
+      inset 0 0 0 1px #00000055,
+      0 0 0 1px #ffffff14,
+      0 0 16px #00000066;
+  }
+  .zone {
+    gap: 2px;
+  }
+  /* Opp side: pin the hand sliver + hero row to the top edge and the board to the
+     midline (margin-top:auto). Stops the hero shifting up/down as minions enter or
+     leave the board — it stays stuck under its hand. */
+  .zone.top {
+    justify-content: flex-start;
+  }
+  .zone.top .board {
+    margin-top: auto;
+  }
+  .board {
+    min-height: 0;
+    gap: 6px;
+    padding: 0;
+  }
+  /* Smaller minions so both boards + both hero rows fit ~390px tall (the self
+     hero was being pushed off the bottom). */
+  .minion {
+    width: 74px;
+    height: 80px;
+  }
+  /* No name tag on the board object — read the full card via the hover preview
+     (pinned to the right edge, below). Keeps the small object uncluttered. */
+  .minion .m-nametag {
+    display: none;
+  }
+  /* Hover preview → a fixed panel on the right edge (over the log) so it never
+     covers the board. */
+  .minion .minion-preview,
+  .minion.enemy .minion-preview {
+    position: fixed;
+    top: 50%;
+    right: 4px;
+    left: auto;
+    bottom: auto;
+    transform: translateY(-50%) scale(0.82);
+    transform-origin: right center;
+  }
+  .minion:hover .minion-preview {
+    transition-delay: 0.15s; /* snappier on a phone */
+  }
+  /* Placing mode: insertion slots between minions. */
+  .board.placing {
+    gap: 2px;
+  }
+  .place-slot {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 56px;
+    padding: 0;
+    border: 2px dashed #6fdf7a99;
+    border-radius: 8px;
+    background: #6fdf7a1a;
+    color: #6fdf7a;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .place-slot:active {
+    background: #6fdf7a3a;
+  }
+  .placing-hint {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #11151bdd;
+    border: 1px solid #6fdf7a66;
+    color: #cfeed4;
+    font-size: 11px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  /* The card being committed (placing a minion / aiming a spell), shown full on
+     the left so it's readable while the hand is collapsed. Anchored inside
+     .play-area (which clips, so it's inset enough that the cost gem — which sits
+     just outside the card's top-left — isn't sliced at the edge). */
+  .chosen-card {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%) scale(0.82);
+    transform-origin: left center;
+    z-index: 75;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 18px #000a);
+  }
+
+  /* Opponent hand: mirror our own peek — only the bottom edge of the backs pokes
+     from the top, pulled up under the table border so it reads as "hidden". */
+  .opp-hand {
+    min-height: 0;
+    max-height: 16px;
+    margin-top: -6px;
+    overflow: hidden;
+    align-items: flex-end; /* show the BOTTOM edge of the backs */
+  }
+  .opp-hand .card-back {
+    width: 60px;
+    height: 84px;
+    margin: 0 -14px;
+  }
+  .opp-hand-count {
+    font-size: 11px;
+    padding: 3px 7px;
+  }
+
+  /* Hero row: compact portrait + hero power + mana. */
+  .self-row {
+    gap: 8px;
+  }
+  /* Nudge the self hero row up a little off the hand peek. */
+  .zone.bottom .self-row {
+    margin-bottom: 12px;
+  }
+  .portrait {
+    width: 44px;
+    height: 44px;
+    border-width: 2px;
+  }
+  .hp-button {
+    width: 28px;
+    height: 28px;
+  }
+  .hero-name {
+    font-size: 11px;
+  }
+  /* Mana: the long crystal bar is replaced by a single-gem badge over each deck. */
+  .mana-bar {
+    display: none;
+  }
+  .deck-mana {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 31; /* above the pile (z46 set on .deck-pile, children stack within) */
+    padding: 2px 7px 2px 5px;
+    border-radius: 999px;
+    background: #0d1322ee;
+    border: 1px solid #4aa8ff;
+    color: #bfe4ff;
+    font-size: 12px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    box-shadow: 0 1px 5px #000a;
+  }
+  /* Self: mana below its deck. Opp: mirrored above its deck. Negative offset =
+     the badge clears the pile with a gap. */
+  .deck-pile.self .deck-mana {
+    top: auto;
+    bottom: -24px;
+  }
+  .deck-pile.opp .deck-mana {
+    bottom: auto;
+    top: -24px;
+  }
+  .deck-mana-gem {
+    width: 11px;
+    height: 11px;
+    transform: rotate(45deg);
+    border-radius: 2px;
+    background: radial-gradient(circle at 35% 30%, #ade0ff, #4aa8ff 70%);
+    border: 1px solid #cfeaff;
+    box-shadow: 0 0 5px 1px #4aa8ffbb;
+  }
+
+  /* Deck piles: small, tucked into the right corners (top/bottom) clear of the
+     vertically-centered End Turn button. */
+  .deck-pile {
+    right: 8px;
+    left: auto;
+    width: 40px;
+    height: 56px;
+    z-index: 46; /* above the hand peek (45) so the bottom-corner pile shows */
+  }
+  /* Lifted off the edges to leave room for the mana badge (above the opp deck,
+     below the self deck) plus a gap. Self mirrors opp: same inset, so the mana
+     badge sits in the bottom corner like opp's sits in the top corner. */
+  .deck-pile.opp {
+    top: 26px;
+  }
+  .deck-pile.self {
+    bottom: 26px;
+  }
+  .deck-card-back {
+    width: 40px;
+    height: 56px;
+  }
+  .deck-card-back:nth-child(2) {
+    left: 3px;
+    top: 3px;
+  }
+  .deck-card-back:nth-child(3) {
+    left: 6px;
+    top: 6px;
+  }
+
+  /* End Turn: smaller and lifted to sit on the midline (the play-area's vertical
+     center is ~24px below the midline because of the 52px bottom padding that
+     reserves the hand-peek strip). */
+  .end-turn {
+    right: 8px;
+    top: calc(50% - 24px);
+    padding: 9px 11px;
+    font-size: 13px;
+  }
+  /* The standalone Concede is replaced by the cog menu on phones. */
+  .concede {
+    display: none;
+  }
+  /* Cog menu, bottom-left. */
+  /* Self name removed on phones (frees the bottom-left for the cog). */
+  .player-name.self {
+    display: none;
+  }
+  .game-cog {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 50; /* above the hand peek (45) so the tap hits the cog, not the hand */
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #1a1f27;
+    border: 1px solid #3a4654;
+    color: #cdd;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .game-cog:active {
+    background: #232a34;
+  }
+  .game-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+  }
+  .game-menu {
+    position: absolute;
+    left: 8px;
+    bottom: 46px;
+    z-index: 91;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    border-radius: 10px;
+    background: #11151bf2;
+    border: 1px solid #3a4654;
+    box-shadow: 0 8px 24px #000a;
+  }
+  .game-menu-item {
+    padding: 8px 16px;
+    border-radius: 7px;
+    background: #3a2326;
+    border: 1px solid #774;
+    color: #d99;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .game-menu-item:active {
+    background: #4a2c30;
+  }
+
+  /* Slim the log rail to art-only: each row is just the card/hero chip; the kind
+     icon, kill marker and count are dropped (read the full detail on tap). */
+  .log {
+    width: 40px;
+    flex-basis: 40px;
+    padding: 5px 3px;
+  }
+  .log-title {
+    display: none;
+  }
+  .log-row {
+    gap: 0;
+    padding: 2px;
+    min-height: 0;
+    cursor: pointer;
+  }
+  .log-row .log-rel-icon,
+  .log-row .log-died,
+  .log-row .log-count {
+    display: none;
+  }
+  .log-chip {
+    width: 30px;
+    height: 30px;
+  }
+
+  /* Hand — peek vs focused. Peek: a thin strip at the bottom edge showing the
+     tops of the cards; taps fall through to .hand (pointer-events:none) which
+     opens the overlay. Focused: cards lift to a big, playable row above a dim
+     backdrop. */
+  .hand.peek {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 28px;
+    min-height: 0;
+    padding: 0;
+    /* No overflow:hidden here on purpose: the cards hang DOWN off the bottom and
+       are clipped by .play-area instead. That keeps a drawn card visible for its
+       whole deck→hand flight (the peek's own clip would have hidden it). */
+    align-items: flex-start; /* show the TOP (name + a slice of art) of each card */
+    z-index: 45;
+    cursor: pointer;
+  }
+  .hand.peek .card {
+    width: 118px;
+    height: 168px;
+    margin: 0 -34px; /* heavy fan overlap */
+    pointer-events: none; /* tap → .hand onClick → focus */
+  }
+  .hand.focused {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-height: 0;
+    padding: 8px 6px 10px;
+    align-items: flex-end;
+    overflow: hidden; /* a full hand stays on-screen, fanned, never off the edges */
+    z-index: 70;
+  }
+  .hand.focused .card {
+    width: 122px;
+    height: 176px;
+    margin: 0 -22px; /* heavy fan so ~8 cards still fit 844px wide */
+  }
+  .hand-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 60; /* under the focused hand (70), over the board */
+    background: #0007;
+  }
+
+  /* --- Mulligan ------------------------------------------------ *
+   * Compact the 3 full-size cards + title + timer + button so the whole modal
+   * fits ~390px tall without scrolling. */
+  .mulligan-modal {
+    padding: 8px 14px;
+    max-height: 96dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .mulligan-modal .seek-title {
+    font-size: 13px;
+    margin: 0 0 6px;
+  }
+  .hand.mulligan {
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 0;
+  }
+  .hand.mulligan .card {
+    width: 116px;
+    height: 167px;
+  }
+  .mulligan-timer {
+    margin-top: 6px;
+    font-size: 13px;
+  }
+  .keep-btn {
+    margin-top: 6px;
+    padding: 8px 18px;
   }
 
   /* --- Login + Lobby ------------------------------------------- *

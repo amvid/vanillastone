@@ -5,7 +5,10 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-26** (**Warlock COMPLETE + ART COMPLETE** — fourth playable class.
+Last updated: **2026-06-27** (**Mobile optimization: login/lobby/collection DONE + verified;
+game screen BUILT (opp sliver, compact decks, hand peek+focus mode, board outline) — needs
+device-verify, see "Open / next" Mobile optimization.** Prev:
+**Warlock COMPLETE + ART COMPLETE** — fourth playable class.
 Full Basic + Classic Warlock set in `internal/cards/warlock.go`: 27 collectible (10 Basic + 17
 Classic), hero power `soul_tithe` (Life Tap — draw a card + take 2), + 4 tokens (`runt_imp`,
 `infernal_eruption`, `gore_scythe`, `abyss_horror`). 1:1 mechanics, original names/text. Coded +
@@ -438,20 +441,59 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
-- **Mobile optimization (2026-06-26) — login/lobby/collection done, game screen TODO.**
-  tsc + vite green. CSS-only, one `@media (max-width: 640px)` block appended to
-  `web/src/index.css`. Root cause of prior mobile breakage: every chrome screen uses
-  `transform: scale(--u * --ui-bias)`, and transform-scale keeps the element's ORIGINAL
+- **Mobile optimization (2026-06-27) — login/lobby/collection DONE + device-verified
+  (DevTools iPhone 12 Pro 844×390); game screen is the only screen left.**
+  tsc + vite green throughout. Root cause of prior mobile breakage: every chrome screen
+  uses `transform: scale(--u * --ui-bias)`, and transform-scale keeps the element's ORIGINAL
   layout footprint (a 320px card scaled down still occupies 320px) → overflow on narrow
-  phones. Fix = on mobile, drop the scale (`transform: none`) and lay screens out fluidly;
-  the natural px (tuned "small on a big monitor") read normal on a phone. Changes: lobby
-  card `width: min(92vw,360px)` unscaled; player-panel re-pinned to a bottom sheet; mode
-  picker `.mode-grid` stacks + width-clamped; class picker cards fluid; deckbuilder
-  `.builder` stacks book-over-deck-panel, absolute class rail → horizontal strip, book grid
-  `repeat(4,143px)` → `repeat(3,1fr)` with `aspect-ratio:143/197`, deck panel full-width.
-  **NOT YET VERIFIED on a real device** (no browser tooling / dev server in this session).
-  **Next: game screen** (`.game-stage` uses `scale(--u * --game-bias)` — same footprint
-  issue + landscape-only layout; harder, discuss before building).
+  phones. Fix pattern = on mobile, drop the scale (`transform: none`) and lay out fluidly;
+  the natural px (tuned "small on a big monitor") read normal on a phone.
+  - **Decision: target LANDSCAPE phones, not portrait** (user: "we don't care about vertical").
+    Two breakpoints in `web/src/index.css`: portrait `@media (max-width: 640px)` (basic
+    fluid fallback) and the real one `@media (orientation: landscape) and (max-height: 600px)`
+    (gates phones, not tablets/desktop). 844×390 hits only landscape; 390×844 only portrait.
+  - **Collection (landscape):** fills viewport, only the card grid scrolls; filters/rail/pager
+    pinned. Class rail (desktop vertical folder-tabs, abs in gutter) → horizontal strip. Page
+    size is viewport-aware via `usePerPage()` hook in `Deckbuilder.tsx` (4/page landscape,
+    8 desktop). Card count + page moved onto the rail's right end (`.rail-meta`, landscape-only;
+    desktop keeps its own count/page). Cards `repeat(4, minmax(0,118px))` centered, vertically
+    centered (`align-content:center`). Deck rows stack (deck / copy+del) in the narrow panel.
+  - **Page-turn arrows (desktop + mobile):** removed the Prev/Next button row. `.book-nav`
+    are full-book-height `‹`/`›` bars inside `.book` (which gained wide side padding +
+    `position:relative`), hover/`:active` highlight, no border/outline. Slim `.book-page`
+    `n / N` indicator. `PER_PAGE` renamed → `perPage` everywhere in Deckbuilder.
+  - **Lobby/login (landscape):** card unscaled + compacted to fit ~390px. Lobby card + players
+    panel fuse into ONE panel via a `.lobby-merge` wrapper that is `display:contents` on
+    desktop/portrait (no-op, panel stays fixed) and the single bordered/rounded/shadowed panel
+    on landscape, with card + players as flush transparent sections split by one faint divider.
+    Wrapper added in `App.tsx` lobby return only (login untouched).
+  - **Modals:** mode-picker keeps 3 cols but compacts + caps to `96dvh` w/ scroll; title +
+    deck selector share one row, landscape hides title and centers selector (grid, ✕ right).
+    Bottom Cancel/Close removed from mode-picker + Profile + Leaderboard → shared corner ✕
+    (`.mode-close` / `.modal-x`). Custom dropdowns (`DeckSelect`/`FancySelect`) got `useDropUp`
+    (flip menu upward when little room below) + `width:max-content` menus so class names fit.
+  - **Rotate hint:** `index.html` has a `.rotate-hint` overlay shown only on portrait phones
+    (`@media (orientation:portrait) and (max-width:640px)`) nudging to rotate to landscape.
+  - **Game screen (landscape) — BUILT, needs device-verify (DevTools iPhone 12 Pro 844×390).**
+    tsc + vite green. Same fix pattern: in the landscape query `.game-stage` drops the scale
+    (`transform:none; 100%/100dvh`) and every fixed-px element shrinks to fit ~390px tall
+    (minion 86×98, board `min-height:0`, portrait 50, hp-button 30, mana crystal 8, log rail 58).
+    Per user feedback:
+    - **Opp hand → thin sliver:** `.opp-hand { max-height:26px; overflow:hidden }` so only the
+      tops of the face-down backs peek from the top edge.
+    - **Deck piles compacted + moved:** `.deck-pile` → 40×56, anchored to the LEFT edge
+      (`left:6px; right:auto`) clear of End Turn (right) and the log rail.
+    - **Player hand peek + focus mode (JS in `GameScreen.tsx`):** `useIsMobile()` (matchMedia
+      = the game breakpoint) gates a `handFocused` state. Unfocused = `.hand.peek` (34px strip at
+      the bottom edge, card tops peeking, cards `pointer-events:none` so a tap hits `.hand`
+      onClick → focus). Focused = `.hand.focused` (big 132×190 row, z70) over a `.hand-backdrop`
+      (z60, tap → unfocus). Tapping a card while focused arms it AND unfocuses so the board
+      targets behind become tappable. Auto-unfocus when not your turn / game over. Desktop:
+      `isMobile` stays false → no peek/focused classes, no backdrop, hand unchanged.
+    - **Board outline:** `.play-area` gets a rounded wood border + glow (echoes the collection book).
+    - **TODO device-verify:** boards fit without overflow; sliver/peek/focus interactions feel right;
+      drag-to-board still works from focused mode; hero-meta/weapon text not clipped at small size.
+    Build with project-local bins (`web/node_modules/.bin/tsc|vite`) — `npx` pulled a bad cache.
 - **Gameplay improvements (2026-06-26) — DONE.** `go test -race ./...`, vet, gofmt, tsc, vite green.
   - **Draw animation for ALL draws.** Server now emits a `draw` event per card that reaches a
     hand (`drawCard`, `state.go`) — no card identity, so an opponent's draw stays hidden. Client

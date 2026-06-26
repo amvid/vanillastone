@@ -66,10 +66,14 @@ export function Board(props: {
   // lag until its hit animation connects instead of dropping the instant the
   // snapshot arrives. Falls back to the live snapshot health.
   held?: Record<string, number>
+  // Mobile placing mode: show a tappable insertion slot at every index so you
+  // pick where a minion lands. onPlace(index) drops it there.
+  placing?: boolean
+  onPlace?: (index: number) => void
   targetable: (kind: CharKind, m?: MinionView) => boolean
   onChar: (targetId: string, kind: CharKind, m?: MinionView) => void
 }) {
-  const { minions, enemy, myTurn, attacker, dropIndex, held, targetable, onChar } = props
+  const { minions, enemy, myTurn, attacker, dropIndex, placing, onPlace, held, targetable, onChar } = props
   const kind: CharKind = enemy ? 'enemyMinion' : 'friendlyMinion'
   const nodes = minions.map((m) => {
         const hp = held?.[m.instanceId] ?? m.health
@@ -166,6 +170,22 @@ export function Board(props: {
   if (dropIndex != null) {
     const at = Math.max(0, Math.min(dropIndex, nodes.length))
     nodes.splice(at, 0, <div key="drop-slot" className="drop-slot" />)
+  }
+  // Placing mode: interleave a tappable insertion slot before each minion and one
+  // after the last, so a tap picks the exact index.
+  if (placing && onPlace) {
+    const slot = (idx: number) => (
+      <button key={`slot-${idx}`} className="place-slot" onClick={() => onPlace(idx)} aria-label={`Place at ${idx}`}>
+        <span className="place-slot-mark">+</span>
+      </button>
+    )
+    const woven: typeof nodes = []
+    nodes.forEach((n, i) => {
+      woven.push(slot(i))
+      woven.push(n)
+    })
+    woven.push(slot(nodes.length))
+    return <div className="board placing">{woven}</div>
   }
   return <div className="board">{nodes}</div>
 }
