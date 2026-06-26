@@ -26,7 +26,13 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-now: **164/218 collectible art files placed** + **41/41 token art files placed**. Reworked
+now: **189/218 collectible art files placed** + **41/41 token art files placed**. Latest art chunk
+on 2026-06-26 added 25 collectible cards: `spire_mage`, `forge_rifleman`, `ironfur_bear`,
+`magma_brute`, `warband_leader`, `sunderlight_cleric`, `silverback_elder`, `dire_rider`,
+`sylvan_archer`, `hearthguard_footman`, `brineherald`, `reef_raider`, `tusker_runt`,
+`hexbone_healer`, `corroding_ooze`, `mirefang_raptor`, `finblade_warrior`, `frostpaw_grunt`,
+`runescale_kobold`, `tinker_novice`, `river_snapper`, `silver_page`, `shadow_prowler`,
+`fledgling_hawk`, and `shield_lackey`. Reworked
 `chronlord_zhal`, `dreamwarden_ylena`, `emberqueen_valtha`, and `spelltide_wyrm` on 2026-06-26;
 Ylena's five dream tokens are now also done. Finished the remaining token backlog on 2026-06-26
 and also added missing source-card art for `tideling_hunter`, `razorthorn_hunter`, `reaper_golem`,
@@ -57,7 +63,7 @@ Do **not** worry about cost, rarity, class, or old queue order; just pick 25 car
 `web/public/art/<card_id>.png`, generate/place/process them one by one, and when exactly 25 new
 collectible card art files are finished, **stop and ping the user**. The user plans to start another
 fresh session with the same intent after each 25-card chunk. Current status before that next chunk:
-collectible art **164/218**, token art **41/41**, so **54 collectible cards remain** and **0 tokens
+collectible art **189/218**, token art **41/41**, so **29 collectible cards remain** and **0 tokens
 remain**.
 
 Historical context: **Basic Mage art is complete**:
@@ -68,8 +74,13 @@ placed from this queue: `molten_hound`, `battlehorn_champion`, `war_colossus`,
 `elder_spellweaver`, `crag_ogre`, `arena_champion`, `reckless_skyrider`, `harbor_bodyguard`,
 `darkscale_mender`, `frostpaw_warlord`, `gorebound_berserker`, `duskblade`, and
 `ironpike_commando`, `frostwind_brute`, `whelpforge_mechanic`, `tinker_inventor`, and
-`marsh_snapjaw`, `runefist_ogre`, `bulwark_shieldmaster`, and `bastion_knight`.
-Last placed before stop: `bastion_knight` (4-cost Basic neutral minion, 103KB). User requested
+`marsh_snapjaw`, `runefist_ogre`, `bulwark_shieldmaster`, and `bastion_knight`, plus latest chunk
+`spire_mage`, `forge_rifleman`, `ironfur_bear`, `magma_brute`, `warband_leader`,
+`sunderlight_cleric`, `silverback_elder`, `dire_rider`, `sylvan_archer`, `hearthguard_footman`,
+`brineherald`, `reef_raider`, `tusker_runt`, `hexbone_healer`, `corroding_ooze`,
+`mirefang_raptor`, `finblade_warrior`, `frostpaw_grunt`, `runescale_kobold`, `tinker_novice`,
+`river_snapper`, `silver_page`, `shadow_prowler`, `fledgling_hawk`, and `shield_lackey`.
+Last placed before stop: `shield_lackey` (1-cost neutral common minion, 114KB). User requested
 switching to Hunter card art in batches of 5 before returning to the remaining Basic/default
 neutrals. Hunter art placed: `apex_saurian` (128KB), `duelists_longbow` (118KB),
 `mane_lioness` (99KB), `blasting_shot` (104KB), `tundra_charger` (111KB),
@@ -97,18 +108,17 @@ and `dream_emerald_reckoning` (117KB). Remaining token art is now complete too: 
 `warsong_reaver`; and Gearmaster Cog tokens `cog_emboldener`, `cog_beacon`, `cog_polymorpher`,
 `cog_mender`, `cog_chick`. Current computed card/art status: deck-buildable cards **218** total
 (179 minions, 26 spells, 11 secrets, 2 weapons), hero powers **2**, tokens **41** total
-(33 minion tokens, 8 spell tokens). Art status: collectible **164/218**, token **41/41**,
-remaining token art **0**. Next session: return to the remaining Basic/default neutral
-collectible queue.
+(33 minion tokens, 8 spell tokens). Art status: collectible **189/218**, token **41/41**,
+remaining token art **0**. Next session: continue the remaining collectible queue; 29 deck-buildable
+cards still lack art.
 IMPORTANT: place card art only into `web/public/art/`; do **not** manually copy card art into
 `web/static/art/`. The build copies public assets when needed.
-Workflow: generate a batch of up to 5 raw previews with the locked cel-shaded/top-35%-empty style,
-stop for user review. When user says `continue`, that means approve/place the current preview batch,
-copy the approved raws from the current `.codex/generated_images/...` folder to
-`web/public/art/<card_id>.png`, resize to 512, compress below ~150KB, update this handoff and
-`.notes/art-prompts.md`, then generate the next raw preview batch and stop for review. If user says
-`rework`, regenerate the requested card(s) without placing. Do not visually critique previews unless
-asked; user is reviewing them. Vary humanoid prompts with more women/girls where suitable. For
+Workflow update (latest user instruction): for the 25-card chunk workflow, generate/place/process all
+25 without review unless the user explicitly asks for previews or reworks. Copy raws from the current
+`.codex/generated_images/...` folder to `web/public/art/<card_id>.png`, resize to 512, compress below
+~150KB, update this handoff and `.notes/art-prompts.md`, then stop and ping the user after exactly 25
+new collectible card art files. Do not visually critique previews unless asked. Vary humanoid prompts
+with more women/girls where suitable. For
 tokens, first check the card that summons/generates that token and reuse any established visual
 language from the main card art/prompt so the token feels like the same creature/object.
 

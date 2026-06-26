@@ -3191,14 +3191,22 @@ button {
   padding: 3px 6px;
 }
 
+/* Break out of the 720px #root and span the viewport so the inner content can
+   center against the window, not the narrow column. */
 .builder-page {
-  max-width: 1280px;
-  margin: 24px auto;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-top: 24px;
   padding: 0 16px;
-  /* Centered, fits one screen — scale the whole page to the viewport like the
-     lobby card (the dark bg fills around it, no void). The 1040px base reads
-     small on a big screen, so bias it up 1.5x; --u still shrinks it on smaller
-     displays. Tune the 1.5 if you want the collection bigger/smaller. */
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+/* The actual page content: sized to its widest row, scaled to the viewport like
+   the lobby card. The base reads small on a big screen, so bias it up 1.5x;
+   --u still shrinks it on smaller displays. */
+.builder-inner {
+  width: fit-content;
   transform: scale(calc(var(--u) * var(--ui-bias)));
   transform-origin: top center;
 }
@@ -3223,11 +3231,16 @@ button {
   display: flex;
   gap: 20px;
   align-items: flex-start;
+  padding-left: 48px; /* gutter the absolute-positioned class rail lives in */
+}
+/* Header indented to match the book's left edge (past the rail gutter). */
+.builder-head {
+  padding-left: 48px;
 }
 
 /* Collection book ---------------------------------------------- */
 .collection {
-  flex: 1;
+  flex: 0 0 auto; /* size to the book's natural width, don't stretch */
 }
 .book {
   background:
@@ -3241,7 +3254,7 @@ button {
 }
 .book-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 143px);
   grid-template-rows: repeat(2, 197px); /* always 2 full rows so a short page keeps its height */
   gap: 18px;
   justify-items: center;
@@ -3518,42 +3531,74 @@ button {
 }
 
 /* Collection tabs + filters ------------------------------------ */
-.collection-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+/* Vertical class rail in the gutter left of the book, folder-tab style. */
+.book-area {
+  position: relative; /* anchor for the absolutely-placed rail */
 }
-.col-tabs {
+.book-tabs {
+  position: absolute;
+  top: 14px;
+  right: 100%; /* sit just left of the book... */
+  margin-right: -2px; /* ...overlapping its border so tabs merge in */
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 1;
 }
-.col-tabs button {
-  background: #222a36;
-  border: 1px solid #3a4658;
-  color: #cde;
-  border-radius: 6px;
-  padding: 6px 14px;
+.tab-tile {
+  width: 42px;
+  height: 42px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #2c2013;
+  border: 1px solid #6b5536;
+  border-right: none; /* open into the book */
+  color: #cdb88e;
+  border-radius: 8px 0 0 8px; /* round only the outer (left) corners */
+  padding: 3px;
   cursor: pointer;
+  overflow: hidden;
 }
-.col-tabs button.on {
-  background: #2f4f7d;
-  border-color: #5c8cc4;
+.tab-tile svg {
+  display: block;
+}
+/* Class tiles render their hero portrait as the tile face. */
+.tab-portrait {
+  background-size: cover;
+  background-position: center top;
+}
+/* Active text tile (All/Neutral): merge into the book face. */
+.tab-tile:not(.tab-portrait).on {
+  background-color: #4a3826;
+  border-color: #8a7048;
   color: #fff;
+}
+/* Active portrait tile: keep the art, gold edge on the outer sides only
+   (right stays open so the tab merges into the book). */
+.tab-portrait.on {
+  border-color: #d8b870;
+  border-width: 2px;
+}
+.tab-tile:focus-visible {
+  outline: 2px solid #6cf;
+  outline-offset: 1px;
 }
 .col-count {
   align-self: center;
-  margin-left: 6px;
-  color: #789;
+  margin-left: auto;
+  color: #a99878;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .col-filters {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px; /* space between the mana group and the rarity group */
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 .filter-row {
   display: flex;
@@ -3607,6 +3652,37 @@ button {
   background: #d68a2c;
   border-color: #fc6;
   color: #111;
+}
+
+/* Tribe filter bar — pinned along the bottom edge of the book. */
+.tribe-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #6b553655;
+}
+.tribe-pip {
+  flex: 1 1 0; /* equal widths, share the full bar with no overflow */
+  border: 1px solid #6b5536;
+  background: #2c2013;
+  color: #d8c8a8;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tribe-pip:hover {
+  border-color: #8a7048;
+}
+.tribe-pip.on {
+  background: #6b5536;
+  border-color: #b89860;
+  color: #fff;
 }
 .empty-collection {
   grid-column: 1 / -1;

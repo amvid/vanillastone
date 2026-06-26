@@ -60,6 +60,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   const [browseClass, setBrowseClass] = useState<string | null>(null)
   const [manaFilter, setManaFilter] = useState<number | null>(null)
   const [rarityFilter, setRarityFilter] = useState<string | null>(null)
+  const [tribeFilter, setTribeFilter] = useState<string | null>(null)
   // Card previewed on the left while hovering an in-deck row, pinned to the
   // cursor's vertical level. Held in state (not pure CSS) because the in-deck list
   // scrolls (overflow:auto), which would clip an absolutely-positioned preview,
@@ -96,14 +97,23 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
       if (tab === 'all' && editing && cl !== 'neutral' && cl !== activeClass) return false
       if (manaFilter !== null && (manaFilter === 7 ? c.cost < 7 : c.cost !== manaFilter)) return false
       if (rarityFilter && c.rarity !== rarityFilter) return false
+      if (tribeFilter && c.tribe !== tribeFilter) return false
       return true
     })
     cs.sort((a, b) => a.cost - b.cost || a.name.localeCompare(b.name))
     return cs
-  }, [pool, tab, activeClass, manaFilter, rarityFilter, editing])
+  }, [pool, tab, activeClass, manaFilter, rarityFilter, tribeFilter, editing])
+
+  // Distinct minion tribes present in the whole pool, alphabetised — drives the
+  // tribe filter bar at the bottom of the book.
+  const tribes = useMemo(() => {
+    const set = new Set<string>()
+    for (const c of pool?.cards ?? []) if (c.tribe) set.add(c.tribe)
+    return [...set].sort()
+  }, [pool])
 
   // Any tab/filter/deck change can shrink the list — snap back to the first page.
-  useEffect(() => setPage(0), [tab, manaFilter, rarityFilter, activeClass])
+  useEffect(() => setPage(0), [tab, manaFilter, rarityFilter, tribeFilter, activeClass])
 
   if (!pool) {
     return (
@@ -149,6 +159,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     setTab('all')
     setManaFilter(null)
     setRarityFilter(null)
+    setTribeFilter(null)
     setEditing({ id: null, name: 'New Deck', class: cls, cards: [] })
   }
 
@@ -194,6 +205,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
 
   return (
     <div className="builder-page">
+      <div className="builder-inner">
       <header className="builder-head">
         <button className="back-btn" onClick={onBack}>
           ‹ Lobby
@@ -205,57 +217,77 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
       <div className="builder">
         {/* Collection book */}
         <main className="collection">
-          {/* Tabs + filters */}
-          <div className="collection-controls">
-            <div className="col-tabs">
-              <button className={tab === 'all' ? 'on' : ''} onClick={() => setTab('all')}>
-                All
+          {/* Mana + rarity filters — one compact row above the book. */}
+          <div className="col-filters">
+            <div className="filter-row">
+              {MANA_BUCKETS.map((m) => (
+                <button
+                  key={m}
+                  className={'mana-pip' + (manaFilter === m ? ' on' : '')}
+                  onClick={() => setManaFilter((cur) => (cur === m ? null : m))}
+                >
+                  {m === 7 ? '7+' : m}
+                </button>
+              ))}
+            </div>
+            <div className="filter-row">
+              {RARITIES.map((r) => (
+                <button
+                  key={r}
+                  className={'rarity-pip ' + r + (rarityFilter === r ? ' on' : '')}
+                  onClick={() => setRarityFilter((cur) => (cur === r ? null : r))}
+                >
+                  {r[0].toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+            <span className="col-count">{filtered.length} cards</span>
+          </div>
+
+          {/* Vertical class rail on the left + the book. Classes show their hero
+             portrait; All/Neutral are text tiles. */}
+          <div className="book-area">
+            <div className="book-tabs">
+              <button
+                className={'tab-tile' + (tab === 'all' ? ' on' : '')}
+                title="All"
+                aria-label="All"
+                onClick={() => setTab('all')}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
               </button>
               {(editing ? [editing.class] : pool.classes).map((cls) => (
                 <button
                   key={cls}
-                  className={tab === 'class' && activeClass === cls ? 'on' : ''}
+                  className={'tab-tile tab-portrait' + (tab === 'class' && activeClass === cls ? ' on' : '')}
+                  style={{ backgroundImage: `url('/art/${cls}_hero.png')` }}
+                  title={classLabel(cls)}
+                  aria-label={classLabel(cls)}
                   onClick={() => {
                     setBrowseClass(cls)
                     setTab('class')
                   }}
-                >
-                  {classLabel(cls)}
-                </button>
+                />
               ))}
-              <button className={tab === 'neutral' ? 'on' : ''} onClick={() => setTab('neutral')}>
-                Neutral
+              <button
+                className={'tab-tile' + (tab === 'neutral' ? ' on' : '')}
+                title="Neutral"
+                aria-label="Neutral"
+                onClick={() => setTab('neutral')}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M12 2.5 20 7 V17 L12 21.5 4 17 V7 Z" strokeLinejoin="round" />
+                </svg>
               </button>
-              <span className="col-count">{filtered.length} cards</span>
             </div>
-            <div className="col-filters">
-              <div className="filter-row">
-                {MANA_BUCKETS.map((m) => (
-                  <button
-                    key={m}
-                    className={'mana-pip' + (manaFilter === m ? ' on' : '')}
-                    onClick={() => setManaFilter((cur) => (cur === m ? null : m))}
-                  >
-                    {m === 7 ? '7+' : m}
-                  </button>
-                ))}
-              </div>
-              <div className="filter-row">
-                {RARITIES.map((r) => (
-                  <button
-                    key={r}
-                    className={'rarity-pip ' + r + (rarityFilter === r ? ' on' : '')}
-                    onClick={() => setRarityFilter((cur) => (cur === r ? null : r))}
-                  >
-                    {r[0].toUpperCase() + r.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          <div className="book">
-            <div className="book-grid">
+            <div className="book">
+              <div className="book-grid">
               {pageCards.map((c) => {
                 const n = editCounts[c.cardId] ?? 0
                 const maxed = !editing || n >= capFor(c) || editing.cards.length >= deckSize
@@ -278,6 +310,21 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 <div key={`pad-${i}`} className="book-card placeholder" aria-hidden="true" />
               ))}
               {pageCards.length === 0 && <p className="empty-collection">No cards match these filters.</p>}
+            </div>
+            {/* Tribe filter — pinned to the bottom edge of the book. */}
+            {tribes.length > 0 && (
+              <div className="tribe-bar">
+                {tribes.map((t) => (
+                  <button
+                    key={t}
+                    className={'tribe-pip' + (tribeFilter === t ? ' on' : '')}
+                    onClick={() => setTribeFilter((cur) => (cur === t ? null : t))}
+                  >
+                    {t[0].toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
             </div>
           </div>
           <div className="pager">
@@ -379,6 +426,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
           )}
           {!editing && <p className="hint">Pick a deck to edit, or create a new one.</p>}
         </aside>
+      </div>
       </div>
 
       {/* New-deck class picker. Portaled to <body> so the fixed overlay escapes
