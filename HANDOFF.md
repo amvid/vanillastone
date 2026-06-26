@@ -5,7 +5,7 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-25** (**Hunter COMPLETE** — Phase A (class wiring + hero power + data-only
+Last updated: **2026-06-26** (**Hunter COMPLETE** — Phase A (class wiring + hero power + data-only
 cards) AND phases B–E (all mechanic-gated cards: traps/secrets, conditional/random/splash damage,
 set-minion-health, keyword auras, minion Immune, seek-from-deck, weapon triggers) are now IN. The
 full Hunter set (Basic + Classic) is implemented + unit-tested; new engine vocab in `cards.go`, new
@@ -23,8 +23,9 @@ combatStrike + face-attack path, silence-cancelled). `corroding_ooze` (Acidic Sw
 weapons backend already exists; added opt-in `Effect.DrawWeaponDurability` so plain destroy draws
 nothing while `relic_breaker` keeps its draw. So **the entire Basic set (53 cards) is IN** — Mage
 10/10 + neutrals 43/43. Full manifest + statuses in `.notes/classic-mapping.md` "BASIC SET". Art
-for the new cards just started. Art now: **160/193 collectible art files placed** + 1 token
-(`mana_surge`); `pyrebolt` is now counted as collectible Basic Mage art. Prev:
+now: **160/218 collectible art files placed** + **12/41 token art files placed**. Reworked
+`chronlord_zhal`, `dreamwarden_ylena`, `emberqueen_valtha`, and `spelltide_wyrm` on 2026-06-26;
+Ylena's five dream tokens are now also done. `pyrebolt` is counted as collectible Basic Mage art. Prev:
 art in progress — 104/140 collectible art files placed + 2 tokens:
 `pyrebolt`, `mana_surge`; collectibles placed = all 32 legendaries + all 13 neutral epics + first
 neutral rares `managlutton`, `veiled_assassin`, `bazaar_crier`, `dawnguard_protector`, `vanguard_champion`, `cobalt_loreling`, `grudge_smith`, `mesmer_adept`, `sapphire_drake`, `tollkeeper_brute`, `trampling_brute`, `adept_tutor`, `bannerguard`, `cabal_overseer`, `covert_saboteur`, `runeward_sage`, `brineseer_diviner`, `clockwork_swapbot`, `imp_warden`, `moonfury_stalker`, `relic_seeker`, `runed_golem`, `shadowtail_familiar`, `wounded_duelist`, `venom_serpent`, `siege_engine`, `tidescry_oracle`, `stoneveil_watcher`, `glimmerwing_drake`, `wardstone_sentinel`, `dagger_tosser`, `ashflame_zealot`, `forge_hand`, `spellrage_acolyte`, `mana_leech`, `pocket_conjurer`, `addled_brewer`, `riled_rooster`, `brine_cutter`, `dawn_tender`, `rune_warden`, `acolyte_novice`, `brackish_caller` + all 16 non-legendary Mage collectible art files
@@ -66,20 +67,29 @@ neutrals. Hunter art placed: `apex_saurian` (128KB), `duelists_longbow` (118KB),
 `feint_trap` (131KB), `serpent_trap` (143KB), `keen_arrow` (106KB), `quarry_brand` (103KB),
 `scout_ahead` (114KB), `signal_flare` (126KB), `bestial_fury` (115KB), and
 `packleader_wolf` (111KB). **Hunter collectible art complete: 25/25.**
-Next session: start token art. User corrected the immediate Hunter-token queue to exactly **6 tokens**:
-`frenzy_boar`, `pride_lion`, `guardian_bear`, `savanna_cub`, `snarling_hound`, `coil_serpent`.
-The broader token backlog below also needs art. After Hunter tokens, return to the remaining
-Basic/default neutral collectible queue if desired.
+Hunter token art is also complete: `frenzy_boar` (114KB), `pride_lion` (120KB),
+`guardian_bear` (120KB), `savanna_cub` (129KB), `snarling_hound` (128KB), and
+`coil_serpent` (134KB). These were generated 1-by-1 without user review per request; each prompt
+checked the source/spawning card first (`call_the_pack`, `mane_lioness`, `unleash_the_pack`,
+`serpent_trap`) so token designs match already-established main-card art. Reworked requested
+legendary arts: `chronlord_zhal` (141KB), `dreamwarden_ylena` (122KB), `emberqueen_valtha` (117KB),
+and `spelltide_wyrm` (130KB). Ylena dream-token art complete: `dream_daydream` (101KB),
+`dream_verdant_drake` (118KB), `dream_gleeful_sister` (116KB), `dream_waking_nightmare` (122KB),
+and `dream_emerald_reckoning` (117KB). Current computed card/art status: deck-buildable cards
+**218** total (179 minions, 26 spells, 11 secrets, 2 weapons), hero powers **2**, tokens **41**
+total (33 minion tokens, 8 spell tokens). Art status: collectible **160/218**, token **12/41**,
+remaining token art **29**. Next session: return to the remaining Basic/default neutral collectible
+queue or continue the broader token backlog.
 
 Token art backlog is larger than Hunter. Missing token art includes Mage tokens
-`mirage_image`, `critter`, `conjured_decoy`; Hunter tokens `frenzy_boar`, `pride_lion`,
-`guardian_bear`, `savanna_cub`, `snarling_hound`, `coil_serpent`; Ylena dream tokens
-`dream_daydream`, `dream_verdant_drake`, `dream_gleeful_sister`, `dream_waking_nightmare`,
-`dream_emerald_reckoning`; and many neutral summon/generated tokens such as `tideling_scout`,
+`mirage_image`, `critter`, `conjured_decoy`; neutral summon/generated tokens `tideling_scout`,
 `thornback_boar`, `clockwork_whelp`, `broken_golem`, `errant_squire`, `hornelder_heir`,
 `tutors_pupil`, `snarl_pup`, `emberwing_whelp`, `gorehound_whelp`, `thornback_saurian`,
-`bramble_squirrel`, `thornwood_satyr`, `imp_whelp`, Warhorn anthem/recruit/grunt/reaver tokens,
-and Gearmaster Cog tokens. `mana_surge` already has token art.
+`bramble_squirrel`, `thornwood_satyr`, `imp_whelp`, `jungle_gift`; Warhorn tokens
+`anthem_muster`, `anthem_warsong`, `anthem_ambush`, `tide_recruit`, `warsong_grunt`,
+`warsong_reaver`; and Gearmaster Cog tokens `cog_emboldener`, `cog_beacon`, `cog_polymorpher`,
+`cog_mender`, `cog_chick`. `mana_surge`, all Hunter tokens, and all Ylena dream tokens already
+have token art.
 IMPORTANT: place card art only into `web/public/art/`; do **not** manually copy card art into
 `web/static/art/`. The build copies public assets when needed.
 Workflow: generate a batch of up to 5 raw previews with the locked cel-shaded/top-35%-empty style,
@@ -88,7 +98,9 @@ copy the approved raws from the current `.codex/generated_images/...` folder to
 `web/public/art/<card_id>.png`, resize to 512, compress below ~150KB, update this handoff and
 `.notes/art-prompts.md`, then generate the next raw preview batch and stop for review. If user says
 `rework`, regenerate the requested card(s) without placing. Do not visually critique previews unless
-asked; user is reviewing them. Vary humanoid prompts with more women/girls where suitable.
+asked; user is reviewing them. Vary humanoid prompts with more women/girls where suitable. For
+tokens, first check the card that summons/generates that token and reuse any established visual
+language from the main card art/prompt so the token feels like the same creature/object.
 
 ---
 

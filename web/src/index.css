@@ -3451,6 +3451,14 @@ button {
   padding: 4px 6px;
   cursor: pointer;
 }
+/* Class accent on deck-list rows: left border tinted by card class (matches the
+   card-frame border colors). Neutral rows keep the default border. */
+.deck-card.mage {
+  border-left: 3px solid #5a9bd8;
+}
+.deck-card.hunter {
+  border-left: 3px solid #6fb35a;
+}
 .deck-card .cost {
   position: static;
   width: 18px;

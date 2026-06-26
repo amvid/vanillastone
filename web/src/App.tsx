@@ -151,6 +151,10 @@ export function App() {
   const [incomingInvites, setIncomingInvites] = useState<string[]>([])
   // Deck chosen in the incoming-invite prompt.
   const [inviteDeck, setInviteDeck] = useState<number>(0)
+  // Outgoing challenge: who we're about to invite (the challenge window is open
+  // for them, null = closed) and the deck picked for it before sending.
+  const [challengeTarget, setChallengeTarget] = useState<string | null>(null)
+  const [challengeDeck, setChallengeDeck] = useState<number>(0)
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [myTurn, setMyTurn] = useState(false)
   const [turnSecs, setTurnSecs] = useState(0)
@@ -579,10 +583,17 @@ export function App() {
     send({ type: 'find_match', deckId: selectedDeck, vsAI: true, aiClass, aiDeckId: aiDeck })
   }
 
-  // Direct invites. Only one outgoing at a time; cancel before inviting another.
+  // Direct invites. Clicking Invite opens the challenge window (pick a deck);
+  // sending happens from there. Only one outgoing at a time.
   const onInvite = (target: string) => {
-    setInvitedName(target)
-    send({ type: 'invite', target, deckId: selectedDeck })
+    setChallengeTarget(target)
+    setChallengeDeck(selectedDeck)
+  }
+  const onSendChallenge = () => {
+    if (!challengeTarget) return
+    setInvitedName(challengeTarget)
+    send({ type: 'invite', target: challengeTarget, deckId: challengeDeck })
+    setChallengeTarget(null)
   }
   const onCancelInvite = () => {
     setInvitedName(null)
@@ -1060,6 +1071,29 @@ export function App() {
               </aside>
             )
           })()}
+
+        {challengeTarget !== null && (
+          <div className="invite-overlay" onClick={() => setChallengeTarget(null)}>
+            <div className="invite-modal" onClick={(e) => e.stopPropagation()}>
+              <h2>⚔️ Challenge</h2>
+              <p className="invite-from">
+                Invite <strong>{challengeTarget}</strong> to a match
+              </p>
+              <label className="deck-pick">
+                <span>Your deck</span>
+                <DeckSelect value={challengeDeck} onChange={setChallengeDeck} options={decks} />
+              </label>
+              <div className="invite-actions">
+                <button className="accept" onClick={onSendChallenge}>
+                  ⚔️ Invite
+                </button>
+                <button className="decline" onClick={() => setChallengeTarget(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {incomingInvites.length > 0 && (
           <div className="invite-overlay">

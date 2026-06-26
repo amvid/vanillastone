@@ -91,14 +91,16 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
       const cl = cardClass(c)
       if (tab === 'class' && cl !== activeClass) return false
       if (tab === 'neutral' && cl !== 'neutral') return false
-      if (tab === 'all' && cl !== 'neutral' && cl !== activeClass) return false
+      // Editing a deck: "all" = the legal pool (neutral + the deck's class).
+      // Just browsing: "all" means every class.
+      if (tab === 'all' && editing && cl !== 'neutral' && cl !== activeClass) return false
       if (manaFilter !== null && (manaFilter === 7 ? c.cost < 7 : c.cost !== manaFilter)) return false
       if (rarityFilter && c.rarity !== rarityFilter) return false
       return true
     })
     cs.sort((a, b) => a.cost - b.cost || a.name.localeCompare(b.name))
     return cs
-  }, [pool, tab, activeClass, manaFilter, rarityFilter])
+  }, [pool, tab, activeClass, manaFilter, rarityFilter, editing])
 
   // Any tab/filter/deck change can shrink the list — snap back to the first page.
   useEffect(() => setPage(0), [tab, manaFilter, rarityFilter, activeClass])
@@ -352,7 +354,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   return (
                     <button
                       key={id}
-                      className="deck-card"
+                      className={'deck-card' + (card ? cardColorClass(card) : '')}
                       onClick={() => removeCard(id)}
                       onMouseEnter={(e) =>
                         card &&
