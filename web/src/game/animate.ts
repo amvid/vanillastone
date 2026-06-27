@@ -5,6 +5,75 @@
 // that died in the trade) the animation is skipped. No game state lives here —
 // the server is still authoritative.
 
+import type { Event } from '../protocol'
+
+// animDuration estimates how long an action's animation runs (ms), so the client
+// can play actions ONE AT A TIME instead of letting a fast incoming snapshot
+// clobber the one mid-flight. It mirrors the GameScreen timeline constants/logic
+// (the `[anim]` effect + the snapshot-diff fly-ins) — keep them in sync. Slightly
+// over/under is harmless (small overlap or pause); App clamps the result.
+export function animDuration(events?: Event[]): number {
+  if (!events || events.length === 0) return 0
+  const BEAT = 400
+  const RANGED_BEAT = 260
+  const FLY_HIT = 560
+  const LUNGE_HIT = 220
+  // Start-of-Game reveals dominate the timeline when present (each holds ~2.6s).
+  const sg = events.filter((e) => e.kind === 'startgame' && e.card).length
+  if (sg) return sg * 2600 + 600
+  // Damage/shield directly after an attack/heropower are that blow's impact — they
+  // get no beat of their own (flashed when the lunge/projectile connects).
+  const cause: (number | null)[] = events.map(() => null)
+  for (let i = 0; i < events.length; i++) {
+    const k = events[i].kind
+    if (k !== 'attack' && k !== 'heropower') continue
+    for (let j = i + 1; j < events.length; j++) {
+      if (events[j].kind === 'damage' || events[j].kind === 'shield') cause[j] = i
+      else break
+    }
+  }
+  let t = 0 // running beat offset
+  let tail = 0 // latest visual completion (projectile/flash can land after its beat)
+  events.forEach((e, i) => {
+    if (cause[i] !== null) return
+    switch (e.kind) {
+      case 'attack':
+        tail = Math.max(tail, t + LUNGE_HIT)
+        t += BEAT
+        break
+      case 'heropower':
+        tail = Math.max(tail, t + FLY_HIT)
+        t += BEAT
+        break
+      case 'damage':
+        tail = Math.max(tail, t + FLY_HIT)
+        t += RANGED_BEAT
+        break
+      case 'heal':
+      case 'secret':
+      case 'trigger':
+        tail = Math.max(tail, t + BEAT)
+        t += BEAT
+        break
+      case 'fatigue':
+      case 'burn':
+        tail = Math.max(tail, t + 900)
+        t += BEAT
+        break
+    }
+  })
+  // The snapshot-diff effect (summons/tokens/deaths/draws) overlaps the timeline;
+  // make sure the action lasts long enough for those to finish too.
+  const summons = events.filter((e) => e.kind === 'summon').length
+  const deaths = events.filter((e) => e.kind === 'death').length
+  const draws = events.filter((e) => e.kind === 'draw').length
+  let diff = 0
+  if (summons) diff = Math.max(diff, 650 + Math.max(0, summons - 1) * 320 + 700) // staggered token pops
+  if (deaths) diff = Math.max(diff, 900)
+  if (draws) diff = Math.max(diff, 1500)
+  return Math.max(tail, t, diff) + 120 // a small breath between actions
+}
+
 const el = (cid: string) => document.querySelector<HTMLElement>(`[data-cid="${CSS.escape(cid)}"]`)
 
 const center = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 })

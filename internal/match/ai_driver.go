@@ -9,10 +9,12 @@ import (
 
 // botActionDelay paces the bot's actions so a human can follow what it does
 // (each play/attack/hero-power/choice is spaced out, like watching an opponent).
-// Set above the client's per-action animation timeline (Task 1 sequencing, ~BEAT
-// per event) so each action's animation finishes before the next snapshot replaces
-// it. A var (not const) so tests can zero it for fast, deterministic runs.
-var botActionDelay = 1300 * time.Millisecond
+// The client now buffers actions and plays them one at a time at its own animation
+// pace (App.tsx action queue), so this no longer has to exceed the client timeline
+// to avoid clobbering — it just sets a natural send cadence. Kept near a typical
+// action's animation length so the client queue stays shallow. A var (not const)
+// so tests can zero it for fast, deterministic runs.
+var botActionDelay = 1200 * time.Millisecond
 
 // mulliganKeepCost is the highest mana cost the bot keeps in its opening hand;
 // anything dearer is tossed to dig for an early curve. 3 keeps the 1–3 drops that

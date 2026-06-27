@@ -1648,9 +1648,41 @@ button {
   opacity: 0.6;
   border-style: dashed;
 }
-.minion.silenced {
-  filter: grayscale(0.7);
-  border-color: #777;
+/* Silenced: no graying — a small muted-speaker mark with a soft pulse marks it. */
+.minion.silenced .silence-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: #f2f2f2;
+  background: radial-gradient(circle at 40% 30%, #9aa0a8cc, #5a5f66cc 70%, #3a3d42cc);
+  border: 2px solid #e8e8e8;
+  border-radius: 50%;
+  box-shadow:
+    0 0 8px 2px #888a,
+    0 1px 2px #000a;
+  z-index: 6; /* above Taunt frame (3) and Aegis ring (4), matches frost-badge */
+  animation: silence-pulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes silence-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 6px 1px #8888,
+      0 1px 2px #000a;
+  }
+  50% {
+    box-shadow:
+      0 0 11px 3px #aaac,
+      0 1px 2px #000a;
+  }
 }
 
 /* Hero portrait panels ----------------------------------------- */
@@ -2772,6 +2804,17 @@ button {
     border-color: #ffe08a55;
     background: #ffe08a26;
   }
+}
+
+/* Ghost of a targeted-onset minion while you pick its battlecry target: shown at
+ * its chosen board slot so the aim arrow springs from where it'll land. Dimmed +
+ * dashed so it reads as not-yet-committed; never intercepts a target click. */
+.minion.pending {
+  opacity: 0.7;
+  outline: 2px dashed #ffe08aaa;
+  outline-offset: 2px;
+  pointer-events: none;
+  animation: drop-pulse 0.9s ease-in-out infinite;
 }
 
 /* Opponent seeking: a small non-blocking peek near their hand (no overlay,
@@ -4488,14 +4531,133 @@ button {
   .tribe-bar {
     gap: 3px;
   }
-  /* Mana + rarity filters share ONE row: shrink the pips and don't wrap. */
-  .col-filters {
-    flex-wrap: nowrap;
-    gap: 8px;
-    margin-bottom: 4px;
+  /* Inline filters are moved into the funnel modal on mobile (reclaims the row
+     above the book + the strip under it). The pips themselves keep their sizing
+     because the modal reuses the same classes. */
+  .col-filters,
+  .book .tribe-bar {
+    display: none;
   }
   .filter-row {
     gap: 3px;
+  }
+
+  /* Funnel button on the rail that opens the filters modal (sits before the page;
+     rail-meta is hidden on desktop, so this is mobile-only). A dot marks an active
+     filter. */
+  .filter-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    border-radius: 7px;
+    background: #131822;
+    border: 1px solid #3a4760;
+    color: #cdd8ea;
+    cursor: pointer;
+  }
+  .filter-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4aa8ff;
+    box-shadow: 0 0 0 1.5px #131822;
+  }
+
+  /* Filters modal (portaled to body; only rendered on mobile). */
+  .filters-modal {
+    width: min(92vw, 560px);
+    max-height: 92dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 14px 16px 16px;
+    background: #161b25;
+    border: 1px solid #3a4760;
+    border-radius: 14px;
+    box-shadow: 0 18px 50px #000a;
+  }
+  .fm-head {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .fm-head h2 {
+    margin: 0;
+    font-size: 16px;
+    color: #e8eefb;
+  }
+  .fm-head .mode-close {
+    margin-left: auto;
+  }
+  .fm-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .fm-label {
+    flex: 0 0 52px;
+    text-align: right;
+    color: #9fb0c8;
+    font-size: 12px;
+  }
+  /* Fill the width left of the label and wrap (the tribe list is long → 2-3 rows
+     instead of running off the modal). */
+  .fm-group .filter-row,
+  .fm-group .tribe-bar {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+  }
+  /* Keep the label aligned to the first row when the pips wrap. */
+  .fm-group {
+    align-items: flex-start;
+  }
+  .fm-label {
+    padding-top: 6px;
+  }
+  .fm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .fm-clear,
+  .fm-done {
+    padding: 7px 16px;
+    border-radius: 8px;
+    font: inherit;
+    cursor: pointer;
+  }
+  .fm-clear {
+    background: #232a34;
+    border: 1px solid #3a4654;
+    color: #cdd;
+  }
+  .fm-done {
+    background: #3a6b46;
+    border: 1px solid #4f8a5e;
+    color: #eafff0;
+  }
+  /* Bigger tap targets for the pips inside the modal. */
+  .filters-modal .mana-pip {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+  }
+  .filters-modal .rarity-pip,
+  .filters-modal .tribe-pip {
+    padding: 6px 12px;
+    font-size: 12px;
   }
   .mana-pip {
     width: 22px;
@@ -4555,13 +4717,21 @@ button {
     margin-top: 2px;
   }
 
-  /* Deck panel: fixed-width right column with its own scroll. */
+  /* Deck panel: fixed-width right column with its own scroll (a touch narrower on
+     mobile to give the book more room). */
   .deck-panel {
-    flex: 0 0 238px;
-    width: 238px;
+    flex: 0 0 200px;
+    width: 200px;
     box-sizing: border-box;
     align-self: stretch;
     overflow-y: auto;
+  }
+  /* Long deck names truncate with an ellipsis instead of wrapping/pushing. */
+  .deck-row .deck-row-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   /* Narrow column → stack each deck on two rows: deck button on top,
      copy + delete sharing the row below (instead of crammed in one line). */
@@ -4570,6 +4740,7 @@ button {
   }
   .deck-row > button:first-child {
     flex: 1 1 100%;
+    min-width: 0; /* let the name shrink so its ellipsis can kick in */
   }
   .deck-row .copy-code,
   .deck-row .del {
@@ -4618,11 +4789,61 @@ button {
     padding: 0;
   }
   /* Smaller minions so both boards + both hero rows fit ~390px tall (the self
-     hero was being pushed off the bottom). */
+     hero was being pushed off the bottom). Everything inside scales down too:
+     stat gems, the emoji-fallback portrait, keyword badges. */
   .minion {
-    width: 74px;
-    height: 80px;
+    width: 60px;
+    height: 66px;
+    border-width: 1.5px;
+    border-radius: 10px;
   }
+  .minion .m-atk,
+  .minion .m-hp {
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    font-size: 11px;
+    bottom: 3px;
+  }
+  .minion .m-atk {
+    left: 3px;
+  }
+  .minion .m-hp {
+    right: 3px;
+  }
+  .minion .m-portrait {
+    font-size: 34px;
+  }
+  .minion .m-badges {
+    top: 3px;
+    left: 3px;
+    gap: 1px;
+  }
+  .minion .m-badges .kw {
+    font-size: 9px;
+    line-height: 13px;
+    min-width: 13px;
+  }
+
+  /* Opponent's cast/secret reveal on the left: the desktop 1.4x blow-up overflows
+     a short phone (a secret has no rules-text below, so it just runs off-screen).
+     Shrink it to ~1x, centered vertically, and tuck it to the edge. */
+  .cast-show {
+    left: 8px;
+  }
+  .cast-card {
+    transform: scale(0.92);
+    transform-origin: left center;
+  }
+  .cast-pair .cast-card {
+    transform: scale(0.72);
+  }
+  .cast-text {
+    margin-top: 8px;
+    max-width: 150px;
+    font-size: 11px;
+  }
+
   /* No name tag on the board object — read the full card via the hover preview
      (pinned to the right edge, below). Keeps the small object uncluttered. */
   .minion .m-nametag {
@@ -4697,11 +4918,25 @@ button {
   /* Opponent hand: mirror our own peek — only the bottom edge of the backs pokes
      from the top, pulled up under the table border so it reads as "hidden". */
   .opp-hand {
+    /* Mirror the self hand peek: absolute, raised so the back sliver sits on the
+       opp portrait's centerline (opp portrait is top:4px, 44px tall).
+       Right-clustered + 28px band showing the backs' lower edge, the same as self. */
+    position: absolute;
+    top: 24px;
+    left: 0;
+    right: 0;
+    height: 28px;
     min-height: 0;
-    max-height: 16px;
-    margin-top: -6px;
-    overflow: hidden;
+    max-height: none;
+    margin: 0;
+    /* visible (not hidden): the backs extend UP off the top and are clipped by
+       .play-area's border — a clean tuck under the edge, mirroring how the self
+       cards hang off the bottom. overflow:hidden here cut them flat mid-table. */
+    overflow: visible;
     align-items: flex-end; /* show the BOTTOM edge of the backs */
+    justify-content: flex-end;
+    padding-right: 200px;
+    z-index: 45;
   }
   .opp-hand .card-back {
     width: 60px;
@@ -4713,22 +4948,37 @@ button {
     padding: 3px 7px;
   }
 
-  /* Hero row: compact portrait + hero power + mana. */
   .self-row {
     gap: 8px;
   }
-  /* Nudge the self hero row up a little off the hand peek. */
+  /* Hero pinned to the LEFT corner, flush to the table edge, on the same bottom
+     baseline as the right-clustered hand (self bottom-left, opp mirrored top-left).
+     Absolute (vs. in-flow) so it sits at the very edge instead of floating above
+     the hand strip; relative to .play-area. */
+  .zone.bottom .self-row,
+  .zone.top .self-row {
+    position: absolute;
+    /* Sit midway between the bottom-left cog and the right-clustered hand. */
+    left: 28%;
+    transform: translateX(-50%);
+    margin: 0;
+    z-index: 46;
+  }
   .zone.bottom .self-row {
-    margin-bottom: 12px;
+    bottom: 4px;
+  }
+  .zone.top .self-row {
+    top: 4px;
   }
   .portrait {
     width: 44px;
     height: 44px;
     border-width: 2px;
   }
+  /* Hero power matches the portrait size, sitting beside it in the corner. */
   .hp-button {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
   }
   .hero-name {
     font-size: 11px;
@@ -4910,10 +5160,15 @@ button {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* Raised off the edge so the peeking cost gems land on the hero portrait's
+       centerline (portrait is bottom:4px, 44px tall). */
+    bottom: 24px;
     height: 28px;
     min-height: 0;
-    padding: 0;
+    /* Bunch the peek to the RIGHT, tucked just left of the deck pile + mana badge
+       (right: 88px, ~104px wide) so the strip reads as one cluster with them. */
+    justify-content: flex-end;
+    padding: 0 200px 0 0;
     /* No overflow:hidden here on purpose: the cards hang DOWN off the bottom and
        are clipped by .play-area instead. That keeps a drawn card visible for its
        whole deck→hand flight (the peek's own clip would have hidden it). */
@@ -4924,7 +5179,9 @@ button {
   .hand.peek .card {
     width: 118px;
     height: 168px;
-    margin: 0 -34px; /* heavy fan overlap */
+    /* Very heavy overlap → only the top-left cost gem of each card peeks out
+       (just the mana number is visible until the hand is tapped open). */
+    margin: 0 -48px;
     pointer-events: none; /* tap → .hand onClick → focus */
   }
   .hand.focused {
@@ -4935,13 +5192,26 @@ button {
     min-height: 0;
     padding: 8px 6px 10px;
     align-items: flex-end;
-    overflow: hidden; /* a full hand stays on-screen, fanned, never off the edges */
+    /* visible (not hidden): a hovered/focused card lifts up (translateY + scale) and
+       overflow:hidden was clipping its top. The sides are still clipped by .play-area's
+       own overflow:hidden, so the fan never spills past the table edges either way. */
+    overflow: visible;
     z-index: 70;
   }
   .hand.focused .card {
-    width: 122px;
-    height: 176px;
-    margin: 0 -22px; /* heavy fan so ~8 cards still fit 844px wide */
+    width: 116px;
+    height: 167px;
+    /* Fan sized so a full 10-card hand fits a typical landscape phone with a bit
+       of air: 9×(116−68) + 116 ≈ 728px. Fewer cards just sit narrower, centered. */
+    margin: 0 -24px;
+  }
+  /* First tap picks a card: lift it clear of the fan + glow, so it reads as "armed,
+     tap again to play". A second tap confirms (see GameScreen handler). */
+  .hand.focused .card.hand-sel {
+    transform: translateY(-22px) scale(1.12);
+    z-index: 5;
+    box-shadow: 0 0 0 2px #ffe08a, 0 8px 22px #000a;
+    border-radius: 10px;
   }
   .hand-backdrop {
     position: absolute;
@@ -5047,6 +5317,17 @@ button {
     box-shadow: none;
   }
 
+  /* Mobile: drop chrome from login + lobby. GitHub link goes on both; the
+     online/in-game presence line and the "logged in as …" status are dropped on
+     the lobby only (.lobby-merge scopes it — login keeps its status for errors). */
+  .gh-link {
+    display: none;
+  }
+  .lobby-merge .presence,
+  .lobby-merge .lobby-status {
+    display: none;
+  }
+
   /* --- Play-mode picker modal --------------------------------- *
    * 3 columns fit the width fine; the height is the problem. Compact the
    * cards and cap the modal to the viewport with its own scroll. */
@@ -5057,13 +5338,15 @@ button {
   .mode-picker {
     width: min(96vw, 840px);
     max-height: 96dvh;
-    overflow-y: auto;
+    /* visible (not auto): both mobile steps are short, and overflow:auto was
+       clipping any dropdown that flips above its trigger (looked cut off the
+       top). Menus are height-capped below so they still can't run off-screen. */
+    overflow: visible;
     padding: 14px 16px;
     box-sizing: border-box;
   }
-  /* Drop the title on a phone; center the deck selector with ✕ on the right.
-     Grid: empty left column (= ✕ width) balances the ✕ so the deck is truly
-     centered across the row. */
+  /* Two-step flow header: optional back (col 1), centered title (col 2), close
+     (col 3). The balanced 36px side columns keep the title truly centered. */
   .mode-top {
     display: grid;
     grid-template-columns: 36px 1fr 36px;
@@ -5071,12 +5354,25 @@ button {
     gap: 8px;
   }
   .mode-top h2 {
-    display: none;
-  }
-  .mode-top .mode-deck {
+    display: block;
     grid-column: 2;
     justify-self: center;
+    text-align: center;
     margin: 0;
+    font-size: 16px;
+  }
+  .mode-back {
+    grid-column: 1;
+    justify-self: start;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #131822;
+    border: 1px solid #3a4760;
+    color: #dce8ff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
   }
   .mode-top .mode-close {
     grid-column: 3;
@@ -5093,6 +5389,41 @@ button {
   }
   .mode-desc {
     min-height: 0;
+  }
+  /* Step 2 body: a 2-column grid so every row's label (right-aligned) and select
+     (fixed width) line up. The labels/selects are unwrapped via display:contents
+     so each row's two children land directly in the grid. */
+  .mode-setup {
+    display: grid;
+    grid-template-columns: auto 230px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px 10px;
+    padding: 18px 4px 4px;
+  }
+  .mode-setup .mode-deck,
+  .mode-setup .mode-aiclass {
+    display: contents;
+    margin: 0;
+  }
+  .mode-setup .mode-deck > span,
+  .mode-setup .mode-aiclass > span {
+    justify-self: end;
+  }
+  /* One fixed width for both the deck and AI selects so their left/right edges align. */
+  .mode-setup .deck-select {
+    width: 230px;
+    min-width: 0;
+  }
+  .mode-setup .mode-go {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 4px;
+  }
+  /* Keep an open dropdown inside the modal: cap its height (scrolls internally)
+     so flipping up/down can't spill past the panel edge. */
+  .mode-setup .deck-select-menu {
+    max-height: 156px;
   }
 }
 

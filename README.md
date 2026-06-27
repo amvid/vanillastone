@@ -41,7 +41,7 @@ Built deliberately, one phase at a time:
 |     7 | Warrior class + Warrior cards                                     |  ✅   |
 |     8 | Warlock class + Warlock cards                                     |  ✅   |
 |     9 | Import/export decks                                               |  ✅   |
-|    10 | Landscaped mobile support                                         |  ⏳   |
+|    10 | Landscaped mobile support                                         |  ✅   |
 |    11 | Priest class + Priest cards                                       |  ⏳   |
 |    12 | Rogue class + Rogue cards                                         |  ⏳   |
 |    13 | Druid class + Druid cards                                         |  ⏳   |

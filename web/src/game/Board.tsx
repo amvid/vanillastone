@@ -70,10 +70,14 @@ export function Board(props: {
   // pick where a minion lands. onPlace(index) drops it there.
   placing?: boolean
   onPlace?: (index: number) => void
+  // While aiming a targeted-onset minion's battlecry, render it as a translucent
+  // ghost already on the board at `pos` (null = end), so the aim arrow springs from
+  // where it'll land. Friendly board only.
+  pending?: { card: CardView; pos: number | null } | null
   targetable: (kind: CharKind, m?: MinionView) => boolean
   onChar: (targetId: string, kind: CharKind, m?: MinionView) => void
 }) {
-  const { minions, enemy, myTurn, attacker, dropIndex, placing, onPlace, held, targetable, onChar } = props
+  const { minions, enemy, myTurn, attacker, dropIndex, placing, onPlace, pending, held, targetable, onChar } = props
   const kind: CharKind = enemy ? 'enemyMinion' : 'friendlyMinion'
   const nodes = minions.map((m) => {
         const hp = held?.[m.instanceId] ?? m.health
@@ -119,8 +123,6 @@ export function Board(props: {
           badges.push({ icon: '🌀', label: 'Elusive', desc: "Can't be targeted by spells or Hero Powers." })
         if (m.cantAttack)
           badges.push({ icon: '🚫', label: "Can't Attack", desc: 'This minion cannot attack.' })
-        if (m.silenced)
-          badges.push({ icon: '🔇', label: 'Silenced', desc: 'Has lost all abilities and enchantments.' })
         return (
           <div
             key={m.instanceId}
@@ -137,6 +139,11 @@ export function Board(props: {
             {m.frozen && (
               <div className="frost-badge" title="Frozen — can't attack this turn" aria-hidden="true">
                 ❄
+              </div>
+            )}
+            {m.silenced && (
+              <div className="silence-mark" title="Silenced — has lost all abilities" aria-hidden="true">
+                🔇
               </div>
             )}
             {m.rarity && <div className={`rarity-gem rarity-${m.rarity}`} />}
@@ -170,6 +177,23 @@ export function Board(props: {
   if (dropIndex != null) {
     const at = Math.max(0, Math.min(dropIndex, nodes.length))
     nodes.splice(at, 0, <div key="drop-slot" className="drop-slot" />)
+  }
+  // Ghost of the minion whose battlecry target we're picking — sits where it'll
+  // land; the aim arrow (data-cid="pending") springs from here. pointer-events off
+  // so it never intercepts a target click/release.
+  if (pending) {
+    const at = pending.pos == null ? nodes.length : Math.max(0, Math.min(pending.pos, nodes.length))
+    const c = pending.card
+    nodes.splice(
+      at,
+      0,
+      <div key="pending" data-cid="pending" className="minion pending">
+        <MinionArt key={c.cardId} cardId={c.cardId} />
+        <div className="m-nametag">{c.name}</div>
+        <div className="m-atk">{c.attack}</div>
+        <div className="m-hp">{c.health}</div>
+      </div>,
+    )
   }
   // Placing mode: interleave a tappable insertion slot before each minion and one
   // after the last, so a tap picks the exact index.

@@ -5,9 +5,9 @@ import { Deckbuilder } from './Deckbuilder'
 import type { CardView, Event, MinionView, OppIntent, PlayerInfo, ServerMessage, Snapshot } from './protocol'
 import type { CharKind, Counts, LogEntry, PendingSpell, Phase } from './game/types'
 import { buildLog, cardColorClass, condMet, minionToCardView, ruleMatches } from './game/format'
-import { playGhost } from './game/animate'
+import { animDuration, playGhost } from './game/animate'
 import { CardFace } from './game/CardFace'
-import { GameScreen } from './game/GameScreen'
+import { GameScreen, useIsMobile } from './game/GameScreen'
 
 const TOKEN_KEY = 'vs_token'
 
@@ -331,6 +331,17 @@ export function App() {
   // `snap`). Skipped for match_start / resync (no live action to animate).
   const [anim, setAnim] = useState<{ seq: number; events: Event[] } | null>(null)
   const animSeqRef = useRef(0)
+  // Action queue: the server pushes a snapshot+events per action; during a bot
+  // burst several can land faster than they animate. We buffer animated actions
+  // and play them ONE AT A TIME (apply → wait its animation length → next) instead
+  // of letting a new snapshot clobber the one mid-flight. Non-animated snapshots
+  // (match_start / resync / mulligan / no-event ticks) flush the queue and apply
+  // immediately. A game_over that arrives mid-burst waits for the queue to drain so
+  // the lethal blow finishes before the result shows.
+  const animQueueRef = useRef<Extract<ServerMessage, { type: 'state' }>[]>([])
+  const drainingRef = useRef(false)
+  const advanceTimerRef = useRef<number | undefined>(undefined)
+  const pendingOverRef = useRef<Extract<ServerMessage, { type: 'game_over' }> | null>(null)
   // Decks: the player's saved decks and which one is selected for the next game.
   const [decks, setDecks] = useState<Deck[]>([])
   const [selectedDeck, setSelectedDeck] = useState<number>(0) // set to first saved deck once loaded
@@ -342,6 +353,11 @@ export function App() {
   const [aiDeck, setAiDeck] = useState<number>(0)
   // The "how to play" mode picker (vs AI / vs Player / Arena) opened from Play.
   const [playModal, setPlayModal] = useState(false)
+  // Mobile only: the play-mode modal is a two-step flow. Step 1 picks AI vs PvP;
+  // step 2 (this state non-null) picks the deck (+ AI class/deck for AI). Desktop
+  // keeps everything on one screen and ignores this.
+  const [setupMode, setSetupMode] = useState<null | 'ai' | 'pvp'>(null)
+  const isMobile = useIsMobile()
   // Mirror of selectedDeck readable from the ws closure (which has no deps).
   const selectedDeckRef = useRef(0)
   // Mulligan phase: which opening-hand indices are toggled for replacement, and
@@ -516,6 +532,147 @@ export function App() {
     }
   }, [])
 
+  // Apply one game snapshot (match_start or a single action's state) to the UI.
+  // Pulled out so the action queue can call it one action at a time. All deps are
+  // stable setters/refs, so the callback itself is stable.
+  const applyStateMsg = useCallback((msg: Extract<ServerMessage, { type: 'state' | 'match_start' }>) => {
+    // Render from the snapshot's POV: our own id when playing, the watched
+    // player's id when spectating (the server sets `you` to that seat). Using
+    // msg.you makes "whose turn" and the event log read from that POV.
+    povRef.current = msg.you
+    const mine = msg.turn === msg.you
+    // Keep the uid->name map current and turn this action's events into
+    // log lines (match_start carries no events).
+    const names = namesRef.current
+    const cards = cardsRef.current
+    for (const mn of [...msg.self.board, ...msg.opp.board]) {
+      names[mn.instanceId] = mn.name
+      cards[mn.instanceId] = minionToCardView(mn) // persistent uid->card map for the log (survives death)
+    }
+    if (msg.type === 'match_start') {
+      setLog([])
+      setAnim(null) // drop any leftover action animation from a prior match (else it replays on the new board)
+      setRankUpdate(null) // clear any prior game's rank change
+      setOppOnline(true)
+      setInvitedName(null)
+      setIncomingInvites([])
+      setSpectators([])
+    } else {
+      for (const e of msg.events ?? []) {
+        if (e.name && e.source?.[0] === 'u') names[e.source] = e.name
+        if (e.name && e.target?.[0] === 'u') names[e.target] = e.name
+      }
+      const entries: LogEntry[] = buildLog(msg.events ?? [], names, cards, povRef.current)
+      if (msg.resync) {
+        // Reconnect: Events is the full recent history (chronological).
+        // Replace the log, newest on top, recovering what happened while away.
+        setLog([...entries].reverse().slice(0, 40))
+      } else if (entries.length) {
+        // Newest on top, globally: reverse this action's groups so its latest step
+        // sits above its earlier ones (matches the resync path) — no zigzag where a
+        // death reads as happening before the hit that caused it.
+        setLog((prev) => [...entries.slice().reverse(), ...prev].slice(0, 40))
+      }
+      // Drive animations off this action's events (not a bulk resync replay).
+      if (!msg.resync && (msg.events?.length ?? 0) > 0) {
+        animSeqRef.current++
+        setAnim({ seq: animSeqRef.current, events: msg.events })
+      }
+    }
+    setSnap(msg)
+    setTurnSecs(msg.type === 'state' ? (msg.turnSecs ?? 0) : 0)
+    setTurnNum(msg.type === 'state' ? msg.turnNum : 0)
+    setWinner(null)
+    setAttacker(null)
+    setSpell(null)
+    setHeroPowerArmed(false)
+    setSeek(null) // any new snapshot means a paused seek resolved
+    setOppSeek(null) // ...including the opponent's, so clear the indicator
+    setOppIntent(null) // a resolved action invalidates the opponent's old aim hint
+    if (msg.mulligan && !spectatingRef.current) {
+      setMyTurn(false)
+      setStatus('Mulligan — replace any cards, then keep')
+      if (msg.type === 'match_start') {
+        // Opening: show a brief "Match found!" splash, then the mulligan.
+        setMulliganPicks(new Set())
+        setMulliganSubmitted(false)
+        setPhase('matchfound')
+        window.clearTimeout(matchFoundTimerRef.current)
+        matchFoundTimerRef.current = window.setTimeout(() => setPhase('mulligan'), 2000)
+      } else {
+        // Reconnect / resubmit mid-mulligan: go straight to the mulligan UI.
+        setPhase('mulligan')
+      }
+    } else {
+      // First live snapshot after the mulligan: dissolve the blurred
+      // mulligan view into the board rather than cutting to it.
+      if (phaseRef.current === 'mulligan' || phaseRef.current === 'matchfound') {
+        // Capture the mulligan modal's center NOW (DOM still shows it) so the
+        // kept cards fly from there into the hand once we render the board.
+        const mr = document.querySelector('.mulligan-modal')?.getBoundingClientRect()
+        setIntroFrom(mr ? { x: mr.left + mr.width / 2, y: mr.top + mr.height / 2 } : null)
+        setIntroPlay(true)
+        window.clearTimeout(introTimerRef.current)
+        introTimerRef.current = window.setTimeout(() => setIntroPlay(false), 1700)
+      }
+      setMulliganSubmitted(false)
+      setMyTurn(mine)
+      setPhase('playing')
+      if (spectatingRef.current) {
+        setStatus(`spectating ${spectatingRef.current}`)
+      } else {
+        setStatus(mine ? 'YOUR TURN' : "opponent's turn")
+      }
+    }
+  }, [])
+
+  // Resolve the end-of-game result. Deferred until the action queue drains so the
+  // lethal blow finishes animating before the win/loss screen appears.
+  const applyGameOver = useCallback((msg: Extract<ServerMessage, { type: 'game_over' }>) => {
+    setSeek(null)
+    setOppSeek(null)
+    setOppOnline(true)
+    // From the rendered POV: our own when playing, the watched player's when
+    // spectating ('you' then means the player we're watching).
+    setWinner(msg.winner === povRef.current ? 'you' : 'opponent')
+  }, [])
+
+  // Discard any buffered actions (a fresh match / resync supersedes them).
+  const flushQueue = useCallback(() => {
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = undefined
+    }
+    animQueueRef.current = []
+    drainingRef.current = false
+    pendingOverRef.current = null
+  }, [])
+
+  // Play the next buffered action: apply it, then wait its animation length before
+  // advancing — so each action's animation finishes before the next replaces the
+  // board. Fast-forwards when actions pile up so we never lag far behind.
+  const pump = useCallback(() => {
+    if (drainingRef.current) return
+    const q = animQueueRef.current
+    const msg = q.shift()
+    if (!msg) {
+      const over = pendingOverRef.current
+      if (over) {
+        pendingOverRef.current = null
+        applyGameOver(over)
+      }
+      return
+    }
+    drainingRef.current = true
+    applyStateMsg(msg)
+    const speed = q.length >= 4 ? 3 : q.length >= 2 ? 2 : 1
+    const dur = Math.min(4000, Math.max(220, animDuration(msg.events) / speed))
+    advanceTimerRef.current = window.setTimeout(() => {
+      drainingRef.current = false
+      pump()
+    }, dur)
+  }, [applyStateMsg, applyGameOver])
+
   const connect = useCallback((token: string) => {
     // Guard against opening a second socket. React StrictMode double-invokes the
     // reconnect effect in dev; without this the two connections would race and
@@ -574,94 +731,22 @@ export function App() {
           setStatus('waiting for an opponent')
           break
         case 'match_start':
+          // A fresh match supersedes anything buffered; apply immediately.
+          flushQueue()
+          applyStateMsg(msg)
+          break
         case 'state': {
-          // Render from the snapshot's POV: our own id when playing, the watched
-          // player's id when spectating (the server sets `you` to that seat). Using
-          // msg.you makes "whose turn" and the event log read from that POV.
-          povRef.current = msg.you
-          const mine = msg.turn === msg.you
-          // Keep the uid->name map current and turn this action's events into
-          // log lines (match_start carries no events).
-          const names = namesRef.current
-          const cards = cardsRef.current
-          for (const mn of [...msg.self.board, ...msg.opp.board]) {
-            names[mn.instanceId] = mn.name
-            cards[mn.instanceId] = minionToCardView(mn) // persistent uid→card map for the log (survives death)
-          }
-          if (msg.type === 'match_start') {
-            setLog([])
-            setAnim(null) // drop any leftover action animation from a prior match (else it replays on the new board)
-            setRankUpdate(null) // clear any prior game's rank change
-            setOppOnline(true)
-            setInvitedName(null)
-            setIncomingInvites([])
-            setSpectators([])
+          // Animated actions (live, with events) queue and play one at a time so a
+          // fast incoming snapshot can't clobber the one mid-animation. Everything
+          // else (resync, mulligan, a no-event tick) is authoritative/instant:
+          // flush the buffer and apply now.
+          const animated = !msg.resync && !msg.mulligan && (msg.events?.length ?? 0) > 0
+          if (animated) {
+            animQueueRef.current.push(msg)
+            pump()
           } else {
-            for (const e of msg.events ?? []) {
-              if (e.name && e.source?.[0] === 'u') names[e.source] = e.name
-              if (e.name && e.target?.[0] === 'u') names[e.target] = e.name
-            }
-            const entries: LogEntry[] = buildLog(msg.events ?? [], names, cards, povRef.current)
-            if (msg.resync) {
-              // Reconnect: Events is the full recent history (chronological).
-              // Replace the log, newest on top, recovering what happened while away.
-              setLog([...entries].reverse().slice(0, 40))
-            } else if (entries.length) {
-              // Newest on top, globally: reverse this action's groups so its latest step
-              // sits above its earlier ones (matches the resync path) — no zigzag where a
-              // death reads as happening before the hit that caused it.
-              setLog((prev) => [...entries.slice().reverse(), ...prev].slice(0, 40))
-            }
-            // Drive animations off this action's events (not a bulk resync replay).
-            if (!msg.resync && (msg.events?.length ?? 0) > 0) {
-              animSeqRef.current++
-              setAnim({ seq: animSeqRef.current, events: msg.events })
-            }
-          }
-          setSnap(msg)
-          setTurnSecs(msg.type === 'state' ? (msg.turnSecs ?? 0) : 0)
-          setTurnNum(msg.type === 'state' ? msg.turnNum : 0)
-          setWinner(null)
-          setAttacker(null)
-          setSpell(null)
-          setHeroPowerArmed(false)
-          setSeek(null) // any new snapshot means a paused seek resolved
-          setOppSeek(null) // ...including the opponent's, so clear the indicator
-          setOppIntent(null) // a resolved action invalidates the opponent's old aim hint
-          if (msg.mulligan && !spectatingRef.current) {
-            setMyTurn(false)
-            setStatus('Mulligan — replace any cards, then keep')
-            if (msg.type === 'match_start') {
-              // Opening: show a brief "Match found!" splash, then the mulligan.
-              setMulliganPicks(new Set())
-              setMulliganSubmitted(false)
-              setPhase('matchfound')
-              window.clearTimeout(matchFoundTimerRef.current)
-              matchFoundTimerRef.current = window.setTimeout(() => setPhase('mulligan'), 2000)
-            } else {
-              // Reconnect / resubmit mid-mulligan: go straight to the mulligan UI.
-              setPhase('mulligan')
-            }
-          } else {
-            // First live snapshot after the mulligan: dissolve the blurred
-            // mulligan view into the board rather than cutting to it.
-            if (phaseRef.current === 'mulligan' || phaseRef.current === 'matchfound') {
-              // Capture the mulligan modal's center NOW (DOM still shows it) so the
-              // kept cards fly from there into the hand once we render the board.
-              const mr = document.querySelector('.mulligan-modal')?.getBoundingClientRect()
-              setIntroFrom(mr ? { x: mr.left + mr.width / 2, y: mr.top + mr.height / 2 } : null)
-              setIntroPlay(true)
-              window.clearTimeout(introTimerRef.current)
-              introTimerRef.current = window.setTimeout(() => setIntroPlay(false), 1700)
-            }
-            setMulliganSubmitted(false)
-            setMyTurn(mine)
-            setPhase('playing')
-            if (spectatingRef.current) {
-              setStatus(`spectating ${spectatingRef.current}`)
-            } else {
-              setStatus(mine ? 'YOUR TURN' : "opponent's turn")
-            }
+            flushQueue()
+            applyStateMsg(msg)
           }
           break
         }
@@ -701,12 +786,10 @@ export function App() {
           setIncomingInvites((prev) => prev.filter((n) => n !== msg.from))
           break
         case 'game_over':
-          setSeek(null)
-          setOppSeek(null)
-          setOppOnline(true)
-          // From the rendered POV: our own when playing, the watched player's when
-          // spectating ('you' then means the player we're watching).
-          setWinner(msg.winner === povRef.current ? 'you' : 'opponent')
+          // If the lethal action is still buffered/animating, hold the result until
+          // the queue drains (pump applies it) so the killing blow plays out first.
+          if (drainingRef.current || animQueueRef.current.length > 0) pendingOverRef.current = msg
+          else applyGameOver(msg)
           break
         case 'rank_update':
           // Ranked game ended: remember our ladder move for the win/loss screen.
@@ -1150,91 +1233,173 @@ export function App() {
         {/* Mode picker opened by Play: vs AI (pick its class), vs a live player
             (queue), or Arena (reserved). */}
         {playModal && !waiting && (
-          <div className="overlay" onClick={() => setPlayModal(false)}>
+          <div className="overlay" onClick={() => { setPlayModal(false); setSetupMode(null) }}>
             <div className="mode-picker" onClick={(e) => e.stopPropagation()}>
-              {/* Title + shared deck selector + close on one row. */}
-              <div className="mode-top">
-                <h2>Choose how to play</h2>
-                <label className="mode-deck">
-                  <span>Your deck</span>
-                  <DeckSelect
-                    value={selectedDeck}
-                    onChange={setSelectedDeck}
-                    options={decks}
-                  />
-                </label>
-                <button className="mode-close" onClick={() => setPlayModal(false)} aria-label="Close">
-                  ✕
-                </button>
-              </div>
-
-              <div className="mode-grid">
-                <div className="mode-card">
-                  <span className="mode-icon">🤖</span>
-                  <span className="mode-name">Play vs AI</span>
-                  <span className="mode-desc">Practice against the computer.</span>
-                  <label className="mode-aiclass">
-                    <span>AI plays</span>
-                    <FancySelect
-                      value={aiClass}
-                      onChange={(v) => {
-                        setAiClass(String(v))
-                        setAiDeck(0)
+              {isMobile && setupMode ? (
+                /* Mobile step 2: pick your deck (+ AI class/deck for AI), then go. */
+                <>
+                  <div className="mode-top">
+                    <button className="mode-back" onClick={() => setSetupMode(null)} aria-label="Back">
+                      ‹
+                    </button>
+                    <h2>{setupMode === 'ai' ? 'Play vs AI' : 'Play vs Player'}</h2>
+                    <button
+                      className="mode-close"
+                      onClick={() => { setPlayModal(false); setSetupMode(null) }}
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="mode-setup">
+                    <label className="mode-deck">
+                      <span>Your deck</span>
+                      <DeckSelect value={selectedDeck} onChange={setSelectedDeck} options={decks} />
+                    </label>
+                    {setupMode === 'ai' && (
+                      <>
+                        <label className="mode-aiclass">
+                          <span>AI plays</span>
+                          <FancySelect
+                            value={aiClass}
+                            onChange={(v) => {
+                              setAiClass(String(v))
+                              setAiDeck(0)
+                            }}
+                            options={[
+                              { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
+                              { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
+                              { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
+                              { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
+                            ]}
+                          />
+                        </label>
+                        <label className="mode-aiclass">
+                          <span>AI deck</span>
+                          <FancySelect
+                            value={aiDeck}
+                            onChange={(v) => setAiDeck(Number(v))}
+                            options={[
+                              { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
+                              ...decks
+                                .filter((d) => d.class === aiClass)
+                                .map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
+                            ]}
+                          />
+                        </label>
+                      </>
+                    )}
+                    <button
+                      className="mode-go"
+                      onClick={() => {
+                        const ai = setupMode === 'ai'
+                        setPlayModal(false)
+                        setSetupMode(null)
+                        if (ai) onPlayAI()
+                        else onPlay()
                       }}
-                      options={[
-                        { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
-                        { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
-                        { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
-                        { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
-                      ]}
-                    />
-                  </label>
-                  <label className="mode-aiclass">
-                    <span>AI deck</span>
-                    <FancySelect
-                      value={aiDeck}
-                      onChange={(v) => setAiDeck(Number(v))}
-                      options={[
-                        { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
-                        ...decks
-                          .filter((d) => d.class === aiClass)
-                          .map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
-                      ]}
-                    />
-                  </label>
-                  <button
-                    className="mode-go"
-                    onClick={() => {
-                      setPlayModal(false)
-                      onPlayAI()
-                    }}
-                  >
-                    Start
-                  </button>
-                </div>
+                    >
+                      {setupMode === 'ai' ? 'Start' : 'Find match'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Step 1 (mobile: mode only) / full single-screen modal (desktop). */
+                <>
+                  {/* Title + (desktop) shared deck selector + close on one row. */}
+                  <div className="mode-top">
+                    <h2>Choose how to play</h2>
+                    {!isMobile && (
+                      <label className="mode-deck">
+                        <span>Your deck</span>
+                        <DeckSelect value={selectedDeck} onChange={setSelectedDeck} options={decks} />
+                      </label>
+                    )}
+                    <button className="mode-close" onClick={() => setPlayModal(false)} aria-label="Close">
+                      ✕
+                    </button>
+                  </div>
 
-                <div className="mode-card">
-                  <span className="mode-icon">⚔️</span>
-                  <span className="mode-name">Play vs Player</span>
-                  <span className="mode-desc">Queue for a live opponent.</span>
-                  <button
-                    className="mode-go"
-                    onClick={() => {
-                      setPlayModal(false)
-                      onPlay()
-                    }}
-                  >
-                    Find match
-                  </button>
-                </div>
+                  <div className="mode-grid">
+                    <div className="mode-card">
+                      <span className="mode-icon">🤖</span>
+                      <span className="mode-name">Play vs AI</span>
+                      <span className="mode-desc">Practice against the computer.</span>
+                      {/* Desktop picks the AI class/deck here; mobile defers to step 2. */}
+                      {!isMobile && (
+                        <>
+                          <label className="mode-aiclass">
+                            <span>AI plays</span>
+                            <FancySelect
+                              value={aiClass}
+                              onChange={(v) => {
+                                setAiClass(String(v))
+                                setAiDeck(0)
+                              }}
+                              options={[
+                                { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
+                                { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
+                                { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
+                                { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
+                              ]}
+                            />
+                          </label>
+                          <label className="mode-aiclass">
+                            <span>AI deck</span>
+                            <FancySelect
+                              value={aiDeck}
+                              onChange={(v) => setAiDeck(Number(v))}
+                              options={[
+                                { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
+                                ...decks
+                                  .filter((d) => d.class === aiClass)
+                                  .map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
+                              ]}
+                            />
+                          </label>
+                        </>
+                      )}
+                      <button
+                        className="mode-go"
+                        onClick={() => {
+                          if (isMobile) setSetupMode('ai')
+                          else {
+                            setPlayModal(false)
+                            onPlayAI()
+                          }
+                        }}
+                      >
+                        {isMobile ? 'Next' : 'Start'}
+                      </button>
+                    </div>
 
-                <div className="mode-card disabled">
-                  <span className="mode-icon">🏟️</span>
-                  <span className="mode-name">Arena</span>
-                  <span className="mode-desc">Draft a deck, climb a run.</span>
-                  <span className="mode-soon">Coming soon</span>
-                </div>
-              </div>
+                    <div className="mode-card">
+                      <span className="mode-icon">⚔️</span>
+                      <span className="mode-name">Play vs Player</span>
+                      <span className="mode-desc">Queue for a live opponent.</span>
+                      <button
+                        className="mode-go"
+                        onClick={() => {
+                          if (isMobile) setSetupMode('pvp')
+                          else {
+                            setPlayModal(false)
+                            onPlay()
+                          }
+                        }}
+                      >
+                        {isMobile ? 'Next' : 'Find match'}
+                      </button>
+                    </div>
+
+                    <div className="mode-card disabled">
+                      <span className="mode-icon">🏟️</span>
+                      <span className="mode-name">Arena</span>
+                      <span className="mode-desc">Draft a deck, climb a run.</span>
+                      <span className="mode-soon">Coming soon</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1423,6 +1588,7 @@ export function App() {
       onChar={onChar}
       targetable={targetable}
       onHandCard={onHandCard}
+      onCancelSpell={() => setSpell(null)}
       onHeroPower={onHeroPower}
       intro={introPlay}
       introFrom={introFrom}

@@ -441,6 +441,38 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **Targeted-onset minion placement (2026-06-27) — DONE (client-only).** A minion with a
+  targeted battlecry (damage/heal/silence a chosen char) now picks its **board slot FIRST**, then
+  its target — was always appending. Server already supported it (`play_card` is atomic, carries
+  `pos`+`targetId`); fix was purely client. **Desktop** (`GameScreen.tsx`): targeted minions no
+  longer short-circuit to lift-aim — they drag like a normal minion; `commit()` → `onHandCard(...,
+  slot)` arms the battlecry target with the dropped slot, then click the target. Targeted
+  non-minion cards (spells/weapons) keep the lift-to-aim flow. **Mobile**: targeted minions route
+  through the existing `placing` state (tap a slot) → `onPlace` arms the target → tap a board char.
+  **Cancel returns the card to hand** (nothing is sent until the target is chosen): new `onCancelSpell`
+  prop (App `() => setSpell(null)`) fired by **Escape** (desktop) and by re-tapping an armed card
+  (mobile); off-table drop / click-again still cancel too. Mobile hand later reworked to
+  **tap-to-select, tap-again-to-confirm** (`handSel` state + `.hand.focused .card.hand-sel` lift):
+  opening the hand no longer plays/arms a card; 1st tap selects, 2nd tap on the same card confirms
+  (minion→slot, spell→arm/cast); strip tap (`.hand` onPointerDown, guarded `e.target===currentTarget`)
+  cancels placing/armed spell or opens the hand. Also a **pending-minion ghost**: while aiming a
+  targeted onset, the minion shows translucent on the board at its chosen slot (`Board` `pending`
+  prop, `data-cid="pending"`, `.minion.pending`) and the aim arrow springs from there.
+- **Client action queue (2026-06-27) — DONE.** Fixes Issue 2 (vs-AI event/animation ordering:
+  deathrattle flashing by, tokens appearing on your turn, scrambled order). Root cause was NOT the
+  engine (server resolves each action synchronously, emits an ordered event log + snapshot) — it was
+  the client applying every incoming snapshot immediately (`setSnap`+`setAnim`), clobbering any
+  in-progress animation; only the fixed `botActionDelay` kept order, and a long action overran it.
+  Now `App.tsx` **buffers animated actions and plays them one at a time**: `animQueueRef` +
+  `drainingRef` + `pump()` apply one action via the extracted stable `applyStateMsg`, wait
+  `animDuration(events)` (new pure helper in `game/animate.ts`, mirrors the GameScreen timeline
+  constants), then advance. Non-animated snapshots (match_start/resync/mulligan/no-event) →
+  `flushQueue()` + apply now. `game_over` held in `pendingOverRef` until the queue drains
+  (`applyGameOver`) so the lethal blow finishes first. Queue fast-forwards (÷2 at ≥2 deep, ÷3 at ≥4)
+  + clamps each action to [220,4000]ms. `botActionDelay` relaxed to 1200ms (no longer has to exceed
+  the client timeline; it's just the bot's send cadence — FE paces by content, the two are
+  decoupled). Turn timer is one-shot server-side (no periodic state pushes) so the flush path only
+  hits resync/mulligan. tsc/vite/go build/vet/match tests green.
 - **Mobile optimization (2026-06-27) — login/lobby/collection DONE + device-verified
   (DevTools iPhone 12 Pro 844×390); game screen is the only screen left.**
   tsc + vite green throughout. Root cause of prior mobile breakage: every chrome screen

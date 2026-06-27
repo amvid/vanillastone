@@ -51,6 +51,9 @@ export type GameScreenProps = {
   onChar: (targetId: string, kind: CharKind, m?: MinionView) => void
   targetable: (kind: CharKind, m?: MinionView) => boolean
   onHandCard: (i: number, card: CardView, pos?: number) => void
+  // Clear an armed targeted card (spell or targeted-onset minion) without playing
+  // it — the card stays in hand. Driven by Escape / mobile re-tap.
+  onCancelSpell: () => void
   onHeroPower: () => void
   // True for ~one beat when play begins from the mulligan: deal the opening hand
   // in (then the turn-1 draw from the deck, if it's our turn).
@@ -89,6 +92,7 @@ export function GameScreen(props: GameScreenProps) {
     onChar,
     targetable,
     onHandCard,
+    onCancelSpell,
     onHeroPower,
     intro,
     introFrom,
@@ -100,10 +104,26 @@ export function GameScreen(props: GameScreenProps) {
 
   const hp = snap.self.heroPower
 
+  // While aiming a targeted-onset MINION's battlecry, show it as a ghost already
+  // sitting on the board at its chosen slot (HS-style), so the aim arrow springs
+  // from there instead of from the hand card. Targeted spells/weapons keep aiming
+  // from the hand. `pos == null` → it'll append at the end of the board.
+  const pendingCard = spell ? (snap.self.hand?.[spell.handIndex] ?? null) : null
+  const pendingMinion =
+    pendingCard && pendingCard.cardType === 'minion' ? { card: pendingCard, pos: spell?.pos ?? null } : null
+
   // The DOM id of whatever is currently aiming: a selected attacker (minion uid
-  // or selfHero), an armed spell (its hand card), or an armed hero power. Drives
-  // the targeting arrow.
-  const sourceId = attacker ?? (spell ? `hand-${spell.handIndex}` : heroPowerArmed ? 'heroPower' : null)
+  // or selfHero), an armed spell (its hand card or the board ghost for a targeted
+  // minion), or an armed hero power. Drives the targeting arrow.
+  const sourceId = attacker
+    ? attacker
+    : spell
+      ? pendingMinion
+        ? 'pending'
+        : `hand-${spell.handIndex}`
+      : heroPowerArmed
+        ? 'heroPower'
+        : null
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
   // Hovered log row → a body-portaled detail popup, positioned at the row's Y and
   // clamped to the viewport (so it tracks the mouse but never goes off-screen).
@@ -132,13 +152,22 @@ export function GameScreen(props: GameScreenProps) {
   // friendly board shows insertion slots and a tap drops the minion at that index
   // (so you pick where it goes, not just the end). Null = not placing.
   const [placing, setPlacing] = useState<{ handIndex: number; card: CardView } | null>(null)
+  // Mobile: in the focused hand, the first tap SELECTS a card (lifts it) and a
+  // second tap on the same card confirms/plays it — so opening the hand never plays
+  // anything by itself and you can freely switch your pick. Null = nothing selected.
+  const [handSel, setHandSel] = useState<number | null>(null)
   // Drop out of focus / placing when it's not our turn / the game ends.
   useEffect(() => {
     if (!myTurn || winner) {
       setHandFocused(false)
       setPlacing(null)
+      setHandSel(null)
     }
   }, [myTurn, winner])
+  // Clear the mobile selection whenever the focused hand closes.
+  useEffect(() => {
+    if (!handFocused) setHandSel(null)
+  }, [handFocused])
   // Mobile: the log detail popup opens on tap; close it on any tap outside a log
   // row (a row tap is handled by its own toggle handler).
   useEffect(() => {
@@ -178,6 +207,10 @@ export function GameScreen(props: GameScreenProps) {
   onCharRef.current = onChar
   const snapRef = useRef(snap)
   snapRef.current = snap
+  const spellRef = useRef(spell)
+  spellRef.current = spell
+  const cancelSpellRef = useRef(onCancelSpell)
+  cancelSpellRef.current = onCancelSpell
   // The opponent's most recent cast, previewed on the left for a few seconds
   // (swapped if they play again). `key` forces a fresh entrance per play. A real
   // card for minion/spell/weapon; `secret` for a hidden secret (never revealed).
@@ -922,6 +955,8 @@ export function GameScreen(props: GameScreenProps) {
         pressRef.current = null
         setDrag(null)
         dragRef.current = null
+        aimRef.current = null
+        if (spellRef.current) cancelSpellRef.current() // armed target → return card to hand
         emitIntent() // cancelled → clear our aim hint
       }
     }
@@ -941,17 +976,29 @@ export function GameScreen(props: GameScreenProps) {
   // A hand card press: start a potential drag (unless a sticky drag is already
   // active — the window capture handles dropping that one).
   const onCardPointerDown = (i: number, card: CardView, e: React.PointerEvent) => {
+    if (!myTurn || winner || spectator) return
+    // Re-pressing the currently-armed card cancels it — the card returns to hand.
+    // (Checked before the drag guard so it works even mid-aim / unaffordable.)
+    if (spell?.handIndex === i) {
+      e.preventDefault()
+      aimRef.current = null
+      onCancelSpell()
+      return
+    }
     // Affordability is guarded here (not via a `disabled` attribute) so the card still
     // receives hover events — the opponent must see ANY card we focus, not just playable
     // ones. An unaffordable / off-turn card simply can't be pressed.
-    if (!myTurn || winner || dragRef.current || spectator || card.cost > snap.self.mana) return
+    if (dragRef.current || card.cost > snap.self.mana) return
     e.preventDefault()
-    // A targeted card (a spell, or a minion with a targeted onset) doesn't drag
-    // onto the table — it lifts toward the board and arms the aim line. onHandCard
-    // toggles targeting; if it armed (wasn't already armed on this card), a release
-    // over a target casts/plays it (else click the target). Click again to cancel.
-    // Targeted-onset minions append (the aim flow doesn't pick a board slot).
-    if (card.target && card.target !== 'none') {
+    // Arming a different card while one is already armed: drop the stale aim first.
+    if (spell) onCancelSpell()
+    // A targeted NON-minion card (spell/weapon) doesn't drag onto the table — it
+    // lifts toward the board and arms the aim line. onHandCard toggles targeting; if
+    // it armed (wasn't already armed on this card), a release over a target casts it
+    // (else click the target). Click again to cancel.
+    // A targeted-onset MINION instead drags like a normal minion so the player picks
+    // its board slot first; commit() then arms the battlecry target with that slot.
+    if (card.target && card.target !== 'none' && card.cardType !== 'minion') {
       const wasArmed = spell?.handIndex === i
       onHandCard(i, card)
       aimRef.current = wasArmed ? null : { handIndex: i }
@@ -1276,6 +1323,7 @@ export function GameScreen(props: GameScreenProps) {
             myTurn={!spectator && myTurn && !winner}
             attacker={attacker}
             dropIndex={drag && drag.card.cardType === 'minion' ? drag.pos : null}
+            pending={pendingMinion}
             placing={!!placing}
             onPlace={(slot) => {
               if (!placing) return
@@ -1337,6 +1385,11 @@ export function GameScreen(props: GameScreenProps) {
           <div className="placing-hint">Tap a slot to place · tap hand to cancel</div>
         )}
 
+        {/* Mobile: aiming a target (no drag-arrow on touch) — guide + cancel hint. */}
+        {isMobile && !placing && spell && (
+          <div className="placing-hint">Tap a target · tap hand to cancel</div>
+        )}
+
         {/* Mobile: the card currently being committed (a minion awaiting its slot,
             or a spell awaiting its target) shows full-size on the left so it's
             clearly visible instead of sliced into the peek strip. */}
@@ -1358,13 +1411,21 @@ export function GameScreen(props: GameScreenProps) {
             a minion, the same tap cancels the placement. */}
         <div
           className={'hand' + (isMobile ? (handFocused ? ' focused' : ' peek') : '')}
-          onClick={
+          // Mobile strip taps (on pointerdown, so it resolves in the same event as a
+          // card-button tap rather than a later bubbled click that would clobber the
+          // state the button just set). Guarded to the strip itself — a tap that lands
+          // on a card button (pointer-events:auto when focused) is e.target=button and
+          // is left to the button's own handler. A peek tap hits .hand directly (peek
+          // cards are pointer-events:none). Strip tap = cancel placing / cancel an
+          // armed target / open the hand.
+          onPointerDown={
             isMobile
-              ? placing
-                ? () => setPlacing(null)
-                : !handFocused
-                  ? () => setHandFocused(true)
-                  : undefined
+              ? (e) => {
+                  if (e.target !== e.currentTarget) return
+                  if (placing) setPlacing(null)
+                  else if (spell) onCancelSpell()
+                  else if (!handFocused) setHandFocused(true)
+                }
               : undefined
           }
         >
@@ -1380,6 +1441,7 @@ export function GameScreen(props: GameScreenProps) {
                   cardColorClass(c) +
                   (affordable ? ' playable' : '') +
                   (armed ? ' selected aiming' : '') +
+                  (isMobile && handSel === i ? ' hand-sel' : '') +
                   (drag?.handIndex === i ? ' dragging' : '')
                 }
                 onPointerDown={(e) => {
@@ -1390,13 +1452,28 @@ export function GameScreen(props: GameScreenProps) {
                   // else plays immediately (minions append at the end of the board).
                   if (isMobile && handFocused) {
                     e.preventDefault()
+                    e.stopPropagation() // don't let .hand also handle this tap
                     if (!affordable || spectator) return // can't play → keep the overlay open
-                    const targeted = c.target && c.target !== 'none'
-                    if (!targeted && c.cardType === 'minion') {
-                      // Untargeted minion → pick a board slot next.
+                    if (armed) {
+                      // Re-tapping an already-armed card cancels it (back to hand).
+                      onCancelSpell()
+                      setHandFocused(false)
+                      return
+                    }
+                    // First tap selects (lifts the card); a different card switches
+                    // the pick. Nothing is played until you tap the SAME card again.
+                    if (handSel !== i) {
+                      setHandSel(i)
+                      return
+                    }
+                    // Second tap on the selected card → confirm.
+                    setHandSel(null)
+                    if (c.cardType === 'minion') {
+                      // Any minion (targeted or not) → pick a board slot first; a
+                      // targeted onset then arms its battlecry target via onPlace.
                       setPlacing({ handIndex: i, card: c })
                     } else {
-                      // Targeted card arms (board taps choose the target); an
+                      // Targeted spell/weapon arms (board taps choose the target); an
                       // untargeted spell casts immediately.
                       onHandCard(i, c, undefined)
                     }
@@ -1643,7 +1720,7 @@ function ManaBar({ side, mana, max }: { side: 'self' | 'opp'; mana: number; max:
 // useIsMobile is true only on a landscape phone (matches the CSS game breakpoint
 // `(orientation: landscape) and (max-height: 600px)`), so the focused-hand
 // interaction is wired up only where the mobile layout actually renders.
-function useIsMobile() {
+export function useIsMobile() {
   const [mobile, setMobile] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(orientation: landscape) and (max-height: 600px)')

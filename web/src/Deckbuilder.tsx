@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createDeck, deleteDeck, fetchPool, listDecks, updateDeck } from './api'
 import type { Deck, Pool } from './api'
@@ -6,6 +6,7 @@ import type { CardView } from './protocol'
 import { CardFace } from './game/CardFace'
 import { cardColorClass } from './game/format'
 import { decodeDeck, encodeDeck } from './game/deckcode'
+import { useIsMobile } from './game/GameScreen'
 
 const PER_PAGE_DESKTOP = 8 // cards per page (4 columns x 2 rows)
 const PER_PAGE_MOBILE = 4 // landscape phone: one short row, no scroll
@@ -90,6 +91,10 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   // "Copied" tag), and the import box's text while it is open (null = closed).
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [importText, setImportText] = useState<string | null>(null)
+  // Mobile: the mana/rarity/tribe filters live in a modal opened from a funnel
+  // button on the rail (the inline rows are hidden to reclaim vertical space).
+  const isMobile = useIsMobile()
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const reloadDecks = async () => setDecks(await listDecks(token))
 
@@ -256,6 +261,98 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   const curveMax = Math.max(1, ...curve)
   const classLabel = (id: string) => CLASS_OPTIONS.find((o) => o.id === id)?.label ?? id
 
+  // Filter pip groups, shared between the inline rows (desktop) and the mobile
+  // filters modal so there's a single source of truth.
+  const manaPips = MANA_BUCKETS.map((m) => (
+    <button
+      key={m}
+      className={'mana-pip' + (manaFilter === m ? ' on' : '')}
+      onClick={() => setManaFilter((cur) => (cur === m ? null : m))}
+    >
+      {m === 7 ? '7+' : m}
+    </button>
+  ))
+  const rarityPips = RARITIES.map((r) => (
+    <button
+      key={r}
+      className={'rarity-pip ' + r + (rarityFilter === r ? ' on' : '')}
+      onClick={() => setRarityFilter((cur) => (cur === r ? null : r))}
+    >
+      {r[0].toUpperCase() + r.slice(1)}
+    </button>
+  ))
+  const tribePips = tribes.map((t) => (
+    <button
+      key={t}
+      className={'tribe-pip' + (tribeFilter === t ? ' on' : '')}
+      onClick={() => setTribeFilter((cur) => (cur === t ? null : t))}
+    >
+      {t[0].toUpperCase() + t.slice(1)}
+    </button>
+  ))
+
+  // The edit panel renders inline directly under the deck row being edited (or,
+  // for a brand-new deck whose id is still null, under the New/Import actions).
+  const deckEditPanel = editing && (
+    <div className="deck-edit">
+      <div className="edit-head">
+        <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+        <span className={'meter' + (editing.cards.length === deckSize ? ' full' : '')}>
+          {editing.cards.length}/{deckSize}
+        </span>
+      </div>
+      <div className="edit-class">{classLabel(editing.class)} deck</div>
+
+      {/* Mana curve */}
+      <div className="curve" title="Mana curve">
+        {CURVE_SLOTS.map((slot, i) => (
+          <div key={slot} className="curve-col">
+            <span className="curve-n">{curve[i] || ''}</span>
+            <div className="curve-bar" style={{ height: `${(curve[i] / curveMax) * 100}%` }} />
+            <span className="curve-cost">{slot === 7 ? '7+' : slot}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="edit-actions">
+        <button disabled={editing.cards.length !== deckSize || !editing.name.trim()} onClick={save}>
+          Save
+        </button>
+        <button onClick={() => setEditing(null)}>Cancel</button>
+      </div>
+
+      <div className="in-deck">
+        {deckEntries.length === 0 && <p className="empty">Empty — click cards to add.</p>}
+        {deckEntries.map(([id, n]) => {
+          const card = byId[id]
+          const r = card?.rarity
+          return (
+            <button
+              key={id}
+              className={'deck-card' + (card ? cardColorClass(card) : '')}
+              onClick={() => removeCard(id)}
+              onMouseEnter={(e) =>
+                card &&
+                setPreview({
+                  card,
+                  x: (e.currentTarget.closest('.deck-panel') ?? e.currentTarget).getBoundingClientRect().left,
+                  y: e.clientY,
+                })
+              }
+              onMouseMove={(e) => setPreview((p) => (p ? { ...p, y: e.clientY } : p))}
+              onMouseLeave={() => setPreview(null)}
+              title="Remove one"
+            >
+              <span className="cost">{card?.cost}</span>
+              <span className={'dc-name' + (r ? ` rarity-${r}` : '')}>{card?.name}</span>
+              {n > 1 && <span className="dc-count">×{n}</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+
   return (
     <div className="builder-page">
       <div className="builder-inner">
@@ -272,28 +369,8 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
         <main className="collection">
           {/* Mana + rarity filters — one compact row above the book. */}
           <div className="col-filters">
-            <div className="filter-row">
-              {MANA_BUCKETS.map((m) => (
-                <button
-                  key={m}
-                  className={'mana-pip' + (manaFilter === m ? ' on' : '')}
-                  onClick={() => setManaFilter((cur) => (cur === m ? null : m))}
-                >
-                  {m === 7 ? '7+' : m}
-                </button>
-              ))}
-            </div>
-            <div className="filter-row">
-              {RARITIES.map((r) => (
-                <button
-                  key={r}
-                  className={'rarity-pip ' + r + (rarityFilter === r ? ' on' : '')}
-                  onClick={() => setRarityFilter((cur) => (cur === r ? null : r))}
-                >
-                  {r[0].toUpperCase() + r.slice(1)}
-                </button>
-              ))}
-            </div>
+            <div className="filter-row">{manaPips}</div>
+            <div className="filter-row">{rarityPips}</div>
             <span className="col-count">{filtered.length} cards</span>
           </div>
 
@@ -340,6 +417,15 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               {/* Page + card count ride the rail's right end on a landscape phone
                   (hidden on desktop, where they live in their own rows). */}
               <span className="rail-meta">
+                {/* Mobile: funnel button opens the filters modal (sits before the page). */}
+                <button className="filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                    <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
+                  </svg>
+                  {(manaFilter !== null || rarityFilter !== null || tribeFilter !== null) && (
+                    <span className="filter-dot" aria-hidden="true" />
+                  )}
+                </button>
                 <span className="rail-page">{page + 1} / {pageCount}</span>
                 <span className="rail-count">{filtered.length} cards</span>
               </span>
@@ -390,19 +476,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               {pageCards.length === 0 && <p className="empty-collection">No cards match these filters.</p>}
             </div>
             {/* Tribe filter — pinned to the bottom edge of the book. */}
-            {tribes.length > 0 && (
-              <div className="tribe-bar">
-                {tribes.map((t) => (
-                  <button
-                    key={t}
-                    className={'tribe-pip' + (tribeFilter === t ? ' on' : '')}
-                    onClick={() => setTribeFilter((cur) => (cur === t ? null : t))}
-                  >
-                    {t[0].toUpperCase() + t.slice(1)}
-                  </button>
-                ))}
-              </div>
-            )}
+            {tribes.length > 0 && <div className="tribe-bar">{tribePips}</div>}
             </div>
           </div>
           <div className="book-page">
@@ -416,33 +490,17 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
             Your decks ({decks.length}/{maxDecks})
           </h3>
           <div className="deck-list">
-            {decks.map((d) => (
-              <div key={d.id} className="deck-row">
-                <button onClick={() => setEditing({ id: d.id, name: d.name, class: d.class, cards: d.cards })}>
-                  <span
-                    className="deck-row-art"
-                    style={{ backgroundImage: `url('/art/${d.class}_hero.png')` }}
-                  />
-                  <span className="deck-row-text">{d.name}</span>
-                </button>
-                <button className="copy-code" onClick={() => copyCode(d)} title="Copy deck code">
-                  {copiedId === d.id ? '✓' : '⧉'}
-                </button>
-                <button className="del" onClick={() => remove(d.id, d.name)} title="Delete">
-                  ✕
-                </button>
-              </div>
-            ))}
+            {/* New / Import sit at the top of the list. */}
             <div className="deck-actions">
               <button className="new-deck" disabled={decks.length >= maxDecks} onClick={() => setPicking(true)}>
-                + New deck
+                {isMobile ? 'New' : '+ New deck'}
               </button>
               <button
                 className="new-deck"
                 disabled={decks.length >= maxDecks}
                 onClick={() => setImportText((t) => (t === null ? '' : null))}
               >
-                Import code
+                {isMobile ? 'Import' : 'Import code'}
               </button>
             </div>
             {importText !== null && (
@@ -459,67 +517,32 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 </button>
               </div>
             )}
+            {/* New deck (no existing row to attach to): panel opens under the actions. */}
+            {editing?.id === null && deckEditPanel}
+
+            {decks.map((d) => (
+              <Fragment key={d.id}>
+                <div className="deck-row">
+                  <button onClick={() => setEditing({ id: d.id, name: d.name, class: d.class, cards: d.cards })}>
+                    <span
+                      className="deck-row-art"
+                      style={{ backgroundImage: `url('/art/${d.class}_hero.png')` }}
+                    />
+                    <span className="deck-row-text">{d.name}</span>
+                  </button>
+                  <button className="copy-code" onClick={() => copyCode(d)} title="Copy deck code">
+                    {copiedId === d.id ? '✓' : '⧉'}
+                  </button>
+                  <button className="del" onClick={() => remove(d.id, d.name)} title="Delete">
+                    ✕
+                  </button>
+                </div>
+                {/* Edit panel opens inline, right under the deck being edited. */}
+                {editing?.id === d.id && deckEditPanel}
+              </Fragment>
+            ))}
           </div>
 
-          {editing && (
-            <div className="deck-edit">
-              <div className="edit-head">
-                <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                <span className={'meter' + (editing.cards.length === deckSize ? ' full' : '')}>
-                  {editing.cards.length}/{deckSize}
-                </span>
-              </div>
-              <div className="edit-class">{classLabel(editing.class)} deck</div>
-
-              {/* Mana curve */}
-              <div className="curve" title="Mana curve">
-                {CURVE_SLOTS.map((slot, i) => (
-                  <div key={slot} className="curve-col">
-                    <span className="curve-n">{curve[i] || ''}</span>
-                    <div className="curve-bar" style={{ height: `${(curve[i] / curveMax) * 100}%` }} />
-                    <span className="curve-cost">{slot === 7 ? '7+' : slot}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="edit-actions">
-                <button disabled={editing.cards.length !== deckSize || !editing.name.trim()} onClick={save}>
-                  Save
-                </button>
-                <button onClick={() => setEditing(null)}>Cancel</button>
-              </div>
-
-              <div className="in-deck">
-                {deckEntries.length === 0 && <p className="empty">Empty — click cards to add.</p>}
-                {deckEntries.map(([id, n]) => {
-                  const card = byId[id]
-                  const r = card?.rarity
-                  return (
-                    <button
-                      key={id}
-                      className={'deck-card' + (card ? cardColorClass(card) : '')}
-                      onClick={() => removeCard(id)}
-                      onMouseEnter={(e) =>
-                        card &&
-                        setPreview({
-                          card,
-                          x: (e.currentTarget.closest('.deck-panel') ?? e.currentTarget).getBoundingClientRect().left,
-                          y: e.clientY,
-                        })
-                      }
-                      onMouseMove={(e) => setPreview((p) => (p ? { ...p, y: e.clientY } : p))}
-                      onMouseLeave={() => setPreview(null)}
-                      title="Remove one"
-                    >
-                      <span className="cost">{card?.cost}</span>
-                      <span className={'dc-name' + (r ? ` rarity-${r}` : '')}>{card?.name}</span>
-                      {n > 1 && <span className="dc-count">×{n}</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
           {!editing && <p className="hint">Pick a deck to edit, or create a new one.</p>}
         </aside>
       </div>
@@ -558,6 +581,53 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               <button className="class-cancel" onClick={() => setPicking(false)}>
                 Cancel
               </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Mobile filters modal — mana / rarity / tribe pips moved off the cramped
+         book chrome. Portaled to body to escape .builder-page's scale transform. */}
+      {isMobile &&
+        filtersOpen &&
+        createPortal(
+          <div className="overlay" onClick={() => setFiltersOpen(false)}>
+            <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="fm-head">
+                <h2>Filters</h2>
+                <button className="mode-close" onClick={() => setFiltersOpen(false)} aria-label="Close">
+                  ✕
+                </button>
+              </div>
+              <div className="fm-group">
+                <span className="fm-label">Mana</span>
+                <div className="filter-row">{manaPips}</div>
+              </div>
+              <div className="fm-group">
+                <span className="fm-label">Rarity</span>
+                <div className="filter-row">{rarityPips}</div>
+              </div>
+              {tribes.length > 0 && (
+                <div className="fm-group">
+                  <span className="fm-label">Tribe</span>
+                  <div className="tribe-bar">{tribePips}</div>
+                </div>
+              )}
+              <div className="fm-actions">
+                <button
+                  className="fm-clear"
+                  onClick={() => {
+                    setManaFilter(null)
+                    setRarityFilter(null)
+                    setTribeFilter(null)
+                  }}
+                >
+                  Clear all
+                </button>
+                <button className="fm-done" onClick={() => setFiltersOpen(false)}>
+                  Done
+                </button>
+              </div>
             </div>
           </div>,
           document.body,

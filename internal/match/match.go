@@ -92,10 +92,10 @@ type minion struct {
 // has reports whether the minion currently has keyword k: its card grants it and
 // it has not been silenced.
 func (mn *minion) has(k cards.Keyword) bool {
-	if mn.silenced {
-		return false
-	}
-	if mn.card.Has(k) {
+	// Silence permanently strips the card's OWN keywords (and enrage-granted ones),
+	// but keywords granted by buffs/auras applied AFTER the silence still count —
+	// silence is a one-time strip, not a permanent suppressor.
+	if !mn.silenced && mn.card.Has(k) {
 		return true
 	}
 	for _, e := range mn.enchants { // keywords granted by a buff (e.g. `bannerguard`'s Taunt)
@@ -169,10 +169,10 @@ func (mn *minion) hasAttacked() bool { return mn.attacksMade > 0 }
 // spellDamageOf is the minion's live Spell Damage contribution (0 if silenced):
 // its printed Spell Damage plus any granted by enchantments (`runeward_sage`).
 func spellDamageOf(mn *minion) int {
-	if mn.silenced {
-		return 0
+	sp := 0
+	if !mn.silenced { // silence strips the printed Spell Damage, not post-silence enchant grants
+		sp = mn.card.SpellDamage
 	}
-	sp := mn.card.SpellDamage
 	for _, e := range mn.enchants {
 		sp += e.spellDamage
 	}
