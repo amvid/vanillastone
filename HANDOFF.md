@@ -21,12 +21,17 @@ aura (Velen — `castMul` doubles spell/hero-power output, suspended in `fireTri
 event (Northshire, distinct from Lightwarden's global `OnHeal`). Tests: `internal/match/priest_mechanics_test.go`
 (22). `go test -race ./...`, vet, gofmt, tsc, vite all green. Client: gold `.card.priest`/`.deck-card.priest`,
 ✨ glyph, deckbuilder + vs-AI pickers, deckcode char `p`, `reqMaxAttack` threaded to targeting.
-2 AI decks (`aiPriestFace`/`aiPriestMidrange`) + curated `defaultPriestDeck`. ART: UI art DONE — `priest_hero` human woman
-portrait plus hero powers `mend` and `gloom_spike`; collectible card art batches 1–2 DONE,
-**10/33** placed: `dawnward_sigil`, `searing_light`, `pried_thought`, `mindspun_wraith`,
-`mending_light`, `gloom_word_demise`, `gloom_word_ache`, `radiant_burst`, `zealots_blessing`,
-`dominate_will`. All are 512x512 and under/at the 150KB target. Next: continue Priest card art from
-`.notes/art-prompts.md` "PRIEST", starting at `ring_of_renewal`; **23 collectible Priest cards left**.
+2 AI decks (`aiPriestFace`/`aiPriestMidrange`) + curated `defaultPriestDeck`. ART COMPLETE: UI art
+DONE — `priest_hero` human woman portrait plus hero powers `mend` and `gloom_spike`; collectible
+Priest card art **33/33** placed, all 512x512 and under/at the 150KB target. Final 23-card pass added
+`ring_of_renewal`, `hush`, `soul_kindle`, `crimson_subduer`, `harborlight_chaplain`,
+`radiant_font`, `mind_larceny`, `lumen_wisp`, `gloom_thrall`, `great_hush`, `phantom_summons`,
+`gloom_word_undoing`, `sanctum_warden`, `cabal_mindbinder`, `soulreaver_nyssa`,
+`dawnvale_acolyte`, `soul_mirror`, `psychic_lance`, `auralast_zealot`, `pyre_of_faith`,
+`umbral_shift`, `prism_moth`, and `oracle_velneth`. During final pass, `mind_larceny` and
+`gloom_thrall` were regenerated to avoid Hearthstone-like spiral/card-back motifs; `harborlight_chaplain`
+was regenerated to avoid cross/steeple symbols. Next: quick in-client visual smoke test for Priest
+deckbuilder/game surfaces and art crop/readability.
 Prev: **AI card-awareness phases 1–4 DONE**: enemy turn-start board-wipe
 awareness — `ruin_oracle` — + idle Warlock Life Tap + 2-ply opponent-reply lookahead + standing
 deathrattle eval value; see "Open / next" first bullet. Prev:
@@ -129,25 +134,32 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Next Session: Priest Card Art
+## Next Session: Priest Visual Smoke Test
 
-Warlock code and art are complete. Priest is notes/spec only, but UI art has started. Read this file,
-`.notes/art-prompts.md`, `web/public/art/README.md`, and `.notes/classic-mapping.md` "PRIEST" before
-follow-up work.
+Warlock and Priest code/art are complete. Read this file, `.notes/art-prompts.md`,
+`web/public/art/README.md`, and `.notes/classic-mapping.md` "PRIEST" before follow-up work.
 
 Priest UI/art now present:
 - `priest_hero.png` — human woman Priest hero portrait, 512w, 114KB.
 - `mend.png` — Priest base hero-power icon, restore-2-health healing hands/mote, 512w, 123KB.
 - `gloom_spike.png` — replacement Shadow hero-power icon from `umbral_shift`, 512w, 148KB.
-- Priest collectible card art: **10/33 done**, **23 left**. Done so far:
+- Priest collectible card art: **33/33 done**. First two batches:
   `dawnward_sigil` (149KB), `searing_light` (125KB), `pried_thought` (145KB),
   `mindspun_wraith` (147KB), `mending_light` (115KB), `gloom_word_demise` (148KB),
   `gloom_word_ache` (150KB), `radiant_burst` (141KB), `zealots_blessing` (150KB),
   `dominate_will` (148KB).
+- Final batch:
+  `ring_of_renewal` (129KB), `hush` (104KB), `soul_kindle` (113KB),
+  `crimson_subduer` (132KB), `harborlight_chaplain` (117KB), `radiant_font` (136KB),
+  `mind_larceny` (147KB), `lumen_wisp` (133KB), `gloom_thrall` (145KB),
+  `great_hush` (137KB), `phantom_summons` (135KB), `gloom_word_undoing` (145KB),
+  `sanctum_warden` (134KB), `cabal_mindbinder` (139KB), `soulreaver_nyssa` (134KB),
+  `dawnvale_acolyte` (124KB), `soul_mirror` (119KB), `psychic_lance` (132KB),
+  `auralast_zealot` (130KB), `pyre_of_faith` (130KB), `umbral_shift` (124KB),
+  `prism_moth` (114KB), `oracle_velneth` (125KB).
 
-Suggested next work: start Priest card art in batches from `.notes/art-prompts.md` "PRIEST" using
-the established 512w/<150KB placement pipeline. Next card id: `ring_of_renewal`. The base hero
-power id is `mend`, not `lesser_mend`.
+Suggested next work: quick in-client visual smoke test for Priest deckbuilder/game surfaces and card
+crop/readability. The base hero power id is `mend`, not `lesser_mend`.
 
 Warlock UI/art now present:
 - `warlock_hero.png` — gnome woman Warlock hero portrait, 512w, 143KB.
@@ -161,7 +173,7 @@ Suggested next work: quick in-client visual smoke test for Warlock deckbuilder/g
 especially `EffectReplaceHero` portrait/power swap and `infernal_eruption` token summon, then enrich
 curated/AI Warlock decks if needed.
 
-Historical context: collectible card art is complete through Warlock: **270/270 collectible** and
+Historical context: collectible card art is complete through Priest: **303/303 collectible** and
 **46/46 token** art files are placed in `web/public/art/`. Previous final neutral 4-card chunk
 completed on 2026-06-26:
 `tavern_medic` (133KB), `thornvale_panther` (126KB), `tideblade_raider` (122KB), and
