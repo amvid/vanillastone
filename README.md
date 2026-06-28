@@ -42,7 +42,7 @@ Built deliberately, one phase at a time:
 |     8 | Warlock class                                                     |  ✅   |
 |     9 | Import/export decks                                               |  ✅   |
 |    10 | Landscaped mobile support                                         |  ✅   |
-|    11 | Priest class                                                      |  ⏳   |
+|    11 | Priest class                                                      |  ✅   |
 |    12 | Paladin class                                                     |  ⏳   |
 |    13 | Druid class                                                       |  ⏳   |
 |    14 | Rogue class                                                       |  ⏳   |
