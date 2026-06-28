@@ -15,7 +15,7 @@ export type CardView = {
   cardId: string
   name: string
   cardType: 'minion' | 'spell' | 'secret' | 'weapon' | 'heroPower'
-  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' | 'warlock' // drives card color (mage = blue); absent/neutral = default
+  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' | 'warlock' | 'priest' // drives card color (mage = blue); absent/neutral = default
   rarity?: 'common' | 'rare' | 'epic' | 'legendary' // drives the rarity gem
   cost: number
   baseCost?: number // hand cards: printed cost (present so the client can colour a cost-modified card)
@@ -25,6 +25,7 @@ export type CardView = {
   tribe?: string // minion creature type (shown in the type band)
   target?: TargetRule // present for spells
   reqAttack?: number // targeted onset: target minion must have attack >= this
+  reqMaxAttack?: number // targeted effect: target minion must have attack <= this
   reqTaunt?: boolean // targeted onset: target minion must have Taunt
   reqTribe?: string // targeted onset: target minion must be of this tribe
   text?: string // rules text for the hover box
@@ -35,7 +36,7 @@ export type MinionView = {
   instanceId: string
   cardId: string
   name: string
-  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' | 'warlock' // drives card color in the hover preview
+  class?: 'neutral' | 'mage' | 'hunter' | 'warrior' | 'warlock' | 'priest' // drives card color in the hover preview
   cost: number // printed mana cost (for the full-card hover preview)
   attack: number
   health: number

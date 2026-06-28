@@ -37,16 +37,16 @@ Built deliberately, one phase at a time:
 |     3 | Spectator mode — watch a live match from a player's point of view |  ✅   |
 |     4 | Play versus AI                                                    |  ✅   |
 |     5 | Ladder                                                            |  ✅   |
-|     6 | Hunter class + Hunter cards                                       |  ✅   |
-|     7 | Warrior class + Warrior cards                                     |  ✅   |
-|     8 | Warlock class + Warlock cards                                     |  ✅   |
+|     6 | Hunter class                                                      |  ✅   |
+|     7 | Warrior class                                                     |  ✅   |
+|     8 | Warlock class                                                     |  ✅   |
 |     9 | Import/export decks                                               |  ✅   |
 |    10 | Landscaped mobile support                                         |  ✅   |
-|    11 | Priest class + Priest cards                                       |  ⏳   |
-|    12 | Rogue class + Rogue cards                                         |  ⏳   |
-|    13 | Druid class + Druid cards                                         |  ⏳   |
-|    14 | Paladin class + Paladin cards                                     |  ⏳   |
-|    15 | Shaman class + Shaman cards                                       |  ⏳   |
+|    11 | Priest class                                                      |  ⏳   |
+|    12 | Paladin class                                                     |  ⏳   |
+|    13 | Druid class                                                       |  ⏳   |
+|    14 | Rogue class                                                       |  ⏳   |
+|    15 | Shaman class                                                      |  ⏳   |
 |    ?? | Polish UI, improve animations                                     |  ⏳   |
 
 ## Stack

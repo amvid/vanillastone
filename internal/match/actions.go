@@ -106,7 +106,8 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 			bc.Kind == cards.EffectConsumeShields || bc.Kind == cards.EffectGainWeaponAttack ||
 			bc.Kind == cards.EffectTransformRandom ||
 			bc.Area == cards.AreaAdjacent || bc.Area == cards.AreaSplash || bc.Area == cards.AreaFriendlyTribe ||
-			bc.Area == cards.AreaOtherMinions || bc.Area == cards.AreaOtherCharacters) {
+			bc.Area == cards.AreaOtherMinions || bc.Area == cards.AreaOtherCharacters ||
+			bc.Area == cards.AreaOtherFriendlyMinions) {
 		bcRef = charRef{minion: mn, owner: pi}
 	}
 	// The opponent's "enemy plays a minion" secrets (e.g. Mimic) trigger as the
@@ -206,7 +207,12 @@ func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, c
 		m.finish()
 		return true, ""
 	}
+	m.castMul = 1
+	if m.velenActive(pi) {
+		m.castMul = 2 // `oracle_velneth`: double this spell's damage/healing
+	}
 	m.applyEffect(pi, eff, ref, m.spellPower(pi), m.pid(pi))
+	m.castMul = 0
 	m.copySpellToOpponent(pi, card)
 	m.fireTriggers(pi, cards.OnSpellCast, nil)
 	m.fireTriggers(pi, cards.OnPlayCard, nil)
@@ -489,7 +495,12 @@ func (m *Match) HeroPower(c Sender, targetID string) (bool, string) {
 	ps.mana -= hp.Cost
 	ps.heroPowerUsed = true
 	m.emit(protocol.Event{Kind: "heropower", Source: m.pid(pi), Name: hp.Name})
+	m.castMul = 1
+	if m.velenActive(pi) {
+		m.castMul = 2 // `oracle_velneth`: double the hero power's damage/healing
+	}
 	m.applyEffect(pi, eff, ref, 0, m.pid(pi)) // hero power is not boosted by Spell Damage
+	m.castMul = 0
 	m.finish()
 	return true, ""
 }

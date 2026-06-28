@@ -251,22 +251,23 @@ type InviteCancelled struct {
 // for spells and hero powers, Target is the targeting rule ("none"/"any"/
 // "minion"/"friendlyMinion"/"enemyMinion") so the client knows what to highlight.
 type CardView struct {
-	CardID     string `json:"cardId"`
-	Name       string `json:"name"`
-	CardType   string `json:"cardType"`
-	Class      string `json:"class,omitempty"`  // "neutral"/"mage" — drives the card's color
-	Rarity     string `json:"rarity,omitempty"` // "common"/"rare"/"epic"/"legendary" — drives the rarity gem
-	Cost       int    `json:"cost"`
-	BaseCost   int    `json:"baseCost,omitempty"` // hand cards only: printed cost, so the client can colour a cost-modified card
-	Attack     int    `json:"attack"`
-	Health     int    `json:"health"`
-	Durability int    `json:"durability,omitempty"` // weapons
-	Tribe      string `json:"tribe,omitempty"`
-	Target     string `json:"target,omitempty"`
-	ReqAttack  int    `json:"reqAttack,omitempty"` // targeted onset: target minion must have Attack >= this
-	ReqTaunt   bool   `json:"reqTaunt,omitempty"`  // targeted onset: target minion must have Taunt
-	ReqTribe   string `json:"reqTribe,omitempty"`  // targeted onset: target minion must be of this tribe
-	Text       string `json:"text,omitempty"`      // human-readable rules text for the hover box
+	CardID       string `json:"cardId"`
+	Name         string `json:"name"`
+	CardType     string `json:"cardType"`
+	Class        string `json:"class,omitempty"`  // "neutral"/"mage" — drives the card's color
+	Rarity       string `json:"rarity,omitempty"` // "common"/"rare"/"epic"/"legendary" — drives the rarity gem
+	Cost         int    `json:"cost"`
+	BaseCost     int    `json:"baseCost,omitempty"` // hand cards only: printed cost, so the client can colour a cost-modified card
+	Attack       int    `json:"attack"`
+	Health       int    `json:"health"`
+	Durability   int    `json:"durability,omitempty"` // weapons
+	Tribe        string `json:"tribe,omitempty"`
+	Target       string `json:"target,omitempty"`
+	ReqAttack    int    `json:"reqAttack,omitempty"`    // targeted onset: target minion must have Attack >= this
+	ReqMaxAttack int    `json:"reqMaxAttack,omitempty"` // targeted effect: target minion must have Attack <= this
+	ReqTaunt     bool   `json:"reqTaunt,omitempty"`     // targeted onset: target minion must have Taunt
+	ReqTribe     string `json:"reqTribe,omitempty"`     // targeted onset: target minion must be of this tribe
+	Text         string `json:"text,omitempty"`         // human-readable rules text for the hover box
 }
 
 // MinionView is a minion in play, visible to both players. CanAttack means the

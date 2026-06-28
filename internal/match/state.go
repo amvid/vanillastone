@@ -127,6 +127,28 @@ func (m *Match) startTurn(pi int) {
 			}
 		}
 	}
+	// `crimson_subduer`: "until your next turn" buffs/debuffs applied by pi expire now,
+	// at the start of pi's next turn. Strip them from every minion on both boards and
+	// clamp current Health to the (possibly lower) max.
+	for side := 0; side < 2; side++ {
+		for _, mn := range m.state[side].board {
+			kept := mn.enchants[:0]
+			changed := false
+			for _, e := range mn.enchants {
+				if e.tempNextTurn && e.tempOwner == pi {
+					changed = true
+					continue
+				}
+				kept = append(kept, e)
+			}
+			if changed {
+				mn.enchants = kept
+				if mn.health > mn.maxHP() {
+					mn.health = mn.maxHP()
+				}
+			}
+		}
+	}
 	m.drawCard(pi) // draw for the turn (fatigue if the deck is empty)
 	m.fireTriggers(pi, cards.OnTurnStart, nil)
 	m.scheduleTurnTimer()
@@ -185,6 +207,35 @@ func (m *Match) drawCard(pi int) {
 func (m *Match) emitBurn(pi int, c cards.Card) {
 	cv := cardView(c)
 	m.emit(protocol.Event{Kind: "burn", Target: m.pid(pi), Card: &cv})
+}
+
+// returnTempControl returns minions player pi temporarily controls (`gloom_thrall`)
+// to their original owners at the end of pi's turn. A returned minion is summon-sick
+// for its owner's next turn. If the owner's board is full it is destroyed instead
+// (finish() resolves the death). Caller holds m.mu.
+func (m *Match) returnTempControl(pi int) {
+	board := m.state[pi].board
+	kept := board[:0]
+	for _, mn := range board {
+		if !mn.returnAtTurnEnd {
+			kept = append(kept, mn)
+			continue
+		}
+		mn.returnAtTurnEnd = false
+		owner := mn.returnTo
+		if len(m.state[owner].board) >= maxBoard {
+			mn.health = 0 // no room at home: it dies
+			m.emit(protocol.Event{Kind: "destroy", Target: mn.uid, Name: mn.card.Name})
+			kept = append(kept, mn) // resolveDeaths in finish() removes it
+			continue
+		}
+		mn.owner = owner
+		mn.summonedThisTurn = true
+		mn.attacksMade = 0
+		m.state[owner].board = append(m.state[owner].board, mn)
+		m.emit(protocol.Event{Kind: "control", Source: m.pid(owner), Target: mn.uid, Name: mn.card.Name})
+	}
+	m.state[pi].board = kept
 }
 
 // thawAfterTurn unfreezes player pi's characters that did not attack this turn,

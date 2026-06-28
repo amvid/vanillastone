@@ -121,7 +121,7 @@ var warlockCards = []Card{
 		Keywords: []Keyword{KeywordTaunt},
 		Aura:     &Aura{Atk: 1, Tribe: TribeDemon}},
 
-	{ID: "overlord_xathul", Name: "Overlord Xathul", Type: TypeMinion, Class: ClassWarlock, Rarity: RarityLegendary, Cost: 8, Attack: 3, Health: 15, Tribe: TribeDemon,
+	{ID: "overlord_xathul", Name: "Overlord Xathul", Type: TypeMinion, Class: ClassWarlock, Rarity: RarityLegendary, Cost: 9, Attack: 3, Health: 15, Tribe: TribeDemon,
 		Text: "Onset: Destroy your hero and replace it with Overlord Xathul.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectReplaceHero, Target: TargetNone, Amount: 15,
 			HeroArt: "overlord_xathul_hero", HeroPowerID: "infernal_eruption", EquipWeapon: "gore_scythe"}}}},

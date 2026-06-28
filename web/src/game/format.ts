@@ -401,10 +401,11 @@ export function ruleMatches(rule: TargetRule, kind: CharKind): boolean {
 // conditions (reqAttack: attack >= N; reqTaunt: has Taunt). Heroes never satisfy
 // a minion condition. Mirrors the server's targetCondOK.
 export function condMet(
-  cond: { reqAttack?: number; reqTaunt?: boolean; reqTribe?: string },
+  cond: { reqAttack?: number; reqMaxAttack?: number; reqTaunt?: boolean; reqTribe?: string },
   m?: MinionView,
 ): boolean {
   if (cond.reqAttack && (!m || m.attack < cond.reqAttack)) return false
+  if (cond.reqMaxAttack && (!m || m.attack > cond.reqMaxAttack)) return false
   if (cond.reqTaunt && (!m || !m.taunt)) return false
   if (cond.reqTribe && (!m || m.tribe !== cond.reqTribe)) return false
   return true
@@ -454,6 +455,7 @@ export function cardColorClass(c: CardView): string {
   if (c.class === 'hunter') return ' hunter'
   if (c.class === 'warrior') return ' warrior'
   if (c.class === 'warlock') return ' warlock'
+  if (c.class === 'priest') return ' priest'
   return ''
 }
 

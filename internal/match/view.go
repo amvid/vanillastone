@@ -236,10 +236,10 @@ func cardView(c cards.Card) protocol.CardView {
 	// extra target condition so the client highlights only legal targets.
 	if eff := c.Effect; eff != nil {
 		cv.Target = string(eff.Target)
-		cv.ReqAttack, cv.ReqTaunt, cv.ReqTribe = eff.ReqAttack, eff.ReqTaunt, string(eff.ReqTribe)
+		cv.ReqAttack, cv.ReqMaxAttack, cv.ReqTaunt, cv.ReqTribe = eff.ReqAttack, eff.ReqMaxAttack, eff.ReqTaunt, string(eff.ReqTribe)
 	} else if bc := c.Onset(); bc != nil {
 		cv.Target = string(bc.Target)
-		cv.ReqAttack, cv.ReqTaunt, cv.ReqTribe = bc.ReqAttack, bc.ReqTaunt, string(bc.ReqTribe)
+		cv.ReqAttack, cv.ReqMaxAttack, cv.ReqTaunt, cv.ReqTribe = bc.ReqAttack, bc.ReqMaxAttack, bc.ReqTaunt, string(bc.ReqTribe)
 	}
 	return cv
 }

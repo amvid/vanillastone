@@ -64,7 +64,7 @@ var hunterCards = []Card{
 		Text:  "Your other Beasts have +1 Attack.",
 		Aura:  &Aura{Atk: 1, Tribe: TribeBeast}},
 
-	{ID: "famished_vulture", Name: "Famished Vulture", Type: TypeMinion, Class: ClassHunter, Cost: 2, Attack: 2, Health: 1,
+	{ID: "famished_vulture", Name: "Famished Vulture", Type: TypeMinion, Class: ClassHunter, Cost: 5, Attack: 3, Health: 2,
 		Tribe:    TribeBeast,
 		Text:     "Whenever you summon a Beast, draw a card.",
 		Triggers: []Trigger{{When: OnFriendlySummon, SubjectTribe: TribeBeast, Effect: Effect{Kind: EffectDraw, Amount: 1}}}},

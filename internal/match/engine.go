@@ -250,9 +250,15 @@ func (m *Match) triggerSecrets(defender int, ev cards.EventType, ctx secretCtx) 
 // effect (e.g. a self-buff) is aimed back at that minion. Silenced minions do
 // not react. Iterates a snapshot so summons created mid-dispatch don't re-fire.
 func (m *Match) fireTriggers(controller int, when cards.EventType, subject *minion) {
+	// A triggered minion effect is never a spell/hero-power cast, so the cast-output
+	// doubler (`oracle_velneth`) must not apply to it. Suspend castMul for the dispatch
+	// and restore it afterwards (the in-flight spell's Then chain still doubles).
+	savedMul := m.castMul
+	m.castMul = 0
+	defer func() { m.castMul = savedMul }()
 	var reactors []*minion
 	switch when {
-	case cards.OnAnyMinionDeath, cards.OnHeal, cards.OnSecretPlayed, cards.OnAnyTurnEnd, cards.OnAnyMinionDamage:
+	case cards.OnAnyMinionDeath, cards.OnHeal, cards.OnMinionHealed, cards.OnSecretPlayed, cards.OnAnyTurnEnd, cards.OnAnyMinionDamage:
 		reactors = append(reactors, m.state[0].board...) // global events: both boards react
 		reactors = append(reactors, m.state[1].board...)
 	default:

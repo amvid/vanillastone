@@ -5,7 +5,29 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-28** (**AI card-awareness phases 1–4 DONE**: enemy turn-start board-wipe
+Last updated: **2026-06-28** (**Priest CODE COMPLETE + art started**. CODE: full Basic + Classic
+Priest set in `internal/cards/priest.go` — 33 collectible (20 spells + 13 minions) + hero power
+`mend` (Lesser Heal, restore 2) + replacement hero power token `gloom_spike` (Shadowform "deal 2").
+Real names only in gitignored `.notes/classic-mapping.md` "PRIEST". New engine vocab: chained
+`Effect.Then`; `EffectCopyOppHand`/`CopyOppDeck`/`SummonFromOppDeck` (mind-vision/thoughtsteal/
+mindgames); `EffectDevour` (destroy + gain Health); `EffectSetAtkToHealth` (Inner Fire) + continuous
+`Card.AtkEqualsHealth` (Lightspawn); `EffectDoubleHealth` (Divine Spirit/Glitter Moth, `ReqDeckAllOdd`
++ `AreaOtherFriendlyMinions`); `EffectSetHeroPower` (Shadowform); targeted + `ReqMaxAttack` +
+`TempControl` on `EffectMindControl` (dominate/cabal/shadow-madness, returned by `returnTempControl`
+at end of turn); area silence + `ThenDraw` (Mass Dispel); `ReqMaxAttack` destroy filter (SW:Pain/Ruin);
+`TempUntilNextTurn` buff expired in `startTurn` (Scarlet Subjugator); `TargetRandomDamagedFriendly`
+(Lightwell); `Card.HealsDealDamage` aura (Auchenai, also flips lifesteal); `Card.DoublesCastOutput`
+aura (Velen — `castMul` doubles spell/hero-power output, suspended in `fireTriggers`); `OnMinionHealed`
+event (Northshire, distinct from Lightwarden's global `OnHeal`). Tests: `internal/match/priest_mechanics_test.go`
+(22). `go test -race ./...`, vet, gofmt, tsc, vite all green. Client: gold `.card.priest`/`.deck-card.priest`,
+✨ glyph, deckbuilder + vs-AI pickers, deckcode char `p`, `reqMaxAttack` threaded to targeting.
+2 AI decks (`aiPriestFace`/`aiPriestMidrange`) + curated `defaultPriestDeck`. ART: UI art DONE — `priest_hero` human woman
+portrait plus hero powers `mend` and `gloom_spike`; collectible card art batches 1–2 DONE,
+**10/33** placed: `dawnward_sigil`, `searing_light`, `pried_thought`, `mindspun_wraith`,
+`mending_light`, `gloom_word_demise`, `gloom_word_ache`, `radiant_burst`, `zealots_blessing`,
+`dominate_will`. All are 512x512 and under/at the 150KB target. Next: continue Priest card art from
+`.notes/art-prompts.md` "PRIEST", starting at `ring_of_renewal`; **23 collectible Priest cards left**.
+Prev: **AI card-awareness phases 1–4 DONE**: enemy turn-start board-wipe
 awareness — `ruin_oracle` — + idle Warlock Life Tap + 2-ply opponent-reply lookahead + standing
 deathrattle eval value; see "Open / next" first bullet. Prev:
 **Mobile optimization: login/lobby/collection DONE + verified;
@@ -107,10 +129,25 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Next Session: Post-Warlock Polish
+## Next Session: Priest Card Art
 
-Warlock code and art are complete. Read this file, `.notes/art-prompts.md`,
-`web/public/art/README.md`, and `.notes/classic-mapping.md` "WARLOCK" before follow-up work.
+Warlock code and art are complete. Priest is notes/spec only, but UI art has started. Read this file,
+`.notes/art-prompts.md`, `web/public/art/README.md`, and `.notes/classic-mapping.md` "PRIEST" before
+follow-up work.
+
+Priest UI/art now present:
+- `priest_hero.png` — human woman Priest hero portrait, 512w, 114KB.
+- `mend.png` — Priest base hero-power icon, restore-2-health healing hands/mote, 512w, 123KB.
+- `gloom_spike.png` — replacement Shadow hero-power icon from `umbral_shift`, 512w, 148KB.
+- Priest collectible card art: **10/33 done**, **23 left**. Done so far:
+  `dawnward_sigil` (149KB), `searing_light` (125KB), `pried_thought` (145KB),
+  `mindspun_wraith` (147KB), `mending_light` (115KB), `gloom_word_demise` (148KB),
+  `gloom_word_ache` (150KB), `radiant_burst` (141KB), `zealots_blessing` (150KB),
+  `dominate_will` (148KB).
+
+Suggested next work: start Priest card art in batches from `.notes/art-prompts.md` "PRIEST" using
+the established 512w/<150KB placement pipeline. Next card id: `ring_of_renewal`. The base hero
+power id is `mend`, not `lesser_mend`.
 
 Warlock UI/art now present:
 - `warlock_hero.png` — gnome woman Warlock hero portrait, 512w, 143KB.

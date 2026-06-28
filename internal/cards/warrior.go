@@ -13,7 +13,7 @@ var warriorCards = []Card{
 		Text:   "Deal 1 damage to a minion and give it +2 Attack.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 1, BuffAtk: 2, Target: TargetMinion}},
 
-	{ID: "hammer_blow", Name: "Hammer Blow", Type: TypeSpell, Class: ClassWarrior, Rarity: RarityCommon, Cost: 1,
+	{ID: "hammer_blow", Name: "Hammer Blow", Type: TypeSpell, Class: ClassWarrior, Rarity: RarityCommon, Cost: 2,
 		Text:   "Deal 2 damage to a minion. If it survives, draw a card.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 2, DrawIfSurvives: true, Target: TargetMinion}},
 

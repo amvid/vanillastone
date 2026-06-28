@@ -2707,6 +2707,10 @@ button {
   background: linear-gradient(#3d2456, #241537);
   border-color: #9d6fd8;
 }
+.card.priest {
+  background: linear-gradient(#4a4f57, #2c3036);
+  border-color: #e8edf2;
+}
 .card.secret {
   background: linear-gradient(#43295c, #2a1b3a);
   border-color: #b06fd8;
@@ -3733,6 +3737,9 @@ button {
 }
 .deck-card.warlock {
   border-left: 3px solid #9d6fd8;
+}
+.deck-card.priest {
+  border-left: 3px solid #e8edf2;
 }
 .deck-card .cost {
   position: static;

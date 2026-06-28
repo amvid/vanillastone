@@ -57,6 +57,11 @@ type enchant struct {
 	spellDamage int             // Spell Damage granted by this buff (`runeward_sage`)
 	keywords    []cards.Keyword // keywords granted by this buff (e.g. `bannerguard`'s Taunt)
 	temp        bool            // expires at the end of the controller's turn ("+X this turn")
+
+	// tempNextTurn buffs/debuffs expire at the START of tempOwner's next turn
+	// ("until your next turn" — `crimson_subduer`'s -2 Attack on an enemy minion).
+	tempNextTurn bool
+	tempOwner    int
 }
 
 // minion is a minion instance in play. uid is unique within the match. Attack
@@ -87,6 +92,8 @@ type minion struct {
 	destroyAtTurnEnd   bool // scheduled to die at the end of THIS turn (`forbidden_might`)
 	corrupted          bool // `creeping_rot`: scheduled to be destroyed at the start of corruptedBy's next turn
 	corruptedBy        int  // player index whose turn-start destroys this minion (valid only when corrupted)
+	returnAtTurnEnd    bool // `gloom_thrall`: a temporarily mind-controlled minion returns to returnTo at this turn's end
+	returnTo           int  // owner index to return control to (valid only when returnAtTurnEnd)
 }
 
 // has reports whether the minion currently has keyword k: its card grants it and
@@ -123,6 +130,13 @@ func (mn *minion) has(k cards.Keyword) bool {
 // atk is the minion's current Attack: base card attack plus enchantments and
 // aura, floored at 0.
 func (mn *minion) atk() int {
+	// `lumen_wisp`: Attack is always equal to current Health (silence cancels it).
+	if !mn.silenced && mn.card.AtkEqualsHealth {
+		if mn.health < 0 {
+			return 0
+		}
+		return mn.health
+	}
 	a := mn.card.Attack + mn.auraAtk
 	for _, e := range mn.enchants {
 		a += e.atk
@@ -256,6 +270,11 @@ type Match struct {
 	history  []protocol.Event // rolling recent event log (across actions) for reconnect replay
 	pending  *pendingChoice   // a Seek awaiting a choice (blocks other actions)
 	mulligan *mulliganState   // opening mulligan phase (blocks all actions until both submit)
+
+	// castMul doubles the damage/healing of the spell or hero power currently
+	// resolving (`oracle_velneth`). 0/1 = normal, 2 = doubled. Set around a
+	// spell/hero-power applyEffect and cleared after; transient (never snapshotted).
+	castMul int
 
 	// observers are spectators, each bound to the seat (0/1) whose point of view
 	// they watch. They receive the same per-seat snapshots that player gets (that
@@ -475,6 +494,7 @@ func (m *Match) endTurnLocked() {
 	m.resetLog()
 	m.fireTriggers(m.turn, cards.OnTurnEnd, nil)    // end-of-turn triggers for the ending player
 	m.fireTriggers(m.turn, cards.OnAnyTurnEnd, nil) // global end-of-EACH-turn triggers (`cragmaw`); reactors are both boards
+	m.returnTempControl(m.turn)                     // `gloom_thrall`: temporarily-controlled minions go home
 	m.thawAfterTurn(m.turn)                         // thaw the ending player's frozen characters
 	m.clearTempBuffs()                              // expire "this turn" buffs
 	m.state[0].immune = false                       // hero immunity (frostward_aegis) lasts only "this turn"

@@ -179,6 +179,55 @@ var aiWarlockMidrange = []string{
 
 var aiWarlockDecks = [][]string{aiWarlockFace, aiWarlockMidrange}
 
+// aiPriestFace is a fast Holy/Shadow tempo deck: cheap bodies + buffs + efficient
+// removal (Searing Light, Gloom Word, Psychic Lance reach), bot-friendly (every card
+// is strong played straight on curve, no combos/sequencing).
+var aiPriestFace = []string{
+	"crimson_subduer", "crimson_subduer",
+	"searing_light", "searing_light",
+	"dawnvale_acolyte", "dawnvale_acolyte",
+	"psychic_lance", "psychic_lance",
+	"gloom_word_ache", "gloom_word_ache",
+	"harborlight_chaplain", "harborlight_chaplain",
+	"silverback_elder", "silverback_elder",
+	"radiant_burst", "radiant_burst",
+	"zealots_blessing", "zealots_blessing",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"sanctum_warden", "sanctum_warden",
+	"gloom_word_demise", "gloom_word_demise",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"crag_ogre",
+	"war_colossus",
+	"dawnguard_protector",
+	"dominate_will",
+}
+
+// aiPriestMidrange is a slower control deck: heal/draw engine (Dawnward Sigil into
+// Dawnvale Acolyte), heavy removal (both Gloom Words + Undoing AoE), sticky bodies,
+// Pyre of Faith reach, topped by the doubling legendary. All cards stand alone.
+var aiPriestMidrange = []string{
+	"dawnward_sigil", "dawnward_sigil",
+	"searing_light", "searing_light",
+	"dawnvale_acolyte", "dawnvale_acolyte",
+	"gloom_word_ache", "gloom_word_ache",
+	"harborlight_chaplain", "harborlight_chaplain",
+	"radiant_burst", "radiant_burst",
+	"gloom_word_demise", "gloom_word_demise",
+	"ironforge_brute", "granite_warden",
+	"sanctum_warden", "sanctum_warden",
+	"pyre_of_faith", "pyre_of_faith",
+	"gloom_word_undoing",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"dawnguard_protector",
+	"crag_ogre",
+	"war_colossus",
+	"dominate_will",
+	"oracle_velneth",
+}
+
+var aiPriestDecks = [][]string{aiPriestFace, aiPriestMidrange}
+
 // AIDecks returns copies of the prebuilt AI decks for a class, or nil if the
 // class has none. The caller picks one at random.
 func AIDecks(class Class) [][]string {
@@ -192,6 +241,8 @@ func AIDecks(class Class) [][]string {
 		src = aiWarriorDecks
 	case ClassWarlock:
 		src = aiWarlockDecks
+	case ClassPriest:
+		src = aiPriestDecks
 	default:
 		return nil
 	}

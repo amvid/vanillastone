@@ -25,6 +25,7 @@ const CLASS_TO_CHAR: Record<string, string> = {
   hunter: 'h',
   warrior: 'r',
   warlock: 'w',
+  priest: 'p',
 }
 const CHAR_TO_CLASS: Record<string, string> = Object.fromEntries(
   Object.entries(CLASS_TO_CHAR).map(([k, v]) => [v, k]),

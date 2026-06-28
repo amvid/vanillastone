@@ -18,6 +18,7 @@ export type PendingSpell = {
   handIndex: number
   target: TargetRule
   reqAttack?: number // target minion must have attack >= this
+  reqMaxAttack?: number // target minion must have attack <= this
   reqTaunt?: boolean // target minion must have Taunt
   pos?: number
 }

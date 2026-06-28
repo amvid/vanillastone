@@ -71,6 +71,9 @@ func targetCondOK(eff *cards.Effect, ref charRef) bool {
 	if eff.ReqAttack > 0 && (ref.minion == nil || ref.minion.atk() < eff.ReqAttack) {
 		return false
 	}
+	if eff.ReqMaxAttack > 0 && (ref.minion == nil || ref.minion.atk() > eff.ReqMaxAttack) {
+		return false // `gloom_word_ache` / `cabal_mindbinder` / `gloom_thrall`: Attack must be <= the cap
+	}
 	if eff.ReqTaunt && (ref.minion == nil || !ref.minion.has(cards.KeywordTaunt)) {
 		return false
 	}
@@ -268,6 +271,7 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		}
 		if amt > 0 {
 			amt += sp
+			amt = m.castDouble(amt) // `oracle_velneth`: double spell/hero-power damage
 		}
 		// `glacial_splinter`: capture the target minion's Frozen state BEFORE damage, so a
 		// conditional draw fires off the pre-damage status (the minion may die).
@@ -336,27 +340,47 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			m.drawCard(caster) // Anthem of Ambush: draw after the damage
 		}
 	case cards.EffectSilence:
-		if ref.minion != nil {
-			m.silence(ref.minion)
+		// Single target (`hush`) and mass silence (`great_hush`: AreaEnemyMinions) share
+		// the resolver; ThenDraw lets a mass silence also cantrip.
+		for _, t := range m.damageTargets(caster, eff, ref) {
+			if t.minion != nil {
+				m.silence(t.minion)
+			}
+		}
+		for i := 0; i < eff.ThenDraw; i++ {
+			m.drawCard(caster)
 		}
 	case cards.EffectHeal:
 		// Heals share the target resolver, so a single-target heal (default ref) and a
 		// mass heal (AreaFriendlyChars: `darkscale_mender`) take the same path.
+		amt := m.castDouble(eff.Amount)      // `oracle_velneth`: double spell/hero-power healing
+		toDamage := m.healsAreDamage(caster) // `auralast_zealot`: heals deal damage instead
 		for _, t := range m.damageTargets(caster, eff, ref) {
+			if toDamage {
+				if t.minion != nil {
+					m.damageMinion(t.minion, amt, srcID)
+				} else {
+					m.damageHero(t.owner, amt, srcID)
+				}
+				continue
+			}
 			healed := 0
 			if t.minion != nil {
 				before := t.minion.health
-				t.minion.health = min(t.minion.health+eff.Amount, t.minion.maxHP())
+				t.minion.health = min(t.minion.health+amt, t.minion.maxHP())
 				healed = t.minion.health - before
 				m.emit(protocol.Event{Kind: "heal", Target: t.minion.uid, Amount: healed})
 			} else {
 				before := m.state[t.owner].heroHP
-				m.state[t.owner].heroHP = min(m.state[t.owner].heroHP+eff.Amount, heroMaxHP)
+				m.state[t.owner].heroHP = min(m.state[t.owner].heroHP+amt, heroMaxHP)
 				healed = m.state[t.owner].heroHP - before
 				m.emit(protocol.Event{Kind: "heal", Target: m.pid(t.owner), Amount: healed})
 			}
 			if healed > 0 {
 				m.fireTriggers(caster, cards.OnHeal, nil) // global: "whenever a character is healed"
+				if t.minion != nil {
+					m.fireTriggers(caster, cards.OnMinionHealed, nil) // `dawnvale_acolyte`: minion heals only
+				}
 			}
 		}
 	case cards.EffectBuff:
@@ -381,7 +405,7 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 				continue
 			}
 			ba, bh := eff.BuffAtk*scale, eff.BuffHP*scale
-			t.minion.enchants = append(t.minion.enchants, enchant{atk: ba, hp: bh, spellDamage: eff.GrantSpellDamage, keywords: eff.Grant, temp: eff.Temporary})
+			t.minion.enchants = append(t.minion.enchants, enchant{atk: ba, hp: bh, spellDamage: eff.GrantSpellDamage, keywords: eff.Grant, temp: eff.Temporary, tempNextTurn: eff.TempUntilNextTurn, tempOwner: caster})
 			t.minion.health += bh // a +health buff raises current health too
 			if eff.DestroyNextTurn {
 				t.minion.destroyAtTurnStart = true // Nightmare: dies at the owner's next turn start
@@ -667,11 +691,20 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 	case cards.EffectDestroy:
 		// Destroy each target minion outright (ignores Aegis). The death
 		// itself (and any finalGasp) resolves in finish() via resolveDeaths.
+		// ReqAttack/ReqMaxAttack filter the set for an attack-gated AoE
+		// (`gloom_word_undoing`: only minions with 5+ Attack).
 		for _, t := range m.damageTargets(caster, eff, ref) {
-			if t.minion != nil {
-				t.minion.health = 0
-				m.emit(protocol.Event{Kind: "destroy", Target: t.minion.uid, Name: t.minion.card.Name})
+			if t.minion == nil {
+				continue
 			}
+			if eff.ReqAttack > 0 && t.minion.atk() < eff.ReqAttack {
+				continue
+			}
+			if eff.ReqMaxAttack > 0 && t.minion.atk() > eff.ReqMaxAttack {
+				continue
+			}
+			t.minion.health = 0
+			m.emit(protocol.Event{Kind: "destroy", Target: t.minion.uid, Name: t.minion.card.Name})
 		}
 		if eff.DiscardHand {
 			m.discardHand(caster) // `voidwyrm_tyrant` also discards the caster's remaining hand
@@ -819,9 +852,11 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			m.summonMinion(caster, c)
 		}
 	case cards.EffectMindControl:
-		// Take control of a random enemy minion (`wraithqueen_selvara` finalGasp /
-		// `mesmer_adept` onset). ReqOppMinions gates it (`mesmer_adept` needs 4+). Fizzles if the
-		// caster's board is full. The stolen minion changes sides and is summon-sick.
+		// Take control of an enemy minion. Random (`wraithqueen_selvara` finalGasp /
+		// `mesmer_adept` onset) or targeted (`dominate_will` / `cabal_mindbinder` /
+		// `gloom_thrall`). ReqOppMinions gates the random form. Fizzles if the caster's
+		// board is full. The stolen minion changes sides and is summon-sick. TempControl
+		// (`gloom_thrall`) schedules its return to the original owner at this turn's end.
 		opp := 1 - caster
 		if eff.ReqOppMinions > 0 && len(m.state[opp].board) < eff.ReqOppMinions {
 			return
@@ -829,9 +864,30 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if len(m.state[opp].board) == 0 || len(m.state[caster].board) >= maxBoard {
 			return
 		}
-		i := m.rng.Intn(len(m.state[opp].board))
+		var i int
+		if eff.Target == cards.TargetEnemyMinion {
+			if ref.minion == nil || ref.owner != opp {
+				return
+			}
+			i = -1
+			for idx, x := range m.state[opp].board {
+				if x == ref.minion {
+					i = idx
+					break
+				}
+			}
+			if i < 0 {
+				return
+			}
+		} else {
+			i = m.rng.Intn(len(m.state[opp].board))
+		}
 		mn := m.state[opp].board[i]
 		m.state[opp].board = append(m.state[opp].board[:i], m.state[opp].board[i+1:]...)
+		if eff.TempControl {
+			mn.returnAtTurnEnd = true
+			mn.returnTo = opp
+		}
 		mn.owner = caster
 		mn.summonedThisTurn = true
 		mn.attacksMade = 0
@@ -976,6 +1032,94 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		}
 		ref.minion.corrupted = true
 		ref.minion.corruptedBy = caster
+	case cards.EffectCopyOppHand:
+		// `pried_thought`: copy Count (default 1) random cards from the opponent's hand
+		// into the caster's hand (the original stays). Hidden identity (a generate event).
+		n := eff.Count
+		if n < 1 {
+			n = 1
+		}
+		opp := 1 - caster
+		for i := 0; i < n && len(m.state[opp].hand) > 0; i++ {
+			c := m.state[opp].hand[m.rng.Intn(len(m.state[opp].hand))]
+			m.addToHand(caster, c)
+		}
+	case cards.EffectCopyOppDeck:
+		// `mindspun_wraith` / `mind_larceny`: copy Count (default 1) random cards from the
+		// opponent's deck into the caster's hand (the original stays in the deck).
+		n := eff.Count
+		if n < 1 {
+			n = 1
+		}
+		opp := 1 - caster
+		for i := 0; i < n && len(m.state[opp].deck) > 0; i++ {
+			c := m.state[opp].deck[m.rng.Intn(len(m.state[opp].deck))]
+			m.addToHand(caster, c)
+		}
+	case cards.EffectSummonFromOppDeck:
+		// `phantom_summons`: summon a copy of a random MINION from the opponent's deck
+		// onto the caster's board (the original stays in the deck). Board cap via summonMinion.
+		opp := 1 - caster
+		var pool []cards.Card
+		for _, c := range m.state[opp].deck {
+			if c.Type == cards.TypeMinion {
+				pool = append(pool, c)
+			}
+		}
+		if len(pool) > 0 {
+			m.summonMinion(caster, pool[m.rng.Intn(len(pool))])
+		}
+	case cards.EffectDevour:
+		// `soulreaver_nyssa`: destroy the target minion and buff the SOURCE minion's
+		// Health by the destroyed minion's current Health. Source is found via srcID.
+		if ref.minion == nil {
+			return
+		}
+		gain := ref.minion.maxHP()
+		ref.minion.health = 0
+		m.emit(protocol.Event{Kind: "destroy", Target: ref.minion.uid, Name: ref.minion.card.Name})
+		if src := m.findMinionAny(srcID); src != nil && gain > 0 {
+			src.enchants = append(src.enchants, enchant{hp: gain})
+			src.health += gain
+			m.emit(protocol.Event{Kind: "buff", Target: src.uid, BuffHP: gain})
+		}
+	case cards.EffectSetAtkToHealth:
+		// `soul_kindle` (Inner Fire): set the target minion's Attack equal to its current
+		// Health via an enchantment (so Silence restores the base Attack).
+		if ref.minion == nil {
+			return
+		}
+		mn := ref.minion
+		delta := mn.health - mn.atk()
+		mn.enchants = append(mn.enchants, enchant{atk: delta})
+		m.emit(protocol.Event{Kind: "buff", Target: mn.uid, BuffAtk: delta})
+	case cards.EffectDoubleHealth:
+		// `soul_mirror` (single) / `prism_moth` (other friendly minions): double each
+		// target's current Health by buffing +current max. ReqDeckAllOdd gates `prism_moth`.
+		if eff.ReqDeckAllOdd && !deckAllOdd(m.state[caster].deck) {
+			return
+		}
+		for _, t := range m.damageTargets(caster, eff, ref) {
+			if t.minion == nil {
+				continue
+			}
+			gain := t.minion.maxHP()
+			t.minion.enchants = append(t.minion.enchants, enchant{hp: gain})
+			t.minion.health += gain
+			m.emit(protocol.Event{Kind: "buff", Target: t.minion.uid, BuffHP: gain})
+		}
+	case cards.EffectSetHeroPower:
+		// `umbral_shift` (Shadowform): replace the caster's hero power with HeroPowerID.
+		if hp, ok := cards.Get(eff.HeroPowerID); ok {
+			m.state[caster].heroPower = hp
+			m.state[caster].heroPowerUsed = false // the swapped-in power is usable this turn
+		}
+	}
+	// A chained follow-up effect (`radiant_burst` heal, `pyre_of_faith` heal,
+	// `dawnward_sigil` draw) resolves in the same cast — so cast doubling (castMul)
+	// and the just-applied state both carry into it.
+	if eff.Then != nil {
+		m.applyEffect(caster, eff.Then, ref, sp, srcID)
 	}
 }
 
@@ -1118,14 +1262,69 @@ func (m *Match) combatStrike(src, dst *minion) {
 }
 
 // lifestealHeal restores the player's hero by amt (capped at the hero max) and
-// emits a heal event. No-op for non-positive amounts.
+// emits a heal event. No-op for non-positive amounts. With `auralast_zealot` in
+// play, the player's healing deals damage instead — so the "heal" hits their hero.
 func (m *Match) lifestealHeal(pi, amt int) {
 	if amt <= 0 {
+		return
+	}
+	if m.healsAreDamage(pi) {
+		m.damageHero(pi, amt, m.pid(pi)) // `auralast_zealot`: this heal damages your own hero
 		return
 	}
 	before := m.state[pi].heroHP
 	m.state[pi].heroHP = min(m.state[pi].heroHP+amt, heroMaxHP)
 	m.emit(protocol.Event{Kind: "heal", Target: m.pid(pi), Amount: m.state[pi].heroHP - before})
+}
+
+// castDouble doubles a spell/hero-power damage or heal amount while the doubling
+// aura (`oracle_velneth`) is active for the resolving cast (castMul == 2).
+func (m *Match) castDouble(amt int) int {
+	if m.castMul == 2 && amt > 0 {
+		return amt * 2
+	}
+	return amt
+}
+
+// healsAreDamage reports whether player pi controls a non-silenced `auralast_zealot`,
+// flipping their healing into damage.
+func (m *Match) healsAreDamage(pi int) bool {
+	for _, mn := range m.state[pi].board {
+		if !mn.silenced && mn.card.HealsDealDamage {
+			return true
+		}
+	}
+	return false
+}
+
+// velenActive reports whether player pi controls a non-silenced `oracle_velneth`,
+// doubling the damage/healing of their spells and hero power.
+func (m *Match) velenActive(pi int) bool {
+	for _, mn := range m.state[pi].board {
+		if !mn.silenced && mn.card.DoublesCastOutput {
+			return true
+		}
+	}
+	return false
+}
+
+// addToHand puts card c into player pi's hand (burning it if the hand is full),
+// emitting a hidden-identity generate (or burn) event. Used by card-copy effects.
+func (m *Match) addToHand(pi int, c cards.Card) {
+	if len(m.state[pi].hand) >= maxHand {
+		m.emitBurn(pi, c)
+		return
+	}
+	m.state[pi].hand = append(m.state[pi].hand, c)
+	m.emit(protocol.Event{Kind: "generate", Target: m.pid(pi)})
+}
+
+// findMinionAny returns the minion with the given uid on either board, or nil.
+func (m *Match) findMinionAny(id string) *minion {
+	if mn := findMinion(m.state[0].board, id); mn != nil {
+		return mn
+	}
+	return findMinion(m.state[1].board, id)
 }
 
 // silence strips a minion's enchantments, keywords (Taunt/Charge/Rush/Divine
@@ -1363,6 +1562,31 @@ func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []char
 			out = append(out, charRef{minion: mn, owner: caster})
 		}
 		return out
+	case eff.Area == cards.AreaOtherFriendlyMinions:
+		// The caster's OTHER friendly minions (self-anchored: excludes the source). `prism_moth`.
+		var out []charRef
+		for _, mn := range m.state[caster].board {
+			if mn != ref.minion {
+				out = append(out, charRef{minion: mn, owner: caster})
+			}
+		}
+		return out
+	case eff.Target == cards.TargetRandomDamagedFriendly:
+		// A random damaged friendly character — the hero (Health below max) plus every
+		// friendly minion below its max Health (`radiant_font`). Empty if none damaged.
+		var pool []charRef
+		if m.state[caster].heroHP < heroMaxHP {
+			pool = append(pool, charRef{owner: caster})
+		}
+		for _, mn := range m.state[caster].board {
+			if mn.health < mn.maxHP() {
+				pool = append(pool, charRef{minion: mn, owner: caster})
+			}
+		}
+		if len(pool) == 0 {
+			return nil
+		}
+		return []charRef{pool[m.rng.Intn(len(pool))]}
 	case eff.Area == cards.AreaFriendlyTribe:
 		var out []charRef
 		for _, mn := range m.state[caster].board {

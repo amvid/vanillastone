@@ -23,12 +23,13 @@ const (
 	ClassHunter  Class = "hunter"
 	ClassWarrior Class = "warrior"
 	ClassWarlock Class = "warlock"
+	ClassPriest  Class = "priest"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
 func PlayableClasses() []Class {
-	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock}
+	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest}
 }
 
 // classPlayable reports whether decks may be built for this class.
@@ -119,6 +120,15 @@ const (
 	EffectLoseMana        EffectKind = "loseMana"        // destroy Amount of the caster's Mana Crystals (`chained_brute`)
 	EffectReplaceHero     EffectKind = "replaceHero"     // replace the caster's hero: set Health to Amount, new HeroArt + HeroPowerID, equip EquipWeapon (`overlord_xathul`)
 	EffectCorrupt         EffectKind = "corrupt"         // mark the target enemy minion to be destroyed at the start of the caster's NEXT turn (`creeping_rot`)
+
+	// Priest staples (Holy healing + Shadow mind-control/copy/transform).
+	EffectCopyOppHand       EffectKind = "copyOppHand"       // copy Count random cards from the opponent's hand into the caster's hand (`pried_thought`)
+	EffectCopyOppDeck       EffectKind = "copyOppDeck"       // copy Count random cards from the opponent's deck into the caster's hand (`mindspun_wraith`, `mind_larceny`)
+	EffectSummonFromOppDeck EffectKind = "summonFromOppDeck" // summon a copy of a random minion from the opponent's deck onto the caster's board (`phantom_summons`)
+	EffectDevour            EffectKind = "devour"            // destroy the target minion; buff the source minion's Health by the destroyed minion's Health (`soulreaver_nyssa`)
+	EffectSetAtkToHealth    EffectKind = "setAtkToHealth"    // set the target minion's Attack equal to its current Health, via an enchantment (`soul_kindle`)
+	EffectDoubleHealth      EffectKind = "doubleHealth"      // double each target minion's current Health (buff +current max); ReqDeckAllOdd gates it (`soul_mirror`, `prism_moth`)
+	EffectSetHeroPower      EffectKind = "setHeroPower"      // replace the caster's hero power with the HeroPowerID card (`umbral_shift`)
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -147,26 +157,29 @@ const (
 	TargetSelf           TargetRule = "self"           // the effect's own source minion (edge triggers, e.g. self-buff)
 	TargetRandomFriendly TargetRule = "randomFriendly" // a random OTHER friendly minion (trigger effects)
 	TargetSubject        TargetRule = "subject"        // the minion that triggered the event (summon/death subject) (`battle_marshal`)
+
+	TargetRandomDamagedFriendly TargetRule = "randomDamagedFriendly" // a random damaged friendly character (hero or minion) (`radiant_font`)
 )
 
 // AreaRule selects an untargeted group for mass effects.
 type AreaRule string
 
 const (
-	AreaNone              AreaRule = ""
-	AreaEnemyMinions      AreaRule = "enemyMinions"
-	AreaEnemyHero         AreaRule = "enemyHero"
-	AreaAllMinions        AreaRule = "allMinions"        // every minion on both boards
-	AreaAdjacent          AreaRule = "adjacent"          // the minions either side of the anchor (excludes it)
-	AreaSplash            AreaRule = "splash"            // the anchor minion AND the minions either side of it
-	AreaRandomEnemyMinion AreaRule = "randomEnemyMinion" // one random enemy minion (optionally stat-filtered by MaxAttack)
-	AreaFriendlyTribe     AreaRule = "friendlyTribe"     // the caster's OTHER friendly minions of Effect.Tribe
-	AreaAllCharacters     AreaRule = "allCharacters"     // both heroes and every minion on both boards
-	AreaOtherCharacters   AreaRule = "otherCharacters"   // every character except the anchor minion (self-anchored)
-	AreaOtherMinions      AreaRule = "otherMinions"      // every minion on both boards except the anchor minion (self-anchored)
-	AreaFriendlyChars     AreaRule = "friendlyChars"     // the caster's hero AND every friendly minion (`darkscale_mender`)
-	AreaEnemyChars        AreaRule = "enemyChars"        // the enemy hero AND every enemy minion (`arcane_barrage` missiles)
-	AreaFriendlyHero      AreaRule = "friendlyHero"      // the caster's own hero (self-damage / Life Tap — `ember_imp`, `abyssal_brute`, `soul_tithe`)
+	AreaNone                 AreaRule = ""
+	AreaEnemyMinions         AreaRule = "enemyMinions"
+	AreaEnemyHero            AreaRule = "enemyHero"
+	AreaAllMinions           AreaRule = "allMinions"           // every minion on both boards
+	AreaAdjacent             AreaRule = "adjacent"             // the minions either side of the anchor (excludes it)
+	AreaSplash               AreaRule = "splash"               // the anchor minion AND the minions either side of it
+	AreaRandomEnemyMinion    AreaRule = "randomEnemyMinion"    // one random enemy minion (optionally stat-filtered by MaxAttack)
+	AreaFriendlyTribe        AreaRule = "friendlyTribe"        // the caster's OTHER friendly minions of Effect.Tribe
+	AreaAllCharacters        AreaRule = "allCharacters"        // both heroes and every minion on both boards
+	AreaOtherCharacters      AreaRule = "otherCharacters"      // every character except the anchor minion (self-anchored)
+	AreaOtherMinions         AreaRule = "otherMinions"         // every minion on both boards except the anchor minion (self-anchored)
+	AreaFriendlyChars        AreaRule = "friendlyChars"        // the caster's hero AND every friendly minion (`darkscale_mender`)
+	AreaEnemyChars           AreaRule = "enemyChars"           // the enemy hero AND every enemy minion (`arcane_barrage` missiles)
+	AreaFriendlyHero         AreaRule = "friendlyHero"         // the caster's own hero (self-damage / Life Tap — `ember_imp`, `abyssal_brute`, `soul_tithe`)
+	AreaOtherFriendlyMinions AreaRule = "otherFriendlyMinions" // the caster's OTHER friendly minions (self-anchored, excludes the source) (`prism_moth`)
 )
 
 // Effect is an effect's data-driven behavior. Amount is damage/heal magnitude;
@@ -231,7 +244,13 @@ type Effect struct {
 	DestroyEndOfTurn    bool   `json:"destroyEndOfTurn,omitempty"`    // EffectBuff: the buffed minion dies at the END of this turn (`forbidden_might`)
 	TutorFallback       string `json:"tutorFallback,omitempty"`       // EffectTutorTribe: token id added to hand for each draw that found no tribe card left (`call_the_brood`)
 	HeroArt             string `json:"heroArt,omitempty"`             // EffectReplaceHero: hero-portrait art id for the replaced hero (`overlord_xathul`)
-	HeroPowerID         string `json:"heroPowerID,omitempty"`         // EffectReplaceHero: the new hero power card id (`overlord_xathul` → `infernal_eruption`)
+	HeroPowerID         string `json:"heroPowerID,omitempty"`         // EffectReplaceHero / EffectSetHeroPower: the new hero power card id (`overlord_xathul` → `infernal_eruption`; `umbral_shift` → `gloom_spike`)
+
+	// Priest riders/fields.
+	Then              *Effect `json:"then,omitempty"`              // a follow-up effect resolved after this one in the same cast (`radiant_burst` heal, `pyre_of_faith` heal, `dawnward_sigil` draw)
+	ReqMaxAttack      int     `json:"reqMaxAttack,omitempty"`      // targeted/area effect: the target minion's Attack must be <= this (`gloom_word_ache`, `gloom_word_undoing`, `gloom_thrall`, `cabal_mindbinder`); 0 = no max
+	TempUntilNextTurn bool    `json:"tempUntilNextTurn,omitempty"` // EffectBuff: the buff/debuff expires at the START of the caster's next turn (`crimson_subduer`'s -2 Attack)
+	TempControl       bool    `json:"tempControl,omitempty"`       // EffectMindControl: return the stolen minion to its owner at the END of this turn (`gloom_thrall`)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -262,6 +281,7 @@ const (
 	OnFriendlyDeath        EventType = "on_friendly_death"         // another friendly minion dies
 	OnAnyMinionDeath       EventType = "on_any_minion_death"       // any minion (either side) dies
 	OnHeal                 EventType = "on_heal"                   // any character is healed (global)
+	OnMinionHealed         EventType = "on_minion_healed"          // a MINION (not a hero) is healed — global (`dawnvale_acolyte`)
 	OnSecretPlayed         EventType = "on_secret_played"          // any Secret is played (global)
 	OnPlayCard             EventType = "on_play_card"              // the controller plays any card (after it resolves)
 	OnDamage               EventType = "on_damage"                 // this minion takes damage (fires on the damaged minion only — draw-on-damage minion)
@@ -419,36 +439,39 @@ type SelfCountAtk struct {
 // Text is human-readable rules text shown in the client's hover box; vanilla
 // minions with no special behavior leave it empty.
 type Card struct {
-	ID               string        `json:"id"`
-	Name             string        `json:"name"`
-	Type             Type          `json:"type"`
-	Class            Class         `json:"class,omitempty"`  // neutral (default) or mage — drives client color
-	Rarity           Rarity        `json:"rarity,omitempty"` // common/rare/epic/legendary; empty for tokens & hero power
-	Cost             int           `json:"cost"`
-	Attack           int           `json:"attack,omitempty"`     // minions and weapons
-	Health           int           `json:"health,omitempty"`     // minions only
-	Durability       int           `json:"durability,omitempty"` // weapons only
-	Text             string        `json:"text,omitempty"`
-	Effect           *Effect       `json:"effect,omitempty"`           // spells only
-	Triggers         []Trigger     `json:"triggers,omitempty"`         // minions: onset / finalGasp
-	Keywords         []Keyword     `json:"keywords,omitempty"`         // minions: static keywords
-	Tribe            Tribe         `json:"tribe,omitempty"`            // minions: creature type (tribal synergies)
-	SpellDamage      int           `json:"spellDamage,omitempty"`      // minions: bonus added to the controller's spell damage
-	Aura             *Aura         `json:"aura,omitempty"`             // minions: continuous buff to other friendly minions
-	CostAura         *CostAura     `json:"costAura,omitempty"`         // minions: continuous hand-cost modifier while in play
-	CostRule         *CostRule     `json:"costRule,omitempty"`         // intrinsic per-card cost modifier (cost depends on board state)
-	SelfCountAtk     *SelfCountAtk `json:"selfCountAtk,omitempty"`     // minions: +Atk per other minion of a tribe in play (`brinelord_gorrak`)
-	Enrage           *Aura         `json:"enrage,omitempty"`           // minions: stat bonus active only while damaged (Atk only; HP unsupported)
-	EnrageWeaponAtk  int           `json:"enrageWeaponAtk,omitempty"`  // minions: while this is damaged, the controller's weapon gets +N Attack (`grudge_smith`)
-	TurnSeconds      int           `json:"turnSeconds,omitempty"`      // minions: while in play, caps every turn to N seconds (`chronlord_zhal`)
-	Secret           *SecretDef    `json:"secret,omitempty"`           // secrets only: trigger + behavior
-	CopiesSpells     bool          `json:"copiesSpells,omitempty"`     // while in play, every spell cast adds a copy to the non-caster's hand (`archivist_solenne`)
-	ChargeWithWeapon bool          `json:"chargeWithWeapon,omitempty"` // has Charge only while its controller has a weapon equipped (`tideblade_raider`)
-	EnrageGrant      []Keyword     `json:"enrageGrant,omitempty"`      // keywords granted while this minion is damaged (`moonfury_stalker`: Twinstrike)
-	Token            bool          `json:"token,omitempty"`            // summon-only; excluded from Seek/decks
-	WeaponSecretGain bool          `json:"weaponSecretGain,omitempty"` // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
-	ImmuneAttacking  bool          `json:"immuneAttacking,omitempty"`  // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
-	WearByAttack     bool          `json:"wearByAttack,omitempty"`     // weapons: attacking a MINION costs 1 Attack instead of 1 Durability (`bloodwail`)
+	ID                string        `json:"id"`
+	Name              string        `json:"name"`
+	Type              Type          `json:"type"`
+	Class             Class         `json:"class,omitempty"`  // neutral (default) or mage — drives client color
+	Rarity            Rarity        `json:"rarity,omitempty"` // common/rare/epic/legendary; empty for tokens & hero power
+	Cost              int           `json:"cost"`
+	Attack            int           `json:"attack,omitempty"`     // minions and weapons
+	Health            int           `json:"health,omitempty"`     // minions only
+	Durability        int           `json:"durability,omitempty"` // weapons only
+	Text              string        `json:"text,omitempty"`
+	Effect            *Effect       `json:"effect,omitempty"`            // spells only
+	Triggers          []Trigger     `json:"triggers,omitempty"`          // minions: onset / finalGasp
+	Keywords          []Keyword     `json:"keywords,omitempty"`          // minions: static keywords
+	Tribe             Tribe         `json:"tribe,omitempty"`             // minions: creature type (tribal synergies)
+	SpellDamage       int           `json:"spellDamage,omitempty"`       // minions: bonus added to the controller's spell damage
+	Aura              *Aura         `json:"aura,omitempty"`              // minions: continuous buff to other friendly minions
+	CostAura          *CostAura     `json:"costAura,omitempty"`          // minions: continuous hand-cost modifier while in play
+	CostRule          *CostRule     `json:"costRule,omitempty"`          // intrinsic per-card cost modifier (cost depends on board state)
+	SelfCountAtk      *SelfCountAtk `json:"selfCountAtk,omitempty"`      // minions: +Atk per other minion of a tribe in play (`brinelord_gorrak`)
+	Enrage            *Aura         `json:"enrage,omitempty"`            // minions: stat bonus active only while damaged (Atk only; HP unsupported)
+	EnrageWeaponAtk   int           `json:"enrageWeaponAtk,omitempty"`   // minions: while this is damaged, the controller's weapon gets +N Attack (`grudge_smith`)
+	TurnSeconds       int           `json:"turnSeconds,omitempty"`       // minions: while in play, caps every turn to N seconds (`chronlord_zhal`)
+	Secret            *SecretDef    `json:"secret,omitempty"`            // secrets only: trigger + behavior
+	CopiesSpells      bool          `json:"copiesSpells,omitempty"`      // while in play, every spell cast adds a copy to the non-caster's hand (`archivist_solenne`)
+	ChargeWithWeapon  bool          `json:"chargeWithWeapon,omitempty"`  // has Charge only while its controller has a weapon equipped (`tideblade_raider`)
+	EnrageGrant       []Keyword     `json:"enrageGrant,omitempty"`       // keywords granted while this minion is damaged (`moonfury_stalker`: Twinstrike)
+	Token             bool          `json:"token,omitempty"`             // summon-only; excluded from Seek/decks
+	WeaponSecretGain  bool          `json:"weaponSecretGain,omitempty"`  // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
+	ImmuneAttacking   bool          `json:"immuneAttacking,omitempty"`   // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
+	WearByAttack      bool          `json:"wearByAttack,omitempty"`      // weapons: attacking a MINION costs 1 Attack instead of 1 Durability (`bloodwail`)
+	AtkEqualsHealth   bool          `json:"atkEqualsHealth,omitempty"`   // minions: Attack is always equal to current Health (`lumen_wisp`); silence cancels it
+	HealsDealDamage   bool          `json:"healsDealDamage,omitempty"`   // minions: while in play, the controller's heals deal damage instead (`auralast_zealot`); silence cancels it
+	DoublesCastOutput bool          `json:"doublesCastOutput,omitempty"` // minions: while in play, double the damage/healing of the controller's spells + hero power (`oracle_velneth`); silence cancels it
 }
 
 // Has reports whether the card has the given keyword.
@@ -491,7 +514,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -522,6 +545,8 @@ func HeroPowerForClass(c Class) Card {
 		return set["shore_up"]
 	case ClassWarlock:
 		return set["soul_tithe"]
+	case ClassPriest:
+		return set["mend"]
 	default:
 		return set["fire_dart"]
 	}
@@ -758,6 +783,39 @@ var defaultWarlockDeck = []string{
 	"overlord_xathul",
 }
 
+// defaultPriestDeck is a hand-curated, playable 30-card Priest deck: a Holy/Shadow
+// midrange/control list leaning on the class's payoffs (cheap heals into Dawnvale
+// Acolyte draw, Searing Light / Gloom Word removal, Harborlight + Sanctum Warden
+// buffs, Dominate Will as a finisher) over a sturdy neutral core, topped by the
+// class legendary. Kept 30 cards, ≤2 of any id, ≤1 legendary — TestDefaultPriestDeckIsLegal enforces it.
+var defaultPriestDeck = []string{
+	// 1-drops: shield + draw engine + cheap removal.
+	"dawnward_sigil", "dawnward_sigil",
+	"dawnvale_acolyte", "dawnvale_acolyte",
+	"searing_light", "searing_light",
+	// 2-drops: removal + buff bodies.
+	"gloom_word_ache", "gloom_word_ache",
+	"harborlight_chaplain", "harborlight_chaplain",
+	"crimson_subduer", "crimson_subduer",
+	// 3-drops: AoE + neutral bodies.
+	"radiant_burst", "radiant_burst",
+	"silverback_elder", "silverback_elder",
+	// 4-drops: removal AoE + sticky neutral bodies.
+	"gloom_word_undoing",
+	"moonsilver_guardian", "moonsilver_guardian",
+	// 5-drops: buff body + neutral wall.
+	"sanctum_warden", "sanctum_warden",
+	"harbor_bodyguard", "harbor_bodyguard",
+	// 6-drops: reach + Taunt/Aegis.
+	"pyre_of_faith", "pyre_of_faith",
+	"dawnguard_protector",
+	"crag_ogre",
+	// Top end: removal + big body + legendary.
+	"dominate_will",
+	"war_colossus",
+	"oracle_velneth",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -776,6 +834,8 @@ func DefaultDeckFor(class Class) []string {
 		return append([]string(nil), defaultWarriorDeck...)
 	case ClassWarlock:
 		return append([]string(nil), defaultWarlockDeck...)
+	case ClassPriest:
+		return append([]string(nil), defaultPriestDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}

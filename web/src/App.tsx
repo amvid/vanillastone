@@ -979,6 +979,7 @@ export function App() {
           handIndex: i,
           target: rule,
           reqAttack: card.reqAttack,
+          reqMaxAttack: card.reqMaxAttack,
           reqTaunt: card.reqTaunt,
           pos: minionPos,
         })
@@ -1271,6 +1272,7 @@ export function App() {
                               { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
                               { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
                               { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
+                              { value: 'priest', label: 'Priest', art: '/art/priest_hero.png' },
                             ]}
                           />
                         </label>
@@ -1341,6 +1343,7 @@ export function App() {
                                 { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
                                 { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
                                 { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
+                                { value: 'priest', label: 'Priest', art: '/art/priest_hero.png' },
                               ]}
                             />
                           </label>
