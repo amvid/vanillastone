@@ -5,7 +5,10 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-27** (**Mobile optimization: login/lobby/collection DONE + verified;
+Last updated: **2026-06-28** (**AI card-awareness phases 1–4 DONE**: enemy turn-start board-wipe
+awareness — `ruin_oracle` — + idle Warlock Life Tap + 2-ply opponent-reply lookahead + standing
+deathrattle eval value; see "Open / next" first bullet. Prev:
+**Mobile optimization: login/lobby/collection DONE + verified;
 game screen BUILT (opp sliver, compact decks, hand peek+focus mode, board outline) — needs
 device-verify, see "Open / next" Mobile optimization.** Prev:
 **Warlock COMPLETE + ART COMPLETE** — fourth playable class.
@@ -441,6 +444,80 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **AI card-awareness, phases 1–4 (2026-06-28) — DONE.** `go test -race ./...`, vet, gofmt green.
+  Four upgrades to the planner (`internal/match/ai.go`, `ai_driver.go`, `clone.go`). Phases 1–2 are
+  cheap heuristics on the 1-ply planner; Phase 3 adds a 2-ply opponent-reply lookahead; Phase 4 is
+  an eval term. Deep-planner latency on a loaded mid-game ≈ 56ms/action (well under turn budget).
+  - **Phase 1 — enemy turn-start board-wipe awareness (`ruin_oracle`/Doomsayer).** A live,
+    unsilenced enemy minion whose `OnTurnStart` trigger is `EffectDestroy`+`AreaAllMinions` will
+    erase all minions next turn. `scoreForPlanner` now discounts the **net board value** that wipe
+    would destroy (`wipeDiscount = 0.7`, `oppBoardWipePending`/`netBoardValue`/
+    `hasTurnStartBoardWipe` helpers). **Sign-aware:** when ahead on board the wipe hurts → bot
+    avoids over-committing bodies into it and values **killing the wiper**; when behind, the wipe
+    favors the bot → it holds minions and won't waste removal. Applied only after the burst-now
+    race short-circuit (if I have lethal, the opponent's turn never comes). Tests:
+    `TestPlannerKillsBoardWiper`, `TestBoardWipeDevaluesBoardLead`.
+  - **Phase 2 — idle hero-power policy (Warlock Life Tap).** Tapping `soul_tithe` (draw + take 2)
+    never improves the board heuristic, so the greedy planner never picks it. New
+    `botFallbackHeroPower` (called in `runBotTurn` when `planBest` finds nothing): taps to draw
+    when **HP stays ≥ `lifeTapMinHP` (10) after the self-damage**, the hand has room (no burn), and
+    we're **not in next-turn-lethal range**. Generic over `heroPowerDraws`/`heroPowerSelfDamage`.
+    Armor (`shore_up`) + face pings (Mage/Hunter) already work via the normal candidate list.
+    Tests: `TestBotTapsForCardsWhenIdle`, `TestBotWontTapAtLowHP`.
+  - **Phase 3 — 2-ply opponent-reply lookahead (the generic "dies next turn" fix).** New
+    `planBestDeep` (used by `runBotTurn`; `var aiLookahead = true` toggles it, falls back to the
+    1-ply `planBest`). Per action: `topCandidates` shortlists the best `lookaheadTopK = 6` moves by
+    the cheap 1-ply score, then each is `deepScore`d — apply the move on a clone, `endTurnLocked`
+    (the opponent's turn-start triggers fire here, incl. the board wipe), `runShallowTurn(opp)` plays
+    a greedy 1-ply opponent turn, then score from the bot's POV. A move must beat `deepScoreNoMove`
+    (pass-and-let-them-reply) by epsilon. So the bot declines plays the opponent simply erases. KEY
+    enabler: `cloneForSim` now sets **`aiSeat = -1`** (a sim must never spawn the async bot driver
+    when its turn is ended) **and seeds `aiRng`** (nested planning needs its own sub-clone seeds).
+    `runShallowTurn` uses `planBest` not `planBestDeep` — no recursion. Tests:
+    `TestDeepPlannerHoldsBackIntoBoardWipe` (with the shallow-planner-develops sanity contrast),
+    `TestDeepPlannerStillDevelops`. **Survival override (bugfix):** when the opponent already has
+    lethal on the bot next turn (`facingLethalNextTurn`), the reply sim collapses every line to a
+    loss and the bot would *pass* (no trade, no hero power — a reported bug). In that case
+    `planBestDeep` defers to the shallow `planBest`, whose lethal lens fights (trades down the
+    opponent's burst, races). Test: `TestDeepPlannerStillFightsWhenLosing`.
+  - **Phase 4 — standing deathrattle value in eval.** `minionValue` now adds `finalGaspValue`: an
+    unsilenced Final Gasp is worth `finalGaspBaseBonus = 1.0` + (for summons) the token's body, to
+    its controller. This makes the bot prefer to **silence/transform** a nasty enemy deathrattle
+    minion rather than only trade into it. NOTE: *trading into* a deathrattle was already priced
+    correctly — `Attack`→`finish()`→`resolveDeaths()` fires Final Gasps **inline on the sim clone**,
+    so the resulting scored state already reflects any summoned token/draw/damage. Phase 4 only adds
+    the value of the *un-fired* effect (silence-priority). Test: `TestDeathrattleValuedInEval`.
+  - **Coin-waste bugfix (2026-06-28).** The bot cast the Coin (`mana_surge`, +1 mana this turn)
+    just to trigger `arcane_wyrmling`'s spell-cast buff, burning the ramp with nothing to spend it
+    on. `aiCandidates` now suppresses a mana-ramp play (`isManaRamp`: spell with `EffectMana`) unless
+    `manaRampUnlocksPlay` — its extra mana makes an otherwise-unaffordable hand card playable this
+    turn. Tests: `TestPlannerDoesntWasteCoin`, `TestPlannerCoinsToEnablePlay`. KNOWN LIMITATION: the
+    greedy planner still won't *proactively* Coin-into-a-bigger-play (the Coin step alone doesn't
+    raise eval, so the loop won't take step 1) — it just no longer wastes it. Proactive ramp =
+    future work (evaluate Coin+follow-up as one move).
+  - **Passive-bot bugfix (2026-06-28).** The bot passed whole turns doing nothing — not even
+    firing a free face hero power (Hunter Quick Shot, deal 2) while behind. Cause: each candidate's
+    opponent-reply sim used an INDEPENDENT RNG seed, so the opponent drew different cards per
+    candidate; that draw variance (several eval points) buried small clean signals (a +2 hero power)
+    and "pass" won on a coin flip. Fix: `planBestDeep` now draws ONE shared `seed` per turn and
+    threads it through every deep sim (`deepScoreAfter`, `topCandidates(seat,k,seed)`), so the
+    simulated opponent reply is identical across candidates and score differences reflect the move,
+    not luck. Removed `deepScoreNoMove` (folded into `deepScoreAfter(..., pass=true)`). Test:
+    `TestDeepPlannerUsesFreeHeroPower`.
+  - **AI decks rebuilt as 2 archetypes/class (2026-06-28).** `internal/cards/ai_decks.go` now gives
+    every class exactly TWO decks — a fast `ai<Class>Face` and a slower `ai<Class>Midrange` — picked
+    at random per vs-AI match (was: curated default + a flavor or two; Mage had 3). All cards chosen
+    **bot-friendly**: strong played on curve, NO combos/sequencing/holding (the greedy planner is bad
+    at those). Excluded across the board: spell-cast synergy payoffs, cost-reduction/"next free"
+    enablers, self-bounce/copy/swap-with-hand, discard, set-up-board-state cards. Legendaries are now
+    included freely as simple standalone bombs (big bodies, recurring random damage, automatic
+    deathrattle/end-of-turn value) — the deck rule caps each legendary *id* at 1 copy but allows many
+    DISTINCT legendaries (HS-style; `ValidateDeck` in cards.go). Built by 4 parallel sub-agents
+    (one per class) reading the real card files; all 8 decks engine-validated by `TestAIDecksAreLegal`.
+    The player `default*Deck` lists (cards.go) are unchanged and no longer referenced by the AI pool.
+  - **Next AI seam:** the opponent model inside `runShallowTurn` is 1-ply greedy; a stronger bot
+    would deepen it or add its own lethal-aware sequencing. Tunable knobs if behavior feels off:
+    `wipeDiscount`, `lifeTapMinHP`, `lookaheadTopK`, `finalGaspBaseBonus`, `aiLookahead`.
 - **Targeted-onset minion placement (2026-06-27) — DONE (client-only).** A minion with a
   targeted battlecry (damage/heal/silence a chosen char) now picks its **board slot FIRST**, then
   its target — was always appending. Server already supported it (`play_card` is atomic, carries

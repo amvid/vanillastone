@@ -43,7 +43,9 @@ func (m *Match) cloneForSim(seed int64) *Match {
 		rng:     rand.New(rand.NewSource(seed)),
 
 		observers:    make(map[Sender]int),
-		turnDuration: 0, // disable the auto-end timer on the throwaway
+		turnDuration: 0,                              // disable the auto-end timer on the throwaway
+		aiSeat:       -1,                             // a sim must never spawn the async bot driver when its turn is ended (lookahead)
+		aiRng:        rand.New(rand.NewSource(seed)), // lets nested planning (opponent-reply sim) seed its own sub-clones
 	}
 	c.state[0] = m.state[0].clone()
 	c.state[1] = m.state[1].clone()

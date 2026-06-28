@@ -1,6 +1,10 @@
 package match
 
-import "github.com/amvid/vanillastone/internal/cards"
+import (
+	"sort"
+
+	"github.com/amvid/vanillastone/internal/cards"
+)
 
 // AI opponent: a single-turn greedy planner over a board-evaluation heuristic.
 // No game-tree search and no model — on its turn it repeatedly picks the legal
@@ -32,6 +36,11 @@ const (
 	poisonousBonus   = 2.0 // trades up into anything
 	lifestealBonus   = 1.0 // incidental healing
 	stealthBonus     = 1.0 // can't be targeted until it swings
+
+	// Flat worth of having any unsilenced Final Gasp (deathrattle), on top of a
+	// summon Final Gasp's token-body value. Skews the bot toward silencing/removing
+	// such minions without dying into them.
+	finalGaspBaseBonus = 1.0
 )
 
 // eval scores the position from seat's point of view: our value minus the
@@ -82,6 +91,36 @@ func (m *Match) minionValue(mn *minion) float64 {
 	if mn.stealthed {
 		v += stealthBonus
 	}
+	v += finalGaspValue(mn)
+	return v
+}
+
+// finalGaspValue estimates the standing worth of a minion's unsilenced Final Gasp
+// to its controller: the payoff its death will hand them. Added to the body value
+// so the bot (a) prices its own deathrattle minions correctly and (b) is willing
+// to SILENCE / transform a nasty enemy deathrattle minion instead of only ever
+// trading into it. (Trading into one is already priced correctly by simulation —
+// the death and its Final Gasp resolve on the clone — so this term only captures
+// the value of the as-yet-unfired effect.) Summons are valued by the token's body;
+// every other Final Gasp gets a modest flat bonus (deathrattles skew net-positive
+// for their owner, and the rare exceptions are corrected by simulation on a kill).
+func finalGaspValue(mn *minion) float64 {
+	if mn.silenced {
+		return 0
+	}
+	var v float64
+	for _, eff := range mn.card.FinalGasps() {
+		v += finalGaspBaseBonus
+		if eff.Kind == cards.EffectSummon {
+			if tok, ok := cards.Get(eff.Summon); ok {
+				n := eff.Count
+				if n < 1 {
+					n = 1
+				}
+				v += float64(n) * (float64(tok.Attack+tok.Health) + minionPresence)
+			}
+		}
+	}
 	return v
 }
 
@@ -93,6 +132,45 @@ func (m *Match) boardAttack(seat int) int {
 		total += mn.atk()
 	}
 	return total
+}
+
+// hasTurnStartBoardWipe reports whether a live minion will destroy all minions at
+// its controller's next turn start (the ruin_oracle / Doomsayer pattern). Silence
+// strips its triggers, so a silenced one is harmless.
+func hasTurnStartBoardWipe(mn *minion) bool {
+	if mn.silenced {
+		return false
+	}
+	for _, t := range mn.card.Triggers {
+		if t.When == cards.OnTurnStart && t.Effect.Kind == cards.EffectDestroy && t.Effect.Area == cards.AreaAllMinions {
+			return true
+		}
+	}
+	return false
+}
+
+// oppBoardWipePending reports whether the opponent of seat has a live minion that
+// wipes all minions at the opponent's next turn start.
+func (m *Match) oppBoardWipePending(seat int) bool {
+	for _, mn := range m.state[1-seat].board {
+		if hasTurnStartBoardWipe(mn) {
+			return true
+		}
+	}
+	return false
+}
+
+// netBoardValue is seat's board minion value minus the opponent's — the slice of
+// eval that a board wipe would erase.
+func (m *Match) netBoardValue(seat int) float64 {
+	var v float64
+	for _, mn := range m.state[seat].board {
+		v += m.minionValue(mn)
+	}
+	for _, mn := range m.state[1-seat].board {
+		v -= m.minionValue(mn)
+	}
+	return v
 }
 
 // burstNow is the max face damage seat can deal THIS turn, ignoring enemy Taunt
@@ -139,6 +217,21 @@ func heroPowerFace(hp cards.Card) int {
 	return 0
 }
 
+// heroPowerDraws reports whether using the hero power draws a card (the Warlock
+// Life Tap pattern, `soul_tithe`: damage self + draw).
+func heroPowerDraws(hp cards.Card) bool {
+	return hp.Effect != nil && (hp.Effect.ThenDraw > 0 || hp.Effect.Kind == cards.EffectDraw)
+}
+
+// heroPowerSelfDamage is the damage a hero power deals to its own hero (Life Tap's
+// 2). Zero for powers that don't hit the friendly hero.
+func heroPowerSelfDamage(hp cards.Card) int {
+	if hp.Effect != nil && hp.Effect.Kind == cards.EffectDamage && hp.Effect.Area == cards.AreaFriendlyHero {
+		return hp.Effect.Amount
+	}
+	return 0
+}
+
 // Planner scoring extremes + the lethal-lens magnitudes.
 const (
 	winScore       = 1e6  // resulting state kills the opponent — take it above all else
@@ -147,7 +240,29 @@ const (
 	overkillWeight = 3.0  // extra penalty per point their next-turn burst exceeds my health
 	epsilon        = 0.01 // a move must beat "do nothing" by at least this to be worth it
 	maxBotMoves    = 40   // hard per-turn action bound (planner loop backstop)
+
+	// A live enemy minion that destroys all minions at its controller's next turn
+	// start (the ruin_oracle / Doomsayer pattern) will erase the board before the
+	// opponent acts. We discount the net board value it would wipe by this factor —
+	// not the full value, because our own minions still get one attack in first.
+	wipeDiscount = 0.7
+
+	// Life Tap policy: the lowest hero HP the bot will leave itself at AFTER paying
+	// the self-damage to draw a card. Above this it's safe to tap for cards when
+	// nothing else improves the board; below it, keep the health.
+	lifeTapMinHP = 10
+
+	// 2-ply lookahead: the deep planner only spends its opponent-turn simulation on
+	// the top-scoring shallow candidates, to bound cost. Each deep eval runs a full
+	// simulated opponent turn, so this caps the work per bot action.
+	lookaheadTopK = 6
 )
+
+// aiLookahead enables the 2-ply planner (planBestDeep): each candidate is scored
+// after a simulated opponent reply, so the bot avoids plays the opponent simply
+// punishes (a minion that dies next turn, bodies dumped into a board wipe). A var
+// so tests/perf can disable it and fall back to the 1-ply planBest.
+var aiLookahead = true
 
 // aiMove kinds.
 const (
@@ -192,6 +307,9 @@ func (m *Match) aiCandidates(seat int) []aiMove {
 	var moves []aiMove
 
 	for i, card := range ps.hand {
+		if isManaRamp(card) && !m.manaRampUnlocksPlay(seat, i) {
+			continue // don't burn the Coin with nothing to spend the extra mana on
+		}
 		moves = append(moves, aiMove{kind: mPlay, hand: i})
 		if cardNeedsTarget(card) {
 			for _, t := range chars {
@@ -244,6 +362,34 @@ func charTargetIDs(m *Match) []string {
 	return ids
 }
 
+// isManaRamp reports whether a card's whole job is to grant the caster temporary
+// mana this turn (the Coin, `mana_surge`). Playing it is pure ramp — worthless on
+// its own (and any incidental spell-cast synergy isn't worth the wasted mana),
+// so it's only worth playing when the extra mana buys another play.
+func isManaRamp(c cards.Card) bool {
+	return c.Type == cards.TypeSpell && c.Effect != nil && c.Effect.Kind == cards.EffectMana
+}
+
+// manaRampUnlocksPlay reports whether playing the mana-ramp card at hand index
+// rampIdx would let the seat afford a DIFFERENT card in hand that it can't afford
+// at its current mana — i.e., the ramp actually buys a play this turn rather than
+// burning the card for nothing. Caller holds m.mu.
+func (m *Match) manaRampUnlocksPlay(seat, rampIdx int) bool {
+	ps := m.state[seat]
+	ramp := ps.hand[rampIdx]
+	cur := ps.mana
+	after := cur + ramp.Effect.Amount
+	for i, c := range ps.hand {
+		if i == rampIdx {
+			continue
+		}
+		if cost := m.effectiveCost(seat, c); cost > cur && cost <= after {
+			return true // c becomes affordable only thanks to the ramp
+		}
+	}
+	return false
+}
+
 // cardNeedsTarget reports whether playing the card requires a target id: a
 // targeted spell, or a minion with a targeted onset.
 func cardNeedsTarget(c cards.Card) bool {
@@ -254,6 +400,137 @@ func cardNeedsTarget(c cards.Card) bool {
 		return true
 	}
 	return false
+}
+
+// planBestDeep is the 2-ply planner the live bot uses. It shortlists the most
+// promising moves by the cheap 1-ply score, then for each looks a full opponent
+// turn ahead (deepScore) and keeps the move with the best position AFTER the
+// opponent's reply. That reply lens is what lets the bot decline plays the
+// opponent simply punishes — a minion it'll just kill next turn, or bodies dumped
+// into a board wipe that clears them. Beats the deep "do nothing" baseline by
+// epsilon or it ends the turn. Falls back to the 1-ply planBest when lookahead is
+// off. Caller holds m.mu; simulation never touches the live match.
+func (m *Match) planBestDeep(seat int) (aiMove, bool) {
+	if !aiLookahead {
+		return m.planBest(seat)
+	}
+	// Survival override: when the opponent already has lethal on us next turn, the
+	// opponent-reply sim concludes "I die in every line" and flattens all deepScores
+	// to a loss — so nothing beats passing and the bot gives up (no trade, no hero
+	// power). The shallow planner's lethal lens instead fights: it rewards trading
+	// down the threat (shrinking the opponent's burst) and racing. Defer to it.
+	if m.facingLethalNextTurn(seat) {
+		return m.planBest(seat)
+	}
+	// One shared seed for EVERY deep sim this turn (baseline + each candidate). The
+	// opponent's reply — its draw, its random effects — is then identical across
+	// candidates, so a score difference reflects the candidate move, not draw luck.
+	// With independent seeds the reply's draw variance (several eval points) swamps
+	// small clean signals (e.g. a hero power worth +2 face), and the bot passes on a
+	// coin flip — the "does nothing" bug.
+	seed := m.aiRng.Int63()
+	best := m.deepScoreAfter(seat, aiMove{}, seed, true) // baseline: pass and let them reply
+	var chosen aiMove
+	found := false
+	for _, mv := range m.topCandidates(seat, lookaheadTopK, seed) {
+		if sc := m.deepScoreAfter(seat, mv, seed, false); sc > best+epsilon {
+			best, chosen, found = sc, mv, true
+		}
+	}
+	return chosen, found
+}
+
+// deepScoreAfter applies mv on a clone seeded with `seed` (or applies nothing when
+// pass is true) and deep-scores the result. Threading one seed through every call
+// in a turn makes the simulated opponent reply identical across candidates, so the
+// scores are comparable. Returns loseScore for a move that's illegal on the clone.
+func (m *Match) deepScoreAfter(seat int, mv aiMove, seed int64, pass bool) float64 {
+	sim := m.cloneForSim(seed)
+	sim.state[1-seat].secrets = nil // fog of war: hide the opponent's secrets (see planBest)
+	if !pass {
+		if ok, _ := mv.applyTo(sim, seat); !ok {
+			return loseScore
+		}
+		sim.autoResolveSeek(seat)
+	}
+	return sim.deepScore(seat)
+}
+
+// topCandidates returns up to k candidate moves ranked by their cheap 1-ply score,
+// best first — the shortlist the deep planner spends its lookahead budget on, so a
+// full opponent turn is simulated only a bounded number of times per action. Uses
+// the shared turn seed so the shortlist is deterministic alongside the deep eval.
+func (m *Match) topCandidates(seat, k int, seed int64) []aiMove {
+	type scored struct {
+		mv aiMove
+		sc float64
+	}
+	var ranked []scored
+	for _, mv := range m.aiCandidates(seat) {
+		sim := m.cloneForSim(seed)
+		sim.state[1-seat].secrets = nil
+		if ok, _ := mv.applyTo(sim, seat); !ok {
+			continue
+		}
+		sim.autoResolveSeek(seat)
+		ranked = append(ranked, scored{mv, sim.scoreForPlanner(seat)})
+	}
+	sort.SliceStable(ranked, func(i, j int) bool { return ranked[i].sc > ranked[j].sc })
+	if len(ranked) > k {
+		ranked = ranked[:k]
+	}
+	out := make([]aiMove, len(ranked))
+	for i, s := range ranked {
+		out[i] = s.mv
+	}
+	return out
+}
+
+// facingLethalNextTurn reports whether the opponent's current board (plus weapon
+// and hero power) could kill seat's hero next turn — the trigger for the deep
+// planner to hand off to the shallow survival planner.
+func (m *Match) facingLethalNextTurn(seat int) bool {
+	return m.burstNextTurn(1-seat) >= m.state[seat].heroHP+m.state[seat].armor
+}
+
+// deepScore evaluates a position one ply ahead from seat's POV: it hands the turn
+// to the opponent (whose turn-start triggers — e.g. a board wipe — fire on the
+// handoff), lets a shallow greedy opponent play out its whole turn, then scores
+// the result. So a body the opponent just kills, or minions wiped before they do
+// anything, are worth no more than not having played them. `m` is a sim clone with
+// the bot's candidate already applied (and any Seek resolved).
+func (m *Match) deepScore(seat int) float64 {
+	opp := 1 - seat
+	// Already decided by the candidate itself — no opponent turn to simulate.
+	if m.over || m.state[opp].heroHP <= 0 || m.state[seat].heroHP <= 0 {
+		return m.scoreForPlanner(seat)
+	}
+	m.endTurnLocked()     // hand off; opponent's turn-start triggers fire here
+	m.runShallowTurn(opp) // opponent takes a greedy turn
+	return m.scoreForPlanner(seat)
+}
+
+// runShallowTurn plays a full greedy turn for seat on a simulation clone using the
+// cheap 1-ply planner (NOT planBestDeep — that would recurse), resolving any Seek
+// the turn opens. Used by deepScore to model the opponent's reply. `m` is a sim;
+// callers do not hold m.mu (the clone is single-threaded).
+func (m *Match) runShallowTurn(seat int) {
+	for i := 0; i < maxBotMoves; i++ {
+		if m.over || m.turn != seat {
+			return
+		}
+		if m.pending != nil && m.pending.player == seat {
+			m.Choose(m.players[seat], bestSeekIndex(m.pending.options))
+			continue
+		}
+		mv, ok := m.planBest(seat)
+		if !ok {
+			return
+		}
+		if applied, _ := mv.applyTo(m, seat); !applied {
+			return
+		}
+	}
 }
 
 // planBest simulates every candidate on a fresh clone and returns the one whose
@@ -282,6 +559,33 @@ func (m *Match) planBest(seat int) (aiMove, bool) {
 	return chosen, found
 }
 
+// botFallbackHeroPower returns a hero-power move to use when the planner found no
+// value-improving action — currently the Warlock Life Tap (draw + self damage).
+// Tapping never improves the board heuristic (it trades 2 HP for a hidden card),
+// so the planner never picks it, yet refilling the hand is the right idle play.
+// Only taps when safe: HP stays at/above lifeTapMinHP after the self-damage, the
+// hand has room for the drawn card, and we're not already in next-turn lethal
+// range. Returns found=false otherwise. Caller holds m.mu.
+func (m *Match) botFallbackHeroPower(seat int) (aiMove, bool) {
+	ps := m.state[seat]
+	if ps.heroPowerUsed || ps.mana < m.effectiveCost(seat, ps.heroPower) {
+		return aiMove{}, false
+	}
+	if !heroPowerDraws(ps.heroPower) {
+		return aiMove{}, false
+	}
+	if ps.heroHP-heroPowerSelfDamage(ps.heroPower) < lifeTapMinHP {
+		return aiMove{}, false
+	}
+	if len(ps.hand) >= maxHand {
+		return aiMove{}, false // the drawn card would burn
+	}
+	if m.burstNextTurn(1-seat) >= ps.heroHP+ps.armor {
+		return aiMove{}, false // don't spend health into incoming lethal
+	}
+	return aiMove{kind: mPower}, true
+}
+
 // scoreForPlanner is eval() plus the lethal lens: terminal scores for a decided
 // game, a big penalty for ending in range of the opponent's next-turn lethal
 // (drives defensive trades), evaluated from seat's POV on this (possibly clone)
@@ -301,6 +605,14 @@ func (m *Match) scoreForPlanner(seat int) float64 {
 	oppHP := m.state[opp].heroHP + m.state[opp].armor
 	if m.burstNow(seat) >= oppHP {
 		return s
+	}
+	// A pending enemy turn-start board wipe (ruin_oracle) erases all minions before
+	// the opponent acts. Discount the net board value it would destroy: when I'm
+	// ahead on board the wipe hurts me, so this dampens over-committing bodies into
+	// it and rewards killing the wiper; when I'm behind the wipe favors me, so I hold
+	// minions and won't waste removal on it.
+	if m.oppBoardWipePending(seat) {
+		s -= wipeDiscount * m.netBoardValue(seat)
 	}
 	// Else, if the opponent could kill me next turn, this line is dangerous. The
 	// penalty is GRADED in their overkill (not a flat all-or-nothing): each

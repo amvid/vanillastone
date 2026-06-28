@@ -116,7 +116,12 @@ func (m *Match) runBotTurn(seat int) {
 		}
 
 		m.mu.Lock()
-		mv, ok := m.planBest(seat)
+		mv, ok := m.planBestDeep(seat)
+		if !ok {
+			// Nothing improves the board — fall back to an idle hero power (Life Tap)
+			// if it's safe, so the bot refills its hand instead of passing.
+			mv, ok = m.botFallbackHeroPower(seat)
+		}
 		m.mu.Unlock()
 		if !ok {
 			break
