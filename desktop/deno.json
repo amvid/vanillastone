@@ -1,0 +1,9 @@
+{
+  "name": "vanillastone-desktop",
+  "version": "0.0.0",
+  "desktop": {
+    "app": {
+      "name": "Vanillastone"
+    }
+  }
+}

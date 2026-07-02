@@ -5,6 +5,11 @@ services:
       target: dev
     ports:
       - "8080:8080"
+    environment:
+      # Dev only: allow cross-origin HTTP + WS from the desktop app's webview
+      # (its origin is a laufey-picked localhost port, not this server's host).
+      # The web build uses the vite proxy (same origin), so this is a no-op for it.
+      - ALLOWED_ORIGINS=*
     volumes:
       # Source mounted live -> wgo sees edits, rebuilds. wgo binary lives in
       # /go/bin (outside /app), survives this overlay.
@@ -24,13 +29,15 @@ services:
       # compose network (service name "server").
       - VITE_PROXY_TARGET=http://server:8080
     volumes:
-      # Live source mount; anon volume keeps container node_modules from being
-      # shadowed by the (empty) host node_modules.
+      # Live source mount; anon volumes keep container-installed deps from being
+      # shadowed by the (empty) host node_modules / deno cache.
       - ./web:/app
       - /app/node_modules
+      - deno-cache:/deno-dir
     depends_on:
       - server
 
 volumes:
   go-build-cache:
   go-mod-cache:
+  deno-cache:

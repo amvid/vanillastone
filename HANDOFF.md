@@ -5,7 +5,7 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-06-28** (**Priest CODE COMPLETE + art started**. CODE: full Basic + Classic
+Last updated: **2026-07-02** (**Desktop build scaffolding** — see Open/next. Prior: **Priest CODE COMPLETE + art started**. CODE: full Basic + Classic
 Priest set in `internal/cards/priest.go` — 33 collectible (20 spells + 13 minions) + hero power
 `mend` (Lesser Heal, restore 2) + replacement hero power token `gloom_spike` (Shadowform "deal 2").
 Real names only in gitignored `.notes/classic-mapping.md` "PRIEST". New engine vocab: chained
@@ -493,6 +493,24 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **UI toolchain: pnpm/node → Deno (2026-07-02) — DONE.** Vite + tsc now run under Deno 2.9
+  (`web/deno.json` tasks `dev`/`build`/`preview`, `nodeModulesDir: auto`). `package.json` kept as the
+  npm dependency manifest (Deno reads it); `packageManager` pnpm pin removed. `deno.lock` committed;
+  `web/node_modules` still gitignored. Rewired: root `Dockerfile` web-build stage + `web/Dockerfile`
+  (dev) → `denoland/deno:2.9.1`, `docker-compose.yml` adds a `deno-cache` volume, `Makefile`
+  (`web`/`web-install`/`build-web`) and `.githooks/pre-commit` → `deno task`. Local `deno task build`
+  verified (esbuild + rollup native bins auto-resolve, tsc runs, 41 modules → `web/static`). Docker
+  images **not** rebuilt/verified here — do `make dev-build` once to confirm.
+- **Desktop build scaffolding (2026-07-02) — DONE (untested end-to-end).** Same React client,
+  packaged via Deno Desktop (`desktop/main.ts`), connecting to a **remote** Go server. Client now
+  resolves the server address through `web/src/server.ts` (`serverURL()` for HTTP, `wsURL()` for the
+  socket): `VITE_SERVER_URL` unset → same-origin (web build, unchanged); set → remote. Server gained
+  cross-origin support gated on `ALLOWED_ORIGINS` (comma-sep full origins or `*`): CORS middleware in
+  `cmd/server/main.go` (`withCORS`) + `transport.Server.SetOriginPatterns` feeding
+  coder/websocket `AcceptOptions.OriginPatterns`. Empty env = strict same-origin (secure default).
+  `go build ./...` + `tsc --noEmit` green. **Not yet run through `deno desktop build`** — the exact
+  webview Origin is unknown, so first packaged run should use `ALLOWED_ORIGINS="*"` then tighten. See
+  [README.desktop.md](README.desktop.md).
 - **AI card-awareness, phases 1–4 (2026-06-28) — DONE.** `go test -race ./...`, vet, gofmt green.
   Four upgrades to the planner (`internal/match/ai.go`, `ai_driver.go`, `clone.go`). Phases 1–2 are
   cheap heuristics on the 1-ply planner; Phase 3 adds a 2-ply opponent-reply lookahead; Phase 4 is

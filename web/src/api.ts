@@ -1,8 +1,9 @@
 // HTTP auth + deck calls. All hit the Go server (proxied in dev via vite.config).
 import type { CardView } from './protocol'
+import { serverURL } from './server'
 
 async function post(path: string, body: unknown): Promise<Response> {
-  return fetch(path, {
+  return fetch(serverURL(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -47,20 +48,20 @@ function authHeaders(token: string): HeadersInit {
 
 // fetchPool returns the buildable card collection and the deck rules.
 export async function fetchPool(): Promise<Pool> {
-  const res = await fetch('/pool')
+  const res = await fetch(serverURL('/pool'))
   if (!res.ok) throw new Error('failed to load card pool')
   return (await res.json()) as Pool
 }
 
 export async function listDecks(token: string): Promise<Deck[]> {
-  const res = await fetch('/decks', { headers: authHeaders(token) })
+  const res = await fetch(serverURL('/decks'), { headers: authHeaders(token) })
   if (!res.ok) throw new Error(await errorMessage(res, 'failed to load decks'))
   const data = (await res.json()) as { decks: Deck[] | null }
   return data.decks ?? []
 }
 
 export async function createDeck(token: string, name: string, cls: string, cards: string[]): Promise<Deck> {
-  const res = await fetch('/decks', {
+  const res = await fetch(serverURL('/decks'), {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({ name, class: cls, cards }),
@@ -70,7 +71,7 @@ export async function createDeck(token: string, name: string, cls: string, cards
 }
 
 export async function updateDeck(token: string, id: number, name: string, cls: string, cards: string[]): Promise<void> {
-  const res = await fetch(`/decks/${id}`, {
+  const res = await fetch(serverURL(`/decks/${id}`), {
     method: 'PUT',
     headers: authHeaders(token),
     body: JSON.stringify({ name, class: cls, cards }),
@@ -79,7 +80,7 @@ export async function updateDeck(token: string, id: number, name: string, cls: s
 }
 
 export async function deleteDeck(token: string, id: number): Promise<void> {
-  const res = await fetch(`/decks/${id}`, { method: 'DELETE', headers: authHeaders(token) })
+  const res = await fetch(serverURL(`/decks/${id}`), { method: 'DELETE', headers: authHeaders(token) })
   if (!res.ok) throw new Error(await errorMessage(res, 'failed to delete deck'))
 }
 
@@ -99,14 +100,14 @@ export type LeaderRow = { rank: number; username: string; wins: number; losses: 
 
 // fetchProfile returns a player's ranked stats (rank + overall + per-class W/L).
 export async function fetchProfile(user: string): Promise<Profile> {
-  const res = await fetch(`/profile?user=${encodeURIComponent(user)}`)
+  const res = await fetch(serverURL(`/profile?user=${encodeURIComponent(user)}`))
   if (!res.ok) throw new Error(await errorMessage(res, 'failed to load profile'))
   return (await res.json()) as Profile
 }
 
 // fetchLeaderboard returns the top players by ladder rank.
 export async function fetchLeaderboard(): Promise<LeaderRow[]> {
-  const res = await fetch('/leaderboard')
+  const res = await fetch(serverURL('/leaderboard'))
   if (!res.ok) throw new Error(await errorMessage(res, 'failed to load leaderboard'))
   const data = (await res.json()) as { players: LeaderRow[] | null }
   return data.players ?? []

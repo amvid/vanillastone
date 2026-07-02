@@ -55,6 +55,11 @@ type Server struct {
 
 	graceWindow time.Duration // how long a dropped seat is held for reconnect
 
+	// originPatterns allows cross-origin WS connections from the desktop build's
+	// webview. Empty (the web build's default) keeps coder/websocket's strict
+	// same-origin check. See SetOriginPatterns / ALLOWED_ORIGINS in cmd/server.
+	originPatterns []string
+
 	mu      sync.Mutex
 	clients map[*Client]struct{}   // authenticated, live connections
 	active  map[string]activeSeat  // username -> the live match + slot they occupy
@@ -77,6 +82,13 @@ func NewServer(a *auth.Auth, st *store.Store) *Server {
 		queued:      make(map[string]struct{}),
 		invites:     make(map[string]inviteRec),
 	}
+}
+
+// SetOriginPatterns permits WS upgrades whose Origin matches one of the given
+// host patterns (coder/websocket syntax, e.g. "app.example.com" or "*"). Used by
+// the desktop build, whose webview origin never matches the server's Host.
+func (s *Server) SetOriginPatterns(patterns []string) {
+	s.originPatterns = patterns
 }
 
 // Client is one connected player. It implements match.Sender. Outbound writes
@@ -140,7 +152,11 @@ func (s *Server) heartbeat(ctx context.Context, cancel context.CancelFunc, conn 
 
 // HandleWS upgrades the connection and serves one client until disconnect.
 func (s *Server) HandleWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := websocket.Accept(w, r, nil)
+	var opts *websocket.AcceptOptions
+	if len(s.originPatterns) > 0 {
+		opts = &websocket.AcceptOptions{OriginPatterns: s.originPatterns}
+	}
+	conn, err := websocket.Accept(w, r, opts)
 	if err != nil {
 		log.Printf("ws accept: %v", err)
 		return

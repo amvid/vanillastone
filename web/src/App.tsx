@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchLeaderboard, fetchProfile, listDecks, login, register } from './api'
 import type { Deck, LeaderRow, Profile } from './api'
 import { Deckbuilder } from './Deckbuilder'
+import { wsURL } from './server'
 import type { CardView, Event, MinionView, OppIntent, PlayerInfo, ServerMessage, Snapshot } from './protocol'
 import type { CharKind, Counts, LogEntry, PendingSpell, Phase } from './game/types'
 import { buildLog, cardColorClass, condMet, minionToCardView, ruleMatches } from './game/format'
@@ -686,8 +687,7 @@ export function App() {
     }
     tokenRef.current = token
     meRef.current = null
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${proto}://${location.host}/ws`)
+    const ws = new WebSocket(wsURL())
     wsRef.current = ws
 
     ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }))

@@ -14,11 +14,17 @@ tmp/
 web/node_modules/
 web/dist/
 web/.vite/
+# tsc incremental build cache (regenerated on every build)
+*.tsbuildinfo
 # Vite build output: reproducible from web/public + sources (prod Dockerfile
 # rebuilds it). Tracking it duplicated public/art into static/art. Keep only
 # the .gitkeep placeholder so //go:embed static still compiles.
 web/static/*
 !web/static/.gitkeep
+
+# Desktop app: packaged binaries + staged UI copy (both reproducible via `make desktop`)
+desktop/build/
+desktop/static/
 
 # Env / secrets
 .env

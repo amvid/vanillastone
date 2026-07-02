@@ -19,13 +19,12 @@ CMD ["wgo", "run", "./cmd/server"]
 
 
 # Web build: compile the React client to web/static so the Go binary embeds it.
-FROM node:24-alpine AS web-build
+FROM denoland/deno:2.9.1 AS web-build
 WORKDIR /web
-RUN corepack enable
-COPY web/package.json web/pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY web/package.json web/deno.json ./
+RUN deno install
 COPY web/ .
-RUN pnpm build
+RUN deno task build
 
 # Prod image: static binary, no toolchain. Used later, not for dev loop.
 FROM golang:1.26-alpine AS build

@@ -6,4 +6,4 @@
 set -e
 
 echo "pre-commit: building frontend…"
-( cd web && corepack pnpm install --frozen-lockfile && corepack pnpm build )
+( cd web && deno install && deno task build )
