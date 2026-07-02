@@ -1244,12 +1244,13 @@ func (m *Match) gainArmor(h, amt int) {
 	m.emit(protocol.Event{Kind: "armor", Target: m.pid(h), Amount: amt})
 }
 
-// combatStrike resolves one minion dealing its attack to another in combat,
-// applying Poisonous (any damage dealt destroys the struck minion) and Lifesteal
-// (damage dealt heals the striker's controller). Aegis absorption yields
-// 0 dealt, so it suppresses both.
-func (m *Match) combatStrike(src, dst *minion) {
-	dealt := m.damageMinion(dst, src.atk(), src.uid)
+// combatStrike resolves one minion dealing amt to another in combat, applying
+// Poisonous (any damage dealt destroys the struck minion) and Lifesteal (damage
+// dealt heals the striker's controller). Aegis absorption yields 0 dealt, so it
+// suppresses both. amt is snapshotted by the caller before any blow lands, so a
+// health-derived attack (`lumen_wisp`) retaliates with its pre-combat value.
+func (m *Match) combatStrike(src, dst *minion, amt int) {
+	dealt := m.damageMinion(dst, amt, src.uid)
 	if dealt > 0 && src.has(cards.KeywordPoisonous) {
 		dst.health = 0 // destroyed regardless of remaining health
 	}

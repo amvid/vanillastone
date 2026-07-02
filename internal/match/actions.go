@@ -359,10 +359,13 @@ func (m *Match) resolveAttackBlow(pi int, atk *minion, dst charRef) {
 		}
 		return
 	}
-	// Simultaneous damage exchange (Aegis handled in damageMinion).
-	m.combatStrike(atk, dst.minion) // attacker -> defender
-	if dst.minion.atk() > 0 {
-		m.combatStrike(dst.minion, atk) // defender retaliates
+	// Simultaneous damage exchange (Aegis handled in damageMinion). Snapshot both
+	// blows before either lands so a health-derived attack (`lumen_wisp`) deals its
+	// pre-combat value even after taking the other's hit first.
+	atkBlow, defBlow := atk.atk(), dst.minion.atk()
+	m.combatStrike(atk, dst.minion, atkBlow) // attacker -> defender
+	if defBlow > 0 {
+		m.combatStrike(dst.minion, atk, defBlow) // defender retaliates
 	}
 }
 

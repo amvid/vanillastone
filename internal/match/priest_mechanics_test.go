@@ -139,6 +139,23 @@ func TestLumenWispAttackTracksHealth(t *testing.T) {
 	}
 }
 
+// TestLumenWispRetaliatesWithPreCombatHealth: combat is simultaneous, so a Lumen
+// Wisp that is hit while defending must retaliate for its Attack-equals-Health
+// value from BEFORE the blow, not the reduced value after taking damage. Guards
+// against sequential combat where the attacker's hit shrinks the retaliation.
+func TestLumenWispRetaliatesWithPreCombatHealth(t *testing.T) {
+	m, a, _ := newMatch()
+	place(m, 0, "atk", "crag_ogre", 4, 10, true)  // attacker survives the trade
+	place(m, 1, "lum", "lumen_wisp", 0, 5, false) // 5/5 Lumen Wisp defends
+	if ok, msg := m.Attack(a, "atk", "lum"); !ok {
+		t.Fatalf("attack should resolve: %s", msg)
+	}
+	atk := findMinion(m.state[0].board, "atk")
+	if atk == nil || atk.health != 5 {
+		t.Fatalf("Lumen Wisp should retaliate for its pre-combat 5 (10->5), attacker hp=%v", atk)
+	}
+}
+
 // TestSoulMirrorDoublesHealth: doubles the target's current Health.
 func TestSoulMirrorDoublesHealth(t *testing.T) {
 	m, a, _ := newMatch()
