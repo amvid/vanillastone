@@ -180,8 +180,8 @@ export function fatigueBurst(side: 'self' | 'opp') {
     pointerEvents: 'none',
   })
   document.body.appendChild(node)
-  const cx = window.innerWidth / 2 - (r.left + w / 2)
-  const cy = window.innerHeight / 2 - (r.top + h / 2)
+  const cx = globalThis.innerWidth / 2 - (r.left + w / 2)
+  const cy = globalThis.innerHeight / 2 - (r.top + h / 2)
   const anim = node.animate(
     [
       { transform: 'translate(0,0) scale(1) rotate(-8deg)', opacity: 0 },
@@ -407,8 +407,8 @@ function flyToCenter(node: HTMLElement, from: DOMRect) {
     pointerEvents: 'none',
   })
   document.body.appendChild(node)
-  const cx = window.innerWidth / 2 - (from.left + from.width / 2)
-  const cy = window.innerHeight / 2 - (from.top + from.height / 2)
+  const cx = globalThis.innerWidth / 2 - (from.left + from.width / 2)
+  const cy = globalThis.innerHeight / 2 - (from.top + from.height / 2)
   const anim = node.animate(
     [
       { transform: 'translate(0,0) scale(1)', opacity: 1 },

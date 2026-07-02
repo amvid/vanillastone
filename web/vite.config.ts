@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import type { ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -32,7 +33,7 @@ function listPublicFiles(dir: string): Set<string> {
 function reloadOnPublicChange() {
   return {
     name: 'reload-on-public-change',
-    configureServer(server: any) {
+    configureServer(server: ViteDevServer) {
       const publicDir: string = server.config.publicDir
       const notify = () => server.ws.send({ type: 'custom', event: 'art-changed' })
 

@@ -1,6 +1,7 @@
 {
-  "name": "vanillastone-desktop",
-  "version": "0.0.0",
+  "imports": {
+    "@std/http": "jsr:@std/http@^1"
+  },
   "desktop": {
     "app": {
       "name": "Vanillastone"

@@ -493,6 +493,16 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
 ---
 
 ## Open / next
+- **Dropped tsc + node types from web (2026-07-02) — DONE.** Type-checking now lives in the Deno
+  LSP / `deno task check` (`deno check src`), not a `tsc` build step. Removed: `tsconfig*.json`,
+  `typescript` + `@types/node` devDeps, the `tsc` from the build task. `web/deno.json` gained
+  `compilerOptions` (`lib: dom+esnext`, `jsx: react-jsx`) so Deno checks browser React correctly,
+  plus `unstable: ["sloppy-imports"]` so extensionless imports (`./api`) resolve. Build is
+  `deno check src && vite build` — Deno type-checks (replacing the old `tsc` gate), then Vite
+  transpiles/bundles. So the type gate still applies everywhere `deno task build` runs (`make
+  build`, pre-commit, `make desktop`). This also fixed the 8 `Timeout`-vs-`number` errors: with no `@types/node`,
+  browser `setTimeout` returns `number`. All 64 `jsx-button-has-type` lint errors fixed too
+  (every `<button>` got `type="button"`; no forms exist, so none are submit).
 - **UI toolchain: pnpm/node → Deno (2026-07-02) — DONE.** Vite + tsc now run under Deno 2.9
   (`web/deno.json` tasks `dev`/`build`/`preview`, `nodeModulesDir: auto`). `package.json` kept as the
   npm dependency manifest (Deno reads it); `packageManager` pnpm pin removed. `deno.lock` committed;

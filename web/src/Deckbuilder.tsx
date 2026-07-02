@@ -16,10 +16,10 @@ const MOBILE_MQ = '(orientation: landscape) and (max-height: 600px)'
 // Page size adapts to the viewport: 4 on a landscape phone, 8 elsewhere.
 function usePerPage() {
   const [mobile, setMobile] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ).matches,
+    typeof window !== 'undefined' && globalThis.matchMedia(MOBILE_MQ).matches,
   )
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_MQ)
+    const mq = globalThis.matchMedia(MOBILE_MQ)
     const on = () => setMobile(mq.matches)
     mq.addEventListener('change', on)
     return () => mq.removeEventListener('change', on)
@@ -151,7 +151,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
       <div className="builder-page">
         <h1>Vanillastone</h1>
         <p>{error || 'loading…'}</p>
-        <button onClick={onBack}>Back to lobby</button>
+        <button type="button" onClick={onBack}>Back to lobby</button>
       </div>
     )
   }
@@ -265,7 +265,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
   // Filter pip groups, shared between the inline rows (desktop) and the mobile
   // filters modal so there's a single source of truth.
   const manaPips = MANA_BUCKETS.map((m) => (
-    <button
+    <button type="button"
       key={m}
       className={'mana-pip' + (manaFilter === m ? ' on' : '')}
       onClick={() => setManaFilter((cur) => (cur === m ? null : m))}
@@ -274,7 +274,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     </button>
   ))
   const rarityPips = RARITIES.map((r) => (
-    <button
+    <button type="button"
       key={r}
       className={'rarity-pip ' + r + (rarityFilter === r ? ' on' : '')}
       onClick={() => setRarityFilter((cur) => (cur === r ? null : r))}
@@ -283,7 +283,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     </button>
   ))
   const tribePips = tribes.map((t) => (
-    <button
+    <button type="button"
       key={t}
       className={'tribe-pip' + (tribeFilter === t ? ' on' : '')}
       onClick={() => setTribeFilter((cur) => (cur === t ? null : t))}
@@ -316,10 +316,10 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
       </div>
 
       <div className="edit-actions">
-        <button disabled={editing.cards.length !== deckSize || !editing.name.trim()} onClick={save}>
+        <button type="button" disabled={editing.cards.length !== deckSize || !editing.name.trim()} onClick={save}>
           Save
         </button>
-        <button onClick={() => setEditing(null)}>Cancel</button>
+        <button type="button" onClick={() => setEditing(null)}>Cancel</button>
       </div>
 
       <div className="in-deck">
@@ -328,7 +328,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
           const card = byId[id]
           const r = card?.rarity
           return (
-            <button
+            <button type="button"
               key={id}
               className={'deck-card' + (card ? cardColorClass(card) : '')}
               onClick={() => removeCard(id)}
@@ -358,7 +358,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     <div className="builder-page">
       <div className="builder-inner">
       <header className="builder-head">
-        <button className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack}>
           ‹ Lobby
         </button>
         <h1>Collection</h1>
@@ -379,7 +379,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
              portrait; All/Neutral are text tiles. */}
           <div className="book-area">
             <div className="book-tabs">
-              <button
+              <button type="button"
                 className={'tab-tile' + (tab === 'all' ? ' on' : '')}
                 title="All"
                 aria-label="All"
@@ -393,7 +393,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 </svg>
               </button>
               {(editing ? [editing.class] : pool.classes).map((cls) => (
-                <button
+                <button type="button"
                   key={cls}
                   className={'tab-tile tab-portrait' + (tab === 'class' && activeClass === cls ? ' on' : '')}
                   style={{ backgroundImage: `url('/art/${cls}_hero.png')` }}
@@ -405,7 +405,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   }}
                 />
               ))}
-              <button
+              <button type="button"
                 className={'tab-tile' + (tab === 'neutral' ? ' on' : '')}
                 title="Neutral"
                 aria-label="Neutral"
@@ -419,7 +419,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   (hidden on desktop, where they live in their own rows). */}
               <span className="rail-meta">
                 {/* Mobile: funnel button opens the filters modal (sits before the page). */}
-                <button className="filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
+                <button type="button" className="filter-btn" onClick={() => setFiltersOpen(true)} aria-label="Filters">
                   <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
                     <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
                   </svg>
@@ -436,7 +436,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               {/* Page nav lives on the book itself (full-height left/right edges)
                   instead of a separate button row below — saves vertical space,
                   same on desktop. */}
-              <button
+              <button type="button"
                 className="book-nav prev"
                 disabled={page === 0}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -444,7 +444,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               >
                 ‹
               </button>
-              <button
+              <button type="button"
                 className="book-nav next"
                 disabled={page >= pageCount - 1}
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
@@ -457,7 +457,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 const n = editCounts[c.cardId] ?? 0
                 const maxed = !editing || n >= capFor(c) || editing.cards.length >= deckSize
                 return (
-                  <button
+                  <button type="button"
                     key={c.cardId}
                     className={'card book-card' + cardColorClass(c)}
                     disabled={maxed}
@@ -493,10 +493,10 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
           <div className="deck-list">
             {/* New / Import sit at the top of the list. */}
             <div className="deck-actions">
-              <button className="new-deck" disabled={decks.length >= maxDecks} onClick={() => setPicking(true)}>
+              <button type="button" className="new-deck" disabled={decks.length >= maxDecks} onClick={() => setPicking(true)}>
                 {isMobile ? 'New' : '+ New deck'}
               </button>
-              <button
+              <button type="button"
                 className="new-deck"
                 disabled={decks.length >= maxDecks}
                 onClick={() => setImportText((t) => (t === null ? '' : null))}
@@ -513,7 +513,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   onChange={(e) => setImportText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && importCode()}
                 />
-                <button disabled={!importText.trim()} onClick={importCode}>
+                <button type="button" disabled={!importText.trim()} onClick={importCode}>
                   Import
                 </button>
               </div>
@@ -524,17 +524,17 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
             {decks.map((d) => (
               <Fragment key={d.id}>
                 <div className="deck-row">
-                  <button onClick={() => setEditing({ id: d.id, name: d.name, class: d.class, cards: d.cards })}>
+                  <button type="button" onClick={() => setEditing({ id: d.id, name: d.name, class: d.class, cards: d.cards })}>
                     <span
                       className="deck-row-art"
                       style={{ backgroundImage: `url('/art/${d.class}_hero.png')` }}
                     />
                     <span className="deck-row-text">{d.name}</span>
                   </button>
-                  <button className="copy-code" onClick={() => copyCode(d)} title="Copy deck code">
+                  <button type="button" className="copy-code" onClick={() => copyCode(d)} title="Copy deck code">
                     {copiedId === d.id ? '✓' : '⧉'}
                   </button>
-                  <button className="del" onClick={() => remove(d.id, d.name)} title="Delete">
+                  <button type="button" className="del" onClick={() => remove(d.id, d.name)} title="Delete">
                     ✕
                   </button>
                 </div>
@@ -561,7 +561,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 {CLASS_OPTIONS.map((o) => {
                   const enabled = pool.classes.includes(o.id)
                   return (
-                    <button
+                    <button type="button"
                       key={o.id}
                       className={'class-card' + (enabled ? '' : ' soon')}
                       disabled={!enabled}
@@ -579,7 +579,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                   )
                 })}
               </div>
-              <button className="class-cancel" onClick={() => setPicking(false)}>
+              <button type="button" className="class-cancel" onClick={() => setPicking(false)}>
                 Cancel
               </button>
             </div>
@@ -596,7 +596,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
             <div className="filters-modal" onClick={(e) => e.stopPropagation()}>
               <div className="fm-head">
                 <h2>Filters</h2>
-                <button className="mode-close" onClick={() => setFiltersOpen(false)} aria-label="Close">
+                <button type="button" className="mode-close" onClick={() => setFiltersOpen(false)} aria-label="Close">
                   ✕
                 </button>
               </div>
@@ -615,7 +615,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 </div>
               )}
               <div className="fm-actions">
-                <button
+                <button type="button"
                   className="fm-clear"
                   onClick={() => {
                     setManaFilter(null)
@@ -625,7 +625,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
                 >
                   Clear all
                 </button>
-                <button className="fm-done" onClick={() => setFiltersOpen(false)}>
+                <button type="button" className="fm-done" onClick={() => setFiltersOpen(false)}>
                   Done
                 </button>
               </div>
@@ -647,7 +647,7 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
             className="dc-floating-preview"
             style={{
               left: preview.x - 164 - 12,
-              top: Math.min(Math.max(preview.y, 180), window.innerHeight - 180),
+              top: Math.min(Math.max(preview.y, 180), globalThis.innerHeight - 180),
             }}
           >
             <div className={'card' + cardColorClass(preview.card)}>

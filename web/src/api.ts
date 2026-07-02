@@ -2,7 +2,7 @@
 import type { CardView } from './protocol'
 import { serverURL } from './server'
 
-async function post(path: string, body: unknown): Promise<Response> {
+function post(path: string, body: unknown): Promise<Response> {
   return fetch(serverURL(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

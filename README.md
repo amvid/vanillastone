@@ -73,6 +73,30 @@ serves the embedded production build.
 To play locally: register two accounts (two browser tabs / windows), log in on
 each, and hit **Play** to be matched against each other.
 
+The web client is built with [Deno](https://deno.com) (Vite runs under the Deno
+runtime — no Node/npm). `make dev` runs it dockerized; to run it directly you need
+Deno 2.9+.
+
+## Desktop app
+
+The same React client can be packaged as a native desktop app (macOS / Linux /
+Windows) via [Deno Desktop](https://deno.com/blog/v2.9#deno-desktop). The UI runs
+in a webview; all game truth still lives on a **remote** Go server, so the desktop
+build connects over the network instead of same-origin.
+
+Requires **Deno 2.9+**. The target server URL is baked in at build time, and the
+server must allow the app's origin (`ALLOWED_ORIGINS`).
+
+```sh
+# macOS (default), pointed at your server → desktop/build/Vanillastone.dmg
+make desktop SERVER_URL=http://127.0.0.1:8080
+
+# other platforms
+make desktop SERVER_URL=http://127.0.0.1:8080 DESKTOP_OS=linux   DESKTOP_ARCH=x64
+make desktop SERVER_URL=http://127.0.0.1:8080 DESKTOP_OS=windows DESKTOP_ARCH=x64
+make desktop-all SERVER_URL=http://127.0.0.1:8080   # every platform at once
+```
+
 ## Legal & IP
 
 This is a **non-commercial, fan-made project** inspired by the digital

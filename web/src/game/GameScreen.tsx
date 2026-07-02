@@ -138,8 +138,8 @@ export function GameScreen(props: GameScreenProps) {
       setWinnerShown(false)
       return
     }
-    const id = window.setTimeout(() => setWinnerShown(true), 2000)
-    return () => window.clearTimeout(id)
+    const id = globalThis.setTimeout(() => setWinnerShown(true), 2000)
+    return () => globalThis.clearTimeout(id)
   }, [winner])
   const [lowTime, setLowTime] = useState(false) // ≤15s left on your turn → flash action outlines red
   // Mobile (landscape phone): the hand peeks at the bottom edge and tapping it
@@ -176,8 +176,8 @@ export function GameScreen(props: GameScreenProps) {
       if ((e.target as HTMLElement).closest('.log-row')) return
       setLogPop(null)
     }
-    window.addEventListener('pointerdown', onDown)
-    return () => window.removeEventListener('pointerdown', onDown)
+    globalThis.addEventListener('pointerdown', onDown)
+    return () => globalThis.removeEventListener('pointerdown', onDown)
   }, [isMobile, logPop])
   // A card being dragged out of hand. hold-drag (mouse down + move + release) and
   // click-drag-click (click to lift → sticky, click again to drop) share this.
@@ -223,18 +223,18 @@ export function GameScreen(props: GameScreenProps) {
     triggered?: boolean
     label?: string
   } | null>(null)
-  const castTimer = useRef<number | undefined>(undefined)
+  const castTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const castSeq = useRef(0)
   // Center-screen burst when a secret fires, so a silent interrupt (kill-the-attacker,
   // counter) reads as an event, not "the minion/spell just vanished".
   const [secretFx, setSecretFx] = useState<{ key: number; name: string } | null>(null)
-  const secretFxTimer = useRef<number | undefined>(undefined)
+  const secretFxTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const secretFxSeq = useRef(0)
   const fireSecretFx = useCallback((name: string) => {
     secretFxSeq.current++
     setSecretFx({ key: secretFxSeq.current, name })
-    window.clearTimeout(secretFxTimer.current)
-    secretFxTimer.current = window.setTimeout(() => setSecretFx(null), 3500)
+    globalThis.clearTimeout(secretFxTimer.current)
+    secretFxTimer.current = globalThis.setTimeout(() => setSecretFx(null), 3500)
   }, [])
   // A burnt card's face flies from its owner's deck pile to center, growing small->full
   // with a flame, so both players see what was destroyed, then fades. bx/by = the deck
@@ -245,7 +245,7 @@ export function GameScreen(props: GameScreenProps) {
     bx: number
     by: number
   } | null>(null)
-  const burnFaceTimer = useRef<number | undefined>(undefined)
+  const burnFaceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const burnFaceSeq = useRef(0)
   const showBurnFace = useCallback((card: CardView, side: 'self' | 'opp') => {
     const ref =
@@ -255,13 +255,13 @@ export function GameScreen(props: GameScreenProps) {
     let by = 0
     if (ref) {
       const r = ref.getBoundingClientRect()
-      bx = r.left + r.width / 2 - window.innerWidth / 2
-      by = r.top + r.height / 2 - window.innerHeight / 2
+      bx = r.left + r.width / 2 - globalThis.innerWidth / 2
+      by = r.top + r.height / 2 - globalThis.innerHeight / 2
     }
     burnFaceSeq.current++
     setBurnFace({ key: burnFaceSeq.current, card, bx, by })
-    window.clearTimeout(burnFaceTimer.current)
-    burnFaceTimer.current = window.setTimeout(() => setBurnFace(null), 2000)
+    globalThis.clearTimeout(burnFaceTimer.current)
+    burnFaceTimer.current = globalThis.setTimeout(() => setBurnFace(null), 2000)
   }, [])
   // Opponent's secret count last render: a rise means they played a secret.
   const prevOppSecrets = useRef<number | null>(null)
@@ -276,8 +276,8 @@ export function GameScreen(props: GameScreenProps) {
     }) => {
       castSeq.current++
       setCast({ key: castSeq.current, ...payload })
-      window.clearTimeout(castTimer.current)
-      castTimer.current = window.setTimeout(() => setCast(null), 4000)
+      globalThis.clearTimeout(castTimer.current)
+      castTimer.current = globalThis.setTimeout(() => setCast(null), 4000)
     },
     [],
   )
@@ -408,8 +408,8 @@ export function GameScreen(props: GameScreenProps) {
         emitIntent()
       }
     }
-    window.addEventListener('mouseover', onOver)
-    return () => window.removeEventListener('mouseover', onOver)
+    globalThis.addEventListener('mouseover', onOver)
+    return () => globalThis.removeEventListener('mouseover', onOver)
   }, [emitIntent, spectator])
 
   // --- #2 opponent-intent RENDER (we are the viewer; the acting player is our
@@ -449,9 +449,9 @@ export function GameScreen(props: GameScreenProps) {
   // Clear the cast-showcase + secret-burst timers on unmount (leaving the match).
   useEffect(
     () => () => {
-      window.clearTimeout(castTimer.current)
-      window.clearTimeout(secretFxTimer.current)
-      window.clearTimeout(burnFaceTimer.current)
+      globalThis.clearTimeout(castTimer.current)
+      globalThis.clearTimeout(secretFxTimer.current)
+      globalThis.clearTimeout(burnFaceTimer.current)
     },
     [],
   )
@@ -461,7 +461,7 @@ export function GameScreen(props: GameScreenProps) {
   // turn. A secret WE trigger mid-turn still shows (myTurn is already true, no edge here).
   useEffect(() => {
     if (myTurn) {
-      window.clearTimeout(castTimer.current)
+      globalThis.clearTimeout(castTimer.current)
       setCast(null)
     }
   }, [myTurn])
@@ -518,7 +518,7 @@ export function GameScreen(props: GameScreenProps) {
     // turn-1 draw still flies from the deck, a beat later, as a real draw. If the
     // modal rect wasn't captured, fall back to mid-screen (still a center → hand
     // fly, not a deck-corner pop).
-    const from = introFrom ?? { x: window.innerWidth / 2, y: window.innerHeight * 0.42 }
+    const from = introFrom ?? { x: globalThis.innerWidth / 2, y: globalThis.innerHeight * 0.42 }
     for (let i = 0; i < openCount; i++) dealIn(`hand-${i}`, from, i * STAGGER, 700)
     if (drawLast) dealIn(`hand-${n - 1}`, '.deck-pile.self', openCount * STAGGER + 420, 850)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -689,8 +689,8 @@ export function GameScreen(props: GameScreenProps) {
     const RANGED_BEAT = 260 // shorter, so a multi-target shooter still reads as one volley
     const LUNGE_HIT = 220 // when a melee lunge connects with its target
     const FLY_HIT = 560 // when a thrown projectile arrives (projectile() runs 700ms)
-    const timers: number[] = []
-    const at = (ms: number, fn: () => void) => void timers.push(window.setTimeout(fn, ms))
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const at = (ms: number, fn: () => void) => void timers.push(globalThis.setTimeout(fn, ms))
 
     // Start-of-Game reveals (after the mulligan): show each fired card center-stage,
     // the viewer's own first, then the opponent's — one after another with a gap so
@@ -814,7 +814,7 @@ export function GameScreen(props: GameScreenProps) {
             const el = document.querySelector(`[data-cid="${CSS.escape(s)}"]`)
             if (el) {
               el.classList.add('trigger-pulse')
-              window.setTimeout(() => el.classList.remove('trigger-pulse'), 1200)
+              globalThis.setTimeout(() => el.classList.remove('trigger-pulse'), 1200)
             }
           })
         t += BEAT
@@ -822,7 +822,7 @@ export function GameScreen(props: GameScreenProps) {
       // Other kinds (play/summon/death/buff/…) are driven by the snapshot-diff
       // effect or need no animation; they don't advance the timeline.
     })
-    return () => timers.forEach((id) => window.clearTimeout(id))
+    return () => timers.forEach((id) => globalThis.clearTimeout(id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anim])
 
@@ -961,15 +961,15 @@ export function GameScreen(props: GameScreenProps) {
       }
     }
 
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointerdown', onDownCapture, true)
-    window.addEventListener('keydown', onKey)
+    globalThis.addEventListener('pointermove', onMove)
+    globalThis.addEventListener('pointerup', onUp)
+    globalThis.addEventListener('pointerdown', onDownCapture, true)
+    globalThis.addEventListener('keydown', onKey)
     return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointerdown', onDownCapture, true)
-      window.removeEventListener('keydown', onKey)
+      globalThis.removeEventListener('pointermove', onMove)
+      globalThis.removeEventListener('pointerup', onUp)
+      globalThis.removeEventListener('pointerdown', onDownCapture, true)
+      globalThis.removeEventListener('keydown', onKey)
     }
   }, [onHandCard])
 
@@ -1059,7 +1059,7 @@ export function GameScreen(props: GameScreenProps) {
                     )
                   })()
                 : <div className="go-stats" />}
-              <button className="go-exit" onClick={onBackToLobby}>
+              <button type="button" className="go-exit" onClick={onBackToLobby}>
                 Back to lobby
               </button>
             </div>
@@ -1072,7 +1072,7 @@ export function GameScreen(props: GameScreenProps) {
               <div className="seek-title">Seek — pick a card</div>
               <div className="seek-options">
                 {seek.map((c, i) => (
-                  <button
+                  <button type="button"
                     key={i}
                     className={'card' + cardColorClass(c)}
                     onClick={() => send({ type: 'choose', index: i })}
@@ -1179,19 +1179,19 @@ export function GameScreen(props: GameScreenProps) {
         {spectator ? (
           <div className="spectate-banner">
             👁 Spectating <strong>{spectating}</strong>
-            <button className="spectate-leave" onClick={onBackToLobby}>
+            <button type="button" className="spectate-leave" onClick={onBackToLobby}>
               Leave
             </button>
           </div>
         ) : (
           <>
             {myTurn && !winner && (
-              <button className="end-turn" onClick={() => send({ type: 'end_turn' })}>
+              <button type="button" className="end-turn" onClick={() => send({ type: 'end_turn' })}>
                 End Turn
               </button>
             )}
             {!winner && (
-              <button className="concede" onClick={() => setConfirmConcede(true)}>
+              <button type="button" className="concede" onClick={() => setConfirmConcede(true)}>
                 Concede
               </button>
             )}
@@ -1202,7 +1202,7 @@ export function GameScreen(props: GameScreenProps) {
             the standalone Concede button is hidden on phones. */}
         {isMobile && !spectator && !winner && (
           <>
-            <button
+            <button type="button"
               className="game-cog"
               aria-label="Menu"
               onClick={() => setMenuOpen((o) => !o)}
@@ -1213,7 +1213,7 @@ export function GameScreen(props: GameScreenProps) {
               <>
                 <div className="game-menu-backdrop" onPointerDown={() => setMenuOpen(false)} />
                 <div className="game-menu">
-                  <button
+                  <button type="button"
                     className="game-menu-item"
                     onClick={() => {
                       setMenuOpen(false)
@@ -1233,7 +1233,7 @@ export function GameScreen(props: GameScreenProps) {
             <div className="confirm-modal">
               <div className="confirm-title">Concede this match?</div>
               <div className="confirm-actions">
-                <button
+                <button type="button"
                   className="confirm-yes"
                   onClick={() => {
                     send({ type: 'concede' })
@@ -1242,7 +1242,7 @@ export function GameScreen(props: GameScreenProps) {
                 >
                   Concede
                 </button>
-                <button className="confirm-no" onClick={() => setConfirmConcede(false)}>
+                <button type="button" className="confirm-no" onClick={() => setConfirmConcede(false)}>
                   Cancel
                 </button>
               </div>
@@ -1337,7 +1337,7 @@ export function GameScreen(props: GameScreenProps) {
 
           <div className="self-row">
             {hp && (
-              <button
+              <button type="button"
                 data-cid="heroPower"
                 className={
                   'hp-button' +
@@ -1433,7 +1433,7 @@ export function GameScreen(props: GameScreenProps) {
             const affordable = myTurn && !winner && c.cost <= snap.self.mana
             const armed = spell?.handIndex === i
             return (
-              <button
+              <button type="button"
                 key={i}
                 data-cid={`hand-${i}`}
                 className={
@@ -1518,8 +1518,8 @@ export function GameScreen(props: GameScreenProps) {
                   // Anchor the popup just left of the row, at its Y, clamped on-screen.
                   const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
                   const H = 200 // approx popup height for the clamp
-                  const top = Math.min(Math.max(r.top + r.height / 2, 8 + H / 2), window.innerHeight - 8 - H / 2)
-                  setLogPop({ entry: e, rightPx: window.innerWidth - r.left + 10, topPx: top })
+                  const top = Math.min(Math.max(r.top + r.height / 2, 8 + H / 2), globalThis.innerHeight - 8 - H / 2)
+                  setLogPop({ entry: e, rightPx: globalThis.innerWidth - r.left + 10, topPx: top })
                 }}
                 onMouseLeave={() => {
                   if (!isMobile) setLogPop(null)
@@ -1533,8 +1533,8 @@ export function GameScreen(props: GameScreenProps) {
                   }
                   const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
                   const H = 200
-                  const top = Math.min(Math.max(r.top + r.height / 2, 8 + H / 2), window.innerHeight - 8 - H / 2)
-                  setLogPop({ entry: e, rightPx: window.innerWidth - r.left + 10, topPx: top })
+                  const top = Math.min(Math.max(r.top + r.height / 2, 8 + H / 2), globalThis.innerHeight - 8 - H / 2)
+                  setLogPop({ entry: e, rightPx: globalThis.innerWidth - r.left + 10, topPx: top })
                 }}
               >
                 {primary && <LogChip actor={primary} />}
@@ -1723,7 +1723,7 @@ function ManaBar({ side, mana, max }: { side: 'self' | 'opp'; mana: number; max:
 export function useIsMobile() {
   const [mobile, setMobile] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia('(orientation: landscape) and (max-height: 600px)')
+    const mq = globalThis.matchMedia('(orientation: landscape) and (max-height: 600px)')
     const apply = () => setMobile(mq.matches)
     apply()
     mq.addEventListener('change', apply)

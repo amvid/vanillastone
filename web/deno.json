@@ -1,8 +1,24 @@
 {
   "nodeModulesDir": "auto",
+  "unstable": ["sloppy-imports"],
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        "no-window",
+        "no-window-prefix",
+        "no-sloppy-imports"
+      ]
+    }
+  },
   "tasks": {
     "dev": "deno run -A npm:vite",
-    "build": "deno run -A npm:typescript/tsc && deno run -A npm:vite build",
-    "preview": "deno run -A npm:vite preview"
+    "build": "deno check src && deno run -A npm:vite build",
+    "preview": "deno run -A npm:vite preview",
+    "check": "deno check src"
   }
 }

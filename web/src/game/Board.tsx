@@ -199,7 +199,7 @@ export function Board(props: {
   // after the last, so a tap picks the exact index.
   if (placing && onPlace) {
     const slot = (idx: number) => (
-      <button key={`slot-${idx}`} className="place-slot" onClick={() => onPlace(idx)} aria-label={`Place at ${idx}`}>
+      <button type="button" key={`slot-${idx}`} className="place-slot" onClick={() => onPlace(idx)} aria-label={`Place at ${idx}`}>
         <span className="place-slot-mark">+</span>
       </button>
     )

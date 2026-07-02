@@ -8,7 +8,7 @@
 // `make desktop` handles the copy, icon, and packaging; don't run this by hand.
 //
 // See README.desktop.md for the full flow.
-import { serveDir } from "jsr:@std/http/file-server";
+import { serveDir } from "@std/http/file-server";
 
 const ROOT = new URL("./static", import.meta.url).pathname;
 
@@ -19,7 +19,9 @@ Deno.serve((req) => {
     // SPA fallback: unknown paths render index.html so client-side routing works.
     urlRoot: "",
   }).then((res) => {
-    if (res.status === 404 && req.headers.get("sec-fetch-dest") === "document") {
+    if (
+      res.status === 404 && req.headers.get("sec-fetch-dest") === "document"
+    ) {
       return serveDir(new Request(new URL("/index.html", req.url), req), {
         fsRoot: ROOT,
         quiet: true,
@@ -32,5 +34,18 @@ Deno.serve((req) => {
 // The HTTP server above is a live async task, so closing the window would leave
 // the process running. Adopt the auto-opened window (the first BrowserWindow
 // constructed takes it over) and quit the whole app when the user closes it.
-const win = new Deno.BrowserWindow({});
+//
+// Deno.BrowserWindow only exists under the `deno desktop` runtime, which injects
+// its own type; plain `deno check`/the editor LSP don't know it, so reach it
+// through a narrow cast instead of redeclaring it (which would clash at build).
+interface DesktopWindow {
+  addEventListener(type: "close", listener: () => void): void;
+}
+interface DesktopWindowCtor {
+  new (options?: Record<string, unknown>): DesktopWindow;
+}
+const BrowserWindow =
+  (Deno as unknown as { BrowserWindow: DesktopWindowCtor }).BrowserWindow;
+
+const win = new BrowserWindow({});
 win.addEventListener("close", () => Deno.exit(0));

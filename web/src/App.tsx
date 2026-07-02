@@ -27,7 +27,7 @@ function useDropUp(open: boolean, ref: React.RefObject<HTMLDivElement>) {
       return
     }
     const r = ref.current.getBoundingClientRect()
-    const below = window.innerHeight - r.bottom
+    const below = globalThis.innerHeight - r.bottom
     // Flip only when below is tight AND there's genuinely more room above.
     setUp(below < 240 && r.top > below)
   }, [open, ref])
@@ -67,9 +67,8 @@ function DeckSelect({
       {open && (
         <div className="deck-select-menu">
           {options.map((o) => (
-            <button
+            <button type="button"
               key={o.id}
-              type="button"
               className={'deck-select-opt' + (o.id === value ? ' active' : '')}
               onClick={() => {
                 onChange(o.id)
@@ -120,9 +119,8 @@ function FancySelect({
       {open && (
         <div className="deck-select-menu">
           {options.map((o) => (
-            <button
+            <button type="button"
               key={String(o.value)}
-              type="button"
               className={'deck-select-opt' + (o.value === value ? ' active' : '')}
               onClick={() => {
                 onChange(o.value)
@@ -175,7 +173,7 @@ function ProfileModal({ user, onClose }: { user: string; onClose: () => void }) 
   return (
     <div className="overlay" onClick={onClose}>
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-x" onClick={onClose} aria-label="Close">
+        <button type="button" className="modal-x" onClick={onClose} aria-label="Close">
           ✕
         </button>
         <div className="stats-head">
@@ -243,7 +241,7 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
   return (
     <div className="overlay" onClick={onClose}>
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-x" onClick={onClose} aria-label="Close">
+        <button type="button" className="modal-x" onClick={onClose} aria-label="Close">
           ✕
         </button>
         <div className="stats-head">
@@ -341,7 +339,7 @@ export function App() {
   // the lethal blow finishes before the result shows.
   const animQueueRef = useRef<Extract<ServerMessage, { type: 'state' }>[]>([])
   const drainingRef = useRef(false)
-  const advanceTimerRef = useRef<number | undefined>(undefined)
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const pendingOverRef = useRef<Extract<ServerMessage, { type: 'game_over' }> | null>(null)
   // Decks: the player's saved decks and which one is selected for the next game.
   const [decks, setDecks] = useState<Deck[]>([])
@@ -373,7 +371,7 @@ export function App() {
   const [introPlay, setIntroPlay] = useState(false)
   // Screen point the opening deal flies from (the mulligan modal's center).
   const [introFrom, setIntroFrom] = useState<{ x: number; y: number } | null>(null)
-  const introTimerRef = useRef<number | undefined>(undefined)
+  const introTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // True while the opponent is connected; false during their disconnect grace
   // window (drives a "waiting for opponent" banner).
@@ -397,7 +395,7 @@ export function App() {
   // retries counts attempts, and reconnectTimer holds the pending retry.
   const giveUpRef = useRef(false)
   const retriesRef = useRef(0)
-  const reconnectTimerRef = useRef<number | undefined>(undefined)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Accumulated minion uid -> name, so log lines can name minions that have
   // already left the board (e.g. a minion that just died).
   const namesRef = useRef<Record<string, string>>({})
@@ -406,7 +404,7 @@ export function App() {
   // finalGasp, a bounced minion).
   const cardsRef = useRef<Record<string, CardView>>({})
   // Holds the "Match found!" → mulligan transition timer.
-  const matchFoundTimerRef = useRef<number | undefined>(undefined)
+  const matchFoundTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Last committed phase, readable from the ws closure (which has no deps), so a
   // state message can tell whether it is the first snapshot leaving the mulligan.
   const phaseRef = useRef<Phase>('auth')
@@ -471,10 +469,10 @@ export function App() {
       document.title = blink && on ? `${blink} ${text}` : text
     }
     apply()
-    const id = window.setInterval(apply, 700)
+    const id = globalThis.setInterval(apply, 700)
     document.addEventListener('visibilitychange', apply)
     return () => {
-      window.clearInterval(id)
+      globalThis.clearInterval(id)
       document.removeEventListener('visibilitychange', apply)
       document.title = DEFAULT_TITLE
     }
@@ -492,12 +490,12 @@ export function App() {
     const DESIGN_W = 2056
     const DESIGN_H = 1329
     const apply = () => {
-      const u = Math.min(1, window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H)
+      const u = Math.min(1, globalThis.innerWidth / DESIGN_W, globalThis.innerHeight / DESIGN_H)
       document.documentElement.style.setProperty('--u', String(Math.max(0.65, u)))
     }
     apply()
-    window.addEventListener('resize', apply)
-    return () => window.removeEventListener('resize', apply)
+    globalThis.addEventListener('resize', apply)
+    return () => globalThis.removeEventListener('resize', apply)
   }, [])
 
   const send = useCallback((msg: object) => wsRef.current?.send(JSON.stringify(msg)), [])
@@ -507,8 +505,8 @@ export function App() {
   useEffect(() => {
     if (phase !== 'mulligan' || mulliganSubmitted || spectating) return
     setMulliganLeft(MULLIGAN_SECS)
-    const id = window.setInterval(() => setMulliganLeft((l) => (l > 0 ? l - 1 : 0)), 1000)
-    return () => window.clearInterval(id)
+    const id = globalThis.setInterval(() => setMulliganLeft((l) => (l > 0 ? l - 1 : 0)), 1000)
+    return () => globalThis.clearInterval(id)
   }, [phase, mulliganSubmitted, spectating])
 
   useEffect(() => {
@@ -598,8 +596,8 @@ export function App() {
         setMulliganPicks(new Set())
         setMulliganSubmitted(false)
         setPhase('matchfound')
-        window.clearTimeout(matchFoundTimerRef.current)
-        matchFoundTimerRef.current = window.setTimeout(() => setPhase('mulligan'), 2000)
+        globalThis.clearTimeout(matchFoundTimerRef.current)
+        matchFoundTimerRef.current = globalThis.setTimeout(() => setPhase('mulligan'), 2000)
       } else {
         // Reconnect / resubmit mid-mulligan: go straight to the mulligan UI.
         setPhase('mulligan')
@@ -613,8 +611,8 @@ export function App() {
         const mr = document.querySelector('.mulligan-modal')?.getBoundingClientRect()
         setIntroFrom(mr ? { x: mr.left + mr.width / 2, y: mr.top + mr.height / 2 } : null)
         setIntroPlay(true)
-        window.clearTimeout(introTimerRef.current)
-        introTimerRef.current = window.setTimeout(() => setIntroPlay(false), 1700)
+        globalThis.clearTimeout(introTimerRef.current)
+        introTimerRef.current = globalThis.setTimeout(() => setIntroPlay(false), 1700)
       }
       setMulliganSubmitted(false)
       setMyTurn(mine)
@@ -641,7 +639,7 @@ export function App() {
   // Discard any buffered actions (a fresh match / resync supersedes them).
   const flushQueue = useCallback(() => {
     if (advanceTimerRef.current) {
-      window.clearTimeout(advanceTimerRef.current)
+      globalThis.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = undefined
     }
     animQueueRef.current = []
@@ -668,7 +666,7 @@ export function App() {
     applyStateMsg(msg)
     const speed = q.length >= 4 ? 3 : q.length >= 2 ? 2 : 1
     const dur = Math.min(4000, Math.max(220, animDuration(msg.events) / speed))
-    advanceTimerRef.current = window.setTimeout(() => {
+    advanceTimerRef.current = globalThis.setTimeout(() => {
       drainingRef.current = false
       pump()
     }, dur)
@@ -705,7 +703,7 @@ export function App() {
         retriesRef.current++
         setPhase('connecting')
         setStatus(`connection lost — reconnecting… (${retriesRef.current})`)
-        reconnectTimerRef.current = window.setTimeout(() => connect(tok), 1500)
+        reconnectTimerRef.current = globalThis.setTimeout(() => connect(tok), 1500)
         return
       }
       // If we never authenticated, the connection itself failed.
@@ -919,7 +917,7 @@ export function App() {
   }, [phase])
 
   const onBackToLobby = () => {
-    window.clearTimeout(matchFoundTimerRef.current)
+    globalThis.clearTimeout(matchFoundTimerRef.current)
     send({ type: 'enter_lobby' })
     setSpectating(null)
     spectatingRef.current = null
@@ -1156,7 +1154,7 @@ export function App() {
             {pErr && <span className="field-err">{pErr}</span>}
           </div>
 
-          <button className={'play-btn' + (busy ? ' waiting' : '')} onClick={onLogin} disabled={!canSubmit}>
+          <button type="button" className={'play-btn' + (busy ? ' waiting' : '')} onClick={onLogin} disabled={!canSubmit}>
             {busy ? (
               <>
                 <span className="play-spinner" />
@@ -1166,7 +1164,7 @@ export function App() {
               '▶ Login'
             )}
           </button>
-          <button className="build-btn" onClick={onRegister} disabled={!canSubmit}>
+          <button type="button" className="build-btn" onClick={onRegister} disabled={!canSubmit}>
             Register
           </button>
 
@@ -1196,7 +1194,7 @@ export function App() {
 
           {/* Play opens the mode picker; while searching (queued vs a human) it
               becomes the cancel toggle back to the lobby. */}
-          <button
+          <button type="button"
             className={'play-btn' + (waiting ? ' waiting' : '')}
             onClick={waiting ? onBackToLobby : () => setPlayModal(true)}
           >
@@ -1211,20 +1209,20 @@ export function App() {
           </button>
           {waiting && <p className="cancel-hint">click again to cancel</p>}
 
-          <button className="build-btn" onClick={() => setPhase('deckbuilder')} disabled={waiting}>
+          <button type="button" className="build-btn" onClick={() => setPhase('deckbuilder')} disabled={waiting}>
             📖 Build deck
           </button>
 
           <div className="lobby-stats-row">
-            <button className="stats-btn" onClick={() => setShowLeaderboard(true)}>
+            <button type="button" className="stats-btn" onClick={() => setShowLeaderboard(true)}>
               🏆 Leaderboard
             </button>
-            <button className="stats-btn" onClick={() => setProfileUser(name)}>
+            <button type="button" className="stats-btn" onClick={() => setProfileUser(name)}>
               👤 My profile
             </button>
           </div>
 
-          <button className="logout" onClick={onLogout} disabled={waiting}>
+          <button type="button" className="logout" onClick={onLogout} disabled={waiting}>
             Log out
           </button>
           <p className="lobby-status">{status}</p>
@@ -1240,11 +1238,11 @@ export function App() {
                 /* Mobile step 2: pick your deck (+ AI class/deck for AI), then go. */
                 <>
                   <div className="mode-top">
-                    <button className="mode-back" onClick={() => setSetupMode(null)} aria-label="Back">
+                    <button type="button" className="mode-back" onClick={() => setSetupMode(null)} aria-label="Back">
                       ‹
                     </button>
                     <h2>{setupMode === 'ai' ? 'Play vs AI' : 'Play vs Player'}</h2>
-                    <button
+                    <button type="button"
                       className="mode-close"
                       onClick={() => { setPlayModal(false); setSetupMode(null) }}
                       aria-label="Close"
@@ -1291,7 +1289,7 @@ export function App() {
                         </label>
                       </>
                     )}
-                    <button
+                    <button type="button"
                       className="mode-go"
                       onClick={() => {
                         const ai = setupMode === 'ai'
@@ -1317,7 +1315,7 @@ export function App() {
                         <DeckSelect value={selectedDeck} onChange={setSelectedDeck} options={decks} />
                       </label>
                     )}
-                    <button className="mode-close" onClick={() => setPlayModal(false)} aria-label="Close">
+                    <button type="button" className="mode-close" onClick={() => setPlayModal(false)} aria-label="Close">
                       ✕
                     </button>
                   </div>
@@ -1362,7 +1360,7 @@ export function App() {
                           </label>
                         </>
                       )}
-                      <button
+                      <button type="button"
                         className="mode-go"
                         onClick={() => {
                           if (isMobile) setSetupMode('ai')
@@ -1380,7 +1378,7 @@ export function App() {
                       <span className="mode-icon">⚔️</span>
                       <span className="mode-name">Play vs Player</span>
                       <span className="mode-desc">Queue for a live opponent.</span>
-                      <button
+                      <button type="button"
                         className="mode-go"
                         onClick={() => {
                           if (isMobile) setSetupMode('pvp')
@@ -1433,7 +1431,7 @@ export function App() {
                     shown.map((p) => (
                       <li key={p.name} className={'pl-row pl-' + p.status}>
                         <span className={'pl-dot ' + p.status} />
-                        <button
+                        <button type="button"
                           className="pl-name"
                           onClick={() => setProfileUser(p.name)}
                           title={`View ${p.name}'s profile`}
@@ -1443,11 +1441,11 @@ export function App() {
                         </button>
                         {p.name !== name && p.status === 'lobby' ? (
                           invitedName === p.name ? (
-                            <button className="pl-invite invited" onClick={onCancelInvite} title="Cancel invite">
+                            <button type="button" className="pl-invite invited" onClick={onCancelInvite} title="Cancel invite">
                               invited… ✕
                             </button>
                           ) : (
-                            <button
+                            <button type="button"
                               className="pl-invite"
                               onClick={() => onInvite(p.name)}
                               disabled={invitedName !== null || waiting}
@@ -1459,7 +1457,7 @@ export function App() {
                         ) : p.status === 'in_game' ? (
                           <span className="pl-status">
                             ⚔️ vs {p.vs}
-                            <button
+                            <button type="button"
                               className="pl-invite pl-spectate"
                               onClick={() => onSpectate(p.name)}
                               disabled={waiting}
@@ -1492,10 +1490,10 @@ export function App() {
                 <DeckSelect value={challengeDeck} onChange={setChallengeDeck} options={decks} />
               </label>
               <div className="invite-actions">
-                <button className="accept" onClick={onSendChallenge}>
+                <button type="button" className="accept" onClick={onSendChallenge}>
                   ⚔️ Invite
                 </button>
-                <button className="decline" onClick={() => setChallengeTarget(null)}>
+                <button type="button" className="decline" onClick={() => setChallengeTarget(null)}>
                   Cancel
                 </button>
               </div>
@@ -1518,10 +1516,10 @@ export function App() {
                       <strong>{from}</strong> invites you
                     </span>
                     <div className="invite-actions">
-                      <button className="accept" onClick={() => onRespondInvite(from, true)}>
+                      <button type="button" className="accept" onClick={() => onRespondInvite(from, true)}>
                         Accept
                       </button>
-                      <button className="decline" onClick={() => onRespondInvite(from, false)}>
+                      <button type="button" className="decline" onClick={() => onRespondInvite(from, false)}>
                         Decline
                       </button>
                     </div>
@@ -1552,7 +1550,7 @@ export function App() {
       <div>
         <h1>Vanillastone</h1>
         <p>{status}</p>
-        <button onClick={onBackToLobby}>Back to lobby</button>
+        <button type="button" onClick={onBackToLobby}>Back to lobby</button>
       </div>
     )
   }
@@ -1644,7 +1642,7 @@ export function App() {
               <>
                 <div className="hand mulligan">
                   {hand.map((c, i) => (
-                    <button
+                    <button type="button"
                       key={i}
                       className={'card' + cardColorClass(c) + (mulliganPicks.has(i) ? ' tossed' : '')}
                       onClick={() => toggle(i)}
@@ -1654,7 +1652,7 @@ export function App() {
                   ))}
                 </div>
                 <div className={'mulligan-timer' + (mulliganLeft <= 5 ? ' low' : '')}>⏳ {mulliganLeft}s</div>
-                <button className="keep-btn" onClick={submit}>
+                <button type="button" className="keep-btn" onClick={submit}>
                   {mulliganPicks.size === 0 ? 'Keep all' : `Replace ${mulliganPicks.size}`}
                 </button>
               </>
