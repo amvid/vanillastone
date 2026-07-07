@@ -151,6 +151,14 @@ func TestDefaultPriestDeckIsLegal(t *testing.T) {
 	}
 }
 
+// TestDefaultPaladinDeckIsLegal: the curated Paladin fallback deck must be a legal
+// Paladin deck (so vs-AI / fallback queuing with Paladin never builds an illegal game).
+func TestDefaultPaladinDeckIsLegal(t *testing.T) {
+	if err := ValidateDeck(DefaultDeckFor(ClassPaladin), ClassPaladin); err != nil {
+		t.Fatalf("default Paladin deck must be legal: %v", err)
+	}
+}
+
 // TestHeroPowerForClass: each playable class resolves to its own hero power card;
 // an unknown class falls back to the Mage hero power (never empty).
 func TestHeroPowerForClass(t *testing.T) {
@@ -168,6 +176,9 @@ func TestHeroPowerForClass(t *testing.T) {
 	}
 	if hp := HeroPowerForClass(ClassPriest); hp.ID != "mend" {
 		t.Fatalf("Priest hero power want mend, got %q", hp.ID)
+	}
+	if hp := HeroPowerForClass(ClassPaladin); hp.ID != "muster" {
+		t.Fatalf("Paladin hero power want muster, got %q", hp.ID)
 	}
 	if hp := HeroPowerForClass(ClassNeutral); hp.ID != "fire_dart" {
 		t.Fatalf("unknown class must fall back to Mage hero power, got %q", hp.ID)

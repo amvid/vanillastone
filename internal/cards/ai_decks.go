@@ -228,6 +228,58 @@ var aiPriestMidrange = []string{
 
 var aiPriestDecks = [][]string{aiPriestFace, aiPriestMidrange}
 
+// --- Paladin ---
+
+// aiPaladinFace is a weapon/tempo aggro deck: cheap weapons + weapon-synergy
+// neutral bodies, Wrathful Hammer reach, Hallowed Ground clear, all strong played
+// straight on curve (no secrets/combos — bot-friendly).
+var aiPaladinFace = []string{
+	"dawnmace", "dawnmace",
+	"tideblade_raider", "tideblade_raider",
+	"finblade_warrior", "finblade_warrior",
+	"dawnguard_templar", "dawnguard_templar",
+	"verdict_edge", "verdict_edge",
+	"wrathhammer", "wrathhammer",
+	"tusker_runt", "tusker_runt",
+	"dire_rider", "dire_rider",
+	"pureheart_blade", "pureheart_blade",
+	"hallowed_ground", "hallowed_ground",
+	"duskblade", "duskblade",
+	"reckless_skyrider", "reckless_skyrider",
+	"mirefang_raptor", "mirefang_raptor",
+	"molten_hound",
+	"the_gorehound",
+	"war_colossus",
+	"highlord_valdric",
+}
+
+// aiPaladinMidrange is a slower blessing/heal control deck: Aegis bodies, Wrathful
+// Hammer + Hallowed Ground removal, Pureheart Blade + Radiant Mending sustain,
+// sticky neutral walls, topped by the class legendary. Every card stands alone.
+var aiPaladinMidrange = []string{
+	"dawnmace", "dawnmace",
+	"dawnguard_templar", "dawnguard_templar",
+	"riftwarden_pacifier", "riftwarden_pacifier",
+	"wrathhammer", "wrathhammer",
+	"verdict_edge", "verdict_edge",
+	"radiant_mending", "radiant_mending",
+	"silverback_elder", "silverback_elder",
+	"hallowed_ground", "hallowed_ground",
+	"pureheart_blade", "pureheart_blade",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"ironforge_brute",
+	"granite_warden",
+	"dawnguard_protector",
+	"crown_guardian",
+	"crag_ogre",
+	"war_colossus",
+	"laying_of_hands",
+	"highlord_valdric",
+}
+
+var aiPaladinDecks = [][]string{aiPaladinFace, aiPaladinMidrange}
+
 // AIDecks returns copies of the prebuilt AI decks for a class, or nil if the
 // class has none. The caller picks one at random.
 func AIDecks(class Class) [][]string {
@@ -243,6 +295,8 @@ func AIDecks(class Class) [][]string {
 		src = aiWarlockDecks
 	case ClassPriest:
 		src = aiPriestDecks
+	case ClassPaladin:
+		src = aiPaladinDecks
 	default:
 		return nil
 	}

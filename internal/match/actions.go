@@ -341,6 +341,11 @@ func (m *Match) Attack(c Sender, attackerID, targetID string) (bool, string) {
 
 	atk.attacksMade++
 	atk.stealthed = false // attacking breaks Stealth
+	// `insight_blessing` (Blessing of Wisdom): the attacker's controller draws a card
+	// whenever it attacks. Reads the live enchant count (silence removes it).
+	for i := 0; i < atk.drawsOnAttack(); i++ {
+		m.drawCard(pi)
+	}
 	m.finish()
 	return true, ""
 }
@@ -424,6 +429,15 @@ func (m *Match) heroAttack(pi int, targetID string) (bool, string) {
 		immuneAttacking := ps.weapon != nil && ps.weapon.card.ImmuneAttacking
 		if tgt.atk() > 0 && !immuneAttacking {
 			m.damageHero(pi, tgt.atk(), tgt.uid) // the struck minion hits back at my hero
+		}
+	}
+	// `pureheart_blade` (Truesilver Champion): the weapon heals the hero on every attack.
+	// The weapon is still equipped here (durability is spent below).
+	if w := ps.weapon; w != nil && w.card.WeaponHealHero > 0 {
+		before := ps.heroHP
+		ps.heroHP = min(ps.heroHP+w.card.WeaponHealHero, heroMaxHP)
+		if ps.heroHP > before {
+			m.emit(protocol.Event{Kind: "heal", Target: m.pid(pi), Amount: ps.heroHP - before})
 		}
 	}
 	ps.heroAttacked = true

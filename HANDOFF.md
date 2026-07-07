@@ -5,7 +5,36 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-07-02** (**Desktop build scaffolding** — see Open/next. Prior: **Priest CODE COMPLETE + art started**. CODE: full Basic + Classic
+Last updated: **2026-07-07** (**Paladin CODE COMPLETE + wired (art in progress)** — sixth playable class. Spec + id reservation in
+`.notes/classic-mapping.md` "PALADIN" (26 collectible = 10 Basic + 16 Classic) + prompts in
+`.notes/art-prompts.md` "# PALADIN" (hero portrait, hero power `muster`, all 26 cards + 3 tokens).
+ART placed: `paladin_hero.png` male dwarf holy paladin portrait (512x512, 136KB) and `muster.png`
+hero-power icon (512x512, 141KB), plus Paladin collectible art **9/26**:
+`valor_blessing` (108KB), `warding_hand` (104KB), `meekness` (123KB), `dawnmace` (141KB),
+`radiant_mending` (128KB), `wrathhammer` (135KB), `hallowed_ground` (130KB), `royal_blessing` (143KB),
+`pureheart_blade` (147KB), and token art **1/3**: `lightsworn_recruit` (114KB). Hero power = `muster` "Muster" (summon a 1/1
+`lightsworn_recruit`, Reinforce analog). Divine Shield renamed to our **Aegis**; Draenei → **Riftborn**.
+Tokens: `lightsworn_recruit` 1/1, `oath_defender` 2/1 (from `valiant_ward`), `dawnbringer` 5/3 weapon
+(from `highlord_valdric` Final Gasp). CODE: full set now in `internal/cards/paladin.go` (26 collectible
+= 19 spells incl. 4 secrets + 4 minions + 3 weapons) + hero power `muster` + 3 tokens; 1:1 mechanics,
+original names/text. New engine vocab: `EffectSetAttack` (meekness/riftwarden_pacifier, area-capable) ·
+`EffectSetHealth` gained Area support (great_leveling = Equality) · `EffectDoubleAttack` (exalted_might) ·
+`EffectDrawAndBolt` (zealots_verdict = Holy Wrath: draw + deal drawn card's Cost) · `EffectDrawToOpponent`
+(providence = Divine Favor) · `EffectGrantDrawOnAttack` (insight_blessing = Blessing of Wisdom, via new
+`enchant.drawOnAttack` + `minion.drawsOnAttack()`) · `AreaFriendlyMinions` (aegis_hymn) · EffectBuff
+granting Aegis now raises the LIVE pop-shield (warding_hand/dawnguard_templar) · weapon fields
+`WeaponHealHero` (pureheart_blade = Truesilver: heal hero on hero-attack) + `SummonBuffAtk/HP`
+(verdict_edge = Sword of Justice: buff-on-summon via new hook in `summonMinion`). 4 new secret kinds +
+`secretCtx.amount`: `SecretReflectHeroDamage` (retribution_vow = Eye for an Eye, new `OnHeroDamaged` event
+fired from `damageHero`) · `SecretSummonDefender` (valiant_ward = Noble Sacrifice, summon + redirect via
+the `feint_trap` redirect path) · `SecretResummonFriendly` (second_dawn = Redemption, fired from
+`resolveDeaths`) · `SecretReduceHealth` (penance_seal = Repentance). Tests:
+`internal/match/paladin_mechanics_test.go` (17). `go test -race ./...`, vet, gofmt all green; client
+`deno check`/`deno lint`/`deno task build` all green. Client wired: gold `.card.paladin`/`.deck-card.paladin`,
+⚜️ glyph, deckcode char `l`, deckbuilder + vs-AI class pickers, `defaultPaladinDeck` + `aiPaladinFace`/
+`aiPaladinMidrange`. Next: finish Paladin art (remaining collectibles + `oath_defender`/`dawnbringer`
+tokens) into `web/public/art/`. Prior: **Desktop
+build scaffolding** — see Open/next. Prior: **Priest CODE COMPLETE + art started**. CODE: full Basic + Classic
 Priest set in `internal/cards/priest.go` — 33 collectible (20 spells + 13 minions) + hero power
 `mend` (Lesser Heal, restore 2) + replacement hero power token `gloom_spike` (Shadowform "deal 2").
 Real names only in gitignored `.notes/classic-mapping.md` "PRIEST". New engine vocab: chained

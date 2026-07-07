@@ -33,7 +33,7 @@ export function Hero(props: {
   // hero-replacement (heroArt set, e.g. Overlord Xathul) overrides the portrait art.
   const heroClass = p.heroPower?.class ?? 'mage'
   const heroIcon =
-    heroClass === 'hunter' ? '🏹' : heroClass === 'warrior' ? '⚔️' : heroClass === 'warlock' ? '🔮' : heroClass === 'priest' ? '✨' : '🧙'
+    heroClass === 'hunter' ? '🏹' : heroClass === 'warrior' ? '⚔️' : heroClass === 'warlock' ? '🔮' : heroClass === 'priest' ? '✨' : heroClass === 'paladin' ? '⚜️' : '🧙'
   const heroArt = p.heroArt ? `/art/${p.heroArt}.png` : `/art/${heroClass}_hero.png`
 
   // Secret gems shown over the portrait, HS-style. Own secrets reveal their name

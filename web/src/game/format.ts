@@ -456,6 +456,7 @@ export function cardColorClass(c: CardView): string {
   if (c.class === 'warrior') return ' warrior'
   if (c.class === 'warlock') return ' warlock'
   if (c.class === 'priest') return ' priest'
+  if (c.class === 'paladin') return ' paladin'
   return ''
 }
 

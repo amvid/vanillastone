@@ -79,6 +79,9 @@ func (m *Match) resolveDeaths() {
 			// Silence only suppresses the dead minion's OWN finalGasp (below).
 			m.fireTriggers(d.owner, cards.OnFriendlyDeath, d)
 			m.fireTriggers(d.owner, cards.OnAnyMinionDeath, d)
+			// `second_dawn` (Redemption): the owner's Secret returns the dead minion to
+			// life at 1 Health. Consumed on fire, so only the first death each frame revives.
+			m.triggerSecrets(d.owner, cards.OnFriendlyDeath, secretCtx{minion: d})
 			if d.silenced {
 				continue // Silence suppresses finalGasps
 			}

@@ -24,12 +24,13 @@ const (
 	ClassWarrior Class = "warrior"
 	ClassWarlock Class = "warlock"
 	ClassPriest  Class = "priest"
+	ClassPaladin Class = "paladin"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
 func PlayableClasses() []Class {
-	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest}
+	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin}
 }
 
 // classPlayable reports whether decks may be built for this class.
@@ -129,6 +130,13 @@ const (
 	EffectSetAtkToHealth    EffectKind = "setAtkToHealth"    // set the target minion's Attack equal to its current Health, via an enchantment (`soul_kindle`)
 	EffectDoubleHealth      EffectKind = "doubleHealth"      // double each target minion's current Health (buff +current max); ReqDeckAllOdd gates it (`soul_mirror`, `prism_moth`)
 	EffectSetHeroPower      EffectKind = "setHeroPower"      // replace the caster's hero power with the HeroPowerID card (`umbral_shift`)
+
+	// Paladin staples (Holy Light — blessings, protection, weapons, justice).
+	EffectSetAttack         EffectKind = "setAttack"         // set each target minion's Attack to Amount via an enchantment (silence restores it) (`meekness`, `riftwarden_pacifier`); supports an Area (single target by default)
+	EffectDoubleAttack      EffectKind = "doubleAttack"      // double the target minion's current Attack (enchant +current atk) (`exalted_might`)
+	EffectDrawAndBolt       EffectKind = "drawAndBolt"       // draw the top card, then deal damage equal to its Cost to the target minion (`zealots_verdict`); Spell Damage + cast doubling apply
+	EffectDrawToOpponent    EffectKind = "drawToOpponent"    // draw until the caster's hand size matches the opponent's (stops at an empty deck or a full hand) (`providence`)
+	EffectGrantDrawOnAttack EffectKind = "grantDrawOnAttack" // enchant the target minion so its controller draws a card whenever it attacks (`insight_blessing`); silence removes it
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -180,6 +188,7 @@ const (
 	AreaEnemyChars           AreaRule = "enemyChars"           // the enemy hero AND every enemy minion (`arcane_barrage` missiles)
 	AreaFriendlyHero         AreaRule = "friendlyHero"         // the caster's own hero (self-damage / Life Tap — `ember_imp`, `abyssal_brute`, `soul_tithe`)
 	AreaOtherFriendlyMinions AreaRule = "otherFriendlyMinions" // the caster's OTHER friendly minions (self-anchored, excludes the source) (`prism_moth`)
+	AreaFriendlyMinions      AreaRule = "friendlyMinions"      // every friendly minion (no hero, includes any anchor) (`aegis_hymn`: give your minions Aegis)
 )
 
 // Effect is an effect's data-driven behavior. Amount is damage/heal magnitude;
@@ -297,6 +306,7 @@ const (
 	OnFatalDamage     EventType = "on_fatal_damage"      // the owner's hero would take fatal damage (`frostward_aegis`; fired only from the damageHero hook, never via triggerSecrets)
 	OnEnemyAttack     EventType = "on_enemy_attack"      // an enemy MINION declares an attack (any target, hero or minion) — `snaring_trap`
 	OnMinionAttacked  EventType = "on_minion_attacked"   // one of the owner's minions is the target of an enemy attack — `serpent_trap`
+	OnHeroDamaged     EventType = "on_hero_damaged"      // the owner's hero takes damage from any source — `retribution_vow` (Eye for an Eye); fired from damageHero
 )
 
 // SecretKind is a secret's Go-handled behavior (HANDOFF: weird effects are
@@ -315,6 +325,12 @@ const (
 	SecretDamageMinion    SecretKind = "damageMinion"    // enemy plays a minion → deal Amount to it (`marksman_trap`); does not cancel
 	SecretRetargetAttack  SecretKind = "retargetAttack"  // an enemy minion attacks the owner's hero → redirect the attack to a random OTHER character (`feint_trap`); does not cancel
 	SecretSummon          SecretKind = "summon"          // one of the owner's minions is attacked → summon Amount copies of Summon (`serpent_trap`); does not cancel
+
+	// Paladin secrets.
+	SecretReflectHeroDamage SecretKind = "reflectHeroDamage" // owner's hero took damage → deal that much to the enemy hero (`retribution_vow`); does not cancel
+	SecretSummonDefender    SecretKind = "summonDefender"    // an enemy declares an attack → summon Summon and redirect the attack onto it (`valiant_ward`); does not cancel
+	SecretResummonFriendly  SecretKind = "resummonFriendly"  // a friendly minion died → summon it back (base card) at 1 Health (`second_dawn`); does not cancel
+	SecretReduceHealth      SecretKind = "reduceHealth"      // enemy played a minion → set its Health to Amount (`penance_seal`); does not cancel
 )
 
 // SecretDef binds a secret's trigger event to its behavior. Amount carries a
@@ -469,6 +485,9 @@ type Card struct {
 	WeaponSecretGain  bool          `json:"weaponSecretGain,omitempty"`  // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
 	ImmuneAttacking   bool          `json:"immuneAttacking,omitempty"`   // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
 	WearByAttack      bool          `json:"wearByAttack,omitempty"`      // weapons: attacking a MINION costs 1 Attack instead of 1 Durability (`bloodwail`)
+	WeaponHealHero    int           `json:"weaponHealHero,omitempty"`    // weapons: whenever the wielder's hero attacks, restore this much Health to it (`pureheart_blade`)
+	SummonBuffAtk     int           `json:"summonBuffAtk,omitempty"`     // weapons: after its wielder summons a minion, give it +SummonBuffAtk Attack and lose 1 Durability (`verdict_edge`)
+	SummonBuffHP      int           `json:"summonBuffHP,omitempty"`      // weapons: paired with SummonBuffAtk — the +Health half of the on-summon buff (`verdict_edge`)
 	AtkEqualsHealth   bool          `json:"atkEqualsHealth,omitempty"`   // minions: Attack is always equal to current Health (`lumen_wisp`); silence cancels it
 	HealsDealDamage   bool          `json:"healsDealDamage,omitempty"`   // minions: while in play, the controller's heals deal damage instead (`auralast_zealot`); silence cancels it
 	DoublesCastOutput bool          `json:"doublesCastOutput,omitempty"` // minions: while in play, double the damage/healing of the controller's spells + hero power (`oracle_velneth`); silence cancels it
@@ -514,7 +533,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -547,6 +566,8 @@ func HeroPowerForClass(c Class) Card {
 		return set["soul_tithe"]
 	case ClassPriest:
 		return set["mend"]
+	case ClassPaladin:
+		return set["muster"]
 	default:
 		return set["fire_dart"]
 	}
@@ -816,6 +837,41 @@ var defaultPriestDeck = []string{
 	"oracle_velneth",
 }
 
+// defaultPaladinDeck is a hand-curated, playable 30-card Paladin deck: a weapon /
+// blessing midrange list leaning on the class's payoffs (cheap weapons + Edge of
+// Verdict for on-summon buffs, Dawnguard Templar's Aegis, Wrathful Hammer / Hallowed
+// Ground removal, Pureheart Blade + Laying of Hands sustain) over a sturdy neutral
+// core, topped by the class legendary. Kept 30 cards, ≤2 of any id, ≤1 legendary —
+// TestDefaultPaladinDeckIsLegal enforces it.
+var defaultPaladinDeck = []string{
+	// 1-drops: cheap weapon.
+	"dawnmace", "dawnmace",
+	// 2-drops: sticky Aegis body.
+	"dawnguard_templar", "dawnguard_templar",
+	// 3-drops: removal + weapon + tempo body.
+	"wrathhammer", "wrathhammer",
+	"verdict_edge", "verdict_edge",
+	"riftwarden_pacifier", "riftwarden_pacifier",
+	"silverback_elder", "silverback_elder",
+	// 4-drops: buff + weapon + AoE + neutral bodies.
+	"royal_blessing", "royal_blessing",
+	"pureheart_blade", "pureheart_blade",
+	"hallowed_ground", "hallowed_ground",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"ironforge_brute",
+	"granite_warden",
+	// 5-drops: neutral wall.
+	"harbor_bodyguard", "harbor_bodyguard",
+	// 6-drops: neutral bodies.
+	"crag_ogre",
+	"dawnguard_protector",
+	// Top end: finishers.
+	"crown_guardian",
+	"war_colossus",
+	"laying_of_hands",
+	"highlord_valdric",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -836,6 +892,8 @@ func DefaultDeckFor(class Class) []string {
 		return append([]string(nil), defaultWarlockDeck...)
 	case ClassPriest:
 		return append([]string(nil), defaultPriestDeck...)
+	case ClassPaladin:
+		return append([]string(nil), defaultPaladinDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}

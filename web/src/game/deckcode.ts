@@ -6,7 +6,7 @@
 // legality (size, copy cap, class); this codec only moves ids around.
 //
 // Format:  [classChar] [entry...] [checksumChar]   — all lowercase alphanumeric
-//   classChar : m=mage h=hunter r=warrior w=warlock
+//   classChar : m=mage h=hunter r=warrior w=warlock p=priest l=paladin
 //   entry     : exactly 3 chars = [letter][base36 index][copies 1-9]
 //               letter+index = the card's token (first letter of its id + its
 //               base36 position among ids sharing that letter, ids sorted).
@@ -26,6 +26,7 @@ const CLASS_TO_CHAR: Record<string, string> = {
   warrior: 'r',
   warlock: 'w',
   priest: 'p',
+  paladin: 'l',
 }
 const CHAR_TO_CLASS: Record<string, string> = Object.fromEntries(
   Object.entries(CLASS_TO_CHAR).map(([k, v]) => [v, k]),

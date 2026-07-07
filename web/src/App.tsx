@@ -1271,6 +1271,7 @@ export function App() {
                               { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
                               { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
                               { value: 'priest', label: 'Priest', art: '/art/priest_hero.png' },
+                              { value: 'paladin', label: 'Paladin', art: '/art/paladin_hero.png' },
                             ]}
                           />
                         </label>

@@ -62,6 +62,11 @@ type enchant struct {
 	// ("until your next turn" — `crimson_subduer`'s -2 Attack on an enemy minion).
 	tempNextTurn bool
 	tempOwner    int
+
+	// drawOnAttack: while this enchantment holds, the minion's controller draws a
+	// card whenever it attacks (`insight_blessing`). Stripped by Silence with the
+	// rest of the enchants.
+	drawOnAttack int
 }
 
 // minion is a minion instance in play. uid is unique within the match. Attack
@@ -179,6 +184,17 @@ func (mn *minion) attacksPerTurn() int {
 
 // hasAttacked reports whether the minion has used any of its attacks this turn.
 func (mn *minion) hasAttacked() bool { return mn.attacksMade > 0 }
+
+// drawsOnAttack is how many cards the minion's controller draws when it attacks,
+// summed over its `insight_blessing` enchantments (0 when silenced — silence nils
+// the enchants).
+func (mn *minion) drawsOnAttack() int {
+	n := 0
+	for _, e := range mn.enchants {
+		n += e.drawOnAttack
+	}
+	return n
+}
 
 // spellDamageOf is the minion's live Spell Damage contribution (0 if silenced):
 // its printed Spell Damage plus any granted by enchantments (`runeward_sage`).

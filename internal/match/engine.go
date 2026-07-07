@@ -57,6 +57,14 @@ func (m *Match) summonMinion(owner int, c cards.Card) *minion {
 	m.emit(protocol.Event{Kind: "summon", Source: m.pid(owner), Target: mn.uid, Name: c.Name})
 	// Other friendly minions react to the summon (e.g. a per-summon ping).
 	m.fireTriggers(owner, cards.OnFriendlySummon, mn)
+	// `verdict_edge` (Sword of Justice): the owner's weapon buffs each minion it summons
+	// and loses 1 Durability doing so (breaking at 0). Fires for every summon path.
+	if w := m.state[owner].weapon; w != nil && (w.card.SummonBuffAtk != 0 || w.card.SummonBuffHP != 0) {
+		mn.enchants = append(mn.enchants, enchant{atk: w.card.SummonBuffAtk, hp: w.card.SummonBuffHP})
+		mn.health += w.card.SummonBuffHP
+		m.emit(protocol.Event{Kind: "buff", Target: mn.uid, BuffAtk: w.card.SummonBuffAtk, BuffHP: w.card.SummonBuffHP})
+		m.useWeaponDurability(owner)
+	}
 	return mn
 }
 
@@ -126,8 +134,9 @@ type secretCtx struct {
 	minion      *minion
 	spellTarget *charRef
 	spellName   string   // the enemy spell being cast — named in a Counter Spell reveal
-	redirect    *charRef // SecretRetargetAttack (`feint_trap`): the attack's new target is written here
+	redirect    *charRef // SecretRetargetAttack (`feint_trap`) / SecretSummonDefender (`valiant_ward`): the attack's new target is written here
 	didRedirect *bool    // set true when a retarget secret fired, so the caller re-aims the blow
+	amount      int      // SecretReflectHeroDamage (`retribution_vow`): the damage the owner's hero just took
 }
 
 // secretFires reports whether secret s should fire given the context, beyond its
@@ -234,6 +243,45 @@ func (m *Match) triggerSecrets(defender int, ev cards.EventType, ctx secretCtx) 
 						break
 					}
 				}
+			}
+		case cards.SecretReflectHeroDamage:
+			// `retribution_vow` (Eye for an Eye): reflect the damage the owner's hero just
+			// took onto the enemy hero. Non-cancel. ctx.amount was set by damageHero.
+			if ctx.amount > 0 {
+				m.damageHero(1-defender, ctx.amount, m.pid(defender))
+			}
+		case cards.SecretSummonDefender:
+			// `valiant_ward` (Noble Sacrifice): summon a Defender and redirect the enemy's
+			// attack onto it. Non-cancel; the redirect rides the same path as `feint_trap`.
+			if tok, ok := cards.Get(s.card.Secret.Summon); ok {
+				if def := m.summonMinion(defender, tok); def != nil && ctx.redirect != nil && ctx.didRedirect != nil {
+					*ctx.redirect = charRef{minion: def, owner: defender}
+					*ctx.didRedirect = true
+				}
+			}
+		case cards.SecretResummonFriendly:
+			// `second_dawn` (Redemption): return the just-dead friendly minion to life as its
+			// base card at 1 Health. Non-cancel. ctx.minion is the dead minion.
+			if ctx.minion != nil {
+				base, ok := cards.Get(ctx.minion.card.ID)
+				if !ok {
+					base = ctx.minion.card
+				}
+				if revived := m.summonMinion(defender, base); revived != nil {
+					revived.health = 1
+					m.emit(protocol.Event{Kind: "sethealth", Target: revived.uid, Amount: 1})
+				}
+			}
+		case cards.SecretReduceHealth:
+			// `penance_seal` (Repentance): set the just-played enemy minion's Health to Amount
+			// via an enchantment (Silence restores it). Non-cancel.
+			if ctx.minion != nil {
+				mn := ctx.minion
+				mn.enchants = append(mn.enchants, enchant{hp: s.card.Secret.Amount - mn.maxHP()})
+				if mn.health > mn.maxHP() {
+					mn.health = mn.maxHP()
+				}
+				m.emit(protocol.Event{Kind: "sethealth", Target: mn.uid, Amount: mn.maxHP()})
 			}
 		}
 		// secret consumed (not kept)

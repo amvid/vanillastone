@@ -407,6 +407,13 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			ba, bh := eff.BuffAtk*scale, eff.BuffHP*scale
 			t.minion.enchants = append(t.minion.enchants, enchant{atk: ba, hp: bh, spellDamage: eff.GrantSpellDamage, keywords: eff.Grant, temp: eff.Temporary, tempNextTurn: eff.TempUntilNextTurn, tempOwner: caster})
 			t.minion.health += bh // a +health buff raises current health too
+			// Granting Aegis raises the live pop-shield, not just the keyword (`warding_hand`,
+			// `dawnguard_templar`, `aegis_hymn`). Silence clears both (nils enchants + aegis).
+			for _, k := range eff.Grant {
+				if k == cards.KeywordAegis {
+					t.minion.aegis = true
+				}
+			}
 			if eff.DestroyNextTurn {
 				t.minion.destroyAtTurnStart = true // Nightmare: dies at the owner's next turn start
 			}
@@ -825,6 +832,21 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		// set, clamped to the hero max, no armor interaction, no heal/damage triggers.
 		// For a minion (`hunters_mark`): change its Health to Amount — lower its max to
 		// Amount via an enchantment (so Silence restores it) and clamp current to it.
+		// An Area (`great_leveling`: AllMinions) sets every addressed minion instead.
+		if eff.Area != cards.AreaNone {
+			for _, t := range m.damageTargets(caster, eff, ref) {
+				if t.minion == nil {
+					continue
+				}
+				mn := t.minion
+				mn.enchants = append(mn.enchants, enchant{hp: eff.Amount - mn.maxHP()})
+				if mn.health > mn.maxHP() {
+					mn.health = mn.maxHP()
+				}
+				m.emit(protocol.Event{Kind: "sethealth", Target: mn.uid, Amount: mn.maxHP()})
+			}
+			return
+		}
 		if ref.minion != nil {
 			mn := ref.minion
 			mn.enchants = append(mn.enchants, enchant{hp: eff.Amount - mn.maxHP()})
@@ -837,6 +859,55 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		hp := min(eff.Amount, heroMaxHP)
 		m.state[ref.owner].heroHP = hp
 		m.emit(protocol.Event{Kind: "sethealth", Target: m.pid(ref.owner), Amount: hp})
+	case cards.EffectSetAttack:
+		// `meekness` / `riftwarden_pacifier`: set each addressed minion's Attack to Amount
+		// via an enchantment (so Silence restores the base Attack). Single target by
+		// default; an Area would set a group (none yet).
+		for _, t := range m.damageTargets(caster, eff, ref) {
+			if t.minion == nil {
+				continue
+			}
+			mn := t.minion
+			mn.enchants = append(mn.enchants, enchant{atk: eff.Amount - mn.atk()})
+			m.emit(protocol.Event{Kind: "buff", Target: mn.uid})
+		}
+	case cards.EffectDoubleAttack:
+		// `exalted_might`: double the target minion's current Attack (enchant +current atk).
+		if ref.minion == nil {
+			return
+		}
+		gain := ref.minion.atk()
+		ref.minion.enchants = append(ref.minion.enchants, enchant{atk: gain})
+		m.emit(protocol.Event{Kind: "buff", Target: ref.minion.uid, BuffAtk: gain})
+	case cards.EffectDrawAndBolt:
+		// `zealots_verdict`: draw the top card, then deal damage equal to its Cost to the
+		// target minion. The Cost is read off the top card BEFORE drawing (fatigue/overdraw
+		// still resolve via drawCard). Spell Damage + cast doubling apply to the bolt.
+		ps := m.state[caster]
+		dmg := 0
+		if len(ps.deck) > 0 {
+			dmg = ps.deck[0].Cost
+		}
+		m.drawCard(caster)
+		if ref.minion != nil && dmg > 0 {
+			m.damageMinion(ref.minion, m.castDouble(dmg+sp), srcID)
+		}
+	case cards.EffectDrawToOpponent:
+		// `providence`: draw until the caster's hand is as large as the opponent's. Stop at
+		// an empty deck (never fatigue-loop) or a full hand.
+		ps := m.state[caster]
+		want := len(m.state[1-caster].hand)
+		for len(ps.hand) < want && len(ps.deck) > 0 && len(ps.hand) < maxHand {
+			m.drawCard(caster)
+		}
+	case cards.EffectGrantDrawOnAttack:
+		// `insight_blessing`: enchant the target minion so its controller draws a card
+		// whenever it attacks. Silence strips it with the rest of the enchants.
+		if ref.minion == nil {
+			return
+		}
+		ref.minion.enchants = append(ref.minion.enchants, enchant{drawOnAttack: 1})
+		m.emit(protocol.Event{Kind: "buff", Target: ref.minion.uid})
 	case cards.EffectSummonRandom:
 		// Summon a random minion onto the caster's board (board cap via summonMinion).
 		// The pool is the explicit GenIDs (Gearmaster Cog / Anthem of War) or, failing
@@ -1215,6 +1286,12 @@ func (m *Match) damageHero(h, amt int, srcID string) int {
 	ps.armor -= absorbed
 	ps.heroHP -= net
 	m.emit(protocol.Event{Kind: "damage", Source: srcID, Target: m.pid(h), Amount: amt})
+	// `retribution_vow` (Eye for an Eye): the owner's hero taking damage reflects that
+	// much to the enemy hero. Fired here so ANY damage source (spell, attack, power)
+	// triggers it. Consumed on fire, so a mutual reflect loop bottoms out after one bounce.
+	if net > 0 {
+		m.triggerSecrets(h, cards.OnHeroDamaged, secretCtx{amount: net})
+	}
 	return amt
 }
 
@@ -1570,6 +1647,13 @@ func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []char
 			if mn != ref.minion {
 				out = append(out, charRef{minion: mn, owner: caster})
 			}
+		}
+		return out
+	case eff.Area == cards.AreaFriendlyMinions:
+		// Every friendly minion, no hero (`aegis_hymn`: give your minions Aegis).
+		out := make([]charRef, 0, len(m.state[caster].board))
+		for _, mn := range m.state[caster].board {
+			out = append(out, charRef{minion: mn, owner: caster})
 		}
 		return out
 	case eff.Target == cards.TargetRandomDamagedFriendly:
