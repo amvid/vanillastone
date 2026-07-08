@@ -42,6 +42,7 @@ func main() {
 	mux.HandleFunc("/register", au.HandleRegister)
 	mux.HandleFunc("/login", au.HandleLogin)
 	mux.HandleFunc("/pool", au.HandlePool)
+	mux.HandleFunc("/starters", au.HandleStarters)
 	mux.HandleFunc("/decks", au.HandleDecks)
 	mux.HandleFunc("/decks/{id}", au.HandleDeck)
 	mux.HandleFunc("/profile", au.HandleProfile)

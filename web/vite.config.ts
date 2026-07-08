@@ -74,6 +74,7 @@ export default defineConfig({
       "/register": { target: proxyTarget },
       "/login": { target: proxyTarget },
       "/pool": { target: proxyTarget },
+      "/starters": { target: proxyTarget },
       "/decks": { target: proxyTarget },
       "/profile": { target: proxyTarget },
       "/leaderboard": { target: proxyTarget },

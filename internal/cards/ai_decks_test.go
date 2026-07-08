@@ -18,3 +18,24 @@ func TestAIDecksAreLegal(t *testing.T) {
 		}
 	}
 }
+
+// TestStarterDecksNamedAndLegal guards the player-facing prefill decks: every
+// playable class must expose starters, each with a non-empty flavor name and a
+// legal card list. Catches a new class added to AIDecks without a starterNames
+// entry (would surface as an unnamed prefill button).
+func TestStarterDecksNamedAndLegal(t *testing.T) {
+	for _, class := range PlayableClasses() {
+		starters := StarterDecks(class)
+		if len(starters) == 0 {
+			t.Fatalf("playable class %q has no starter decks", class)
+		}
+		for i, s := range starters {
+			if s.Name == "" {
+				t.Errorf("%s starter %d has no name", class, i)
+			}
+			if err := ValidateDeck(s.Cards, class); err != nil {
+				t.Errorf("%s starter %q is illegal: %v", class, s.Name, err)
+			}
+		}
+	}
+}

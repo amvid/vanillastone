@@ -4075,6 +4075,31 @@ button {
     font-size: 12px;
     margin-bottom: 8px;
 }
+.edit-starters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.edit-starters-label {
+    color: #7a93b5;
+    font-size: 11px;
+    width: 100%;
+}
+.starter-pick {
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 12px;
+    background: #2a3140;
+    border: 1px solid #4a5668;
+    color: #cde;
+    cursor: pointer;
+}
+.starter-pick:hover {
+    border-color: #5cc47e;
+    color: #fff;
+}
 .deck-row-class {
     color: #7a93b5;
     font-size: 11px;

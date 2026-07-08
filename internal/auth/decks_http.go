@@ -106,6 +106,35 @@ func (a *Auth) HandlePool(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// starterJSON is a named prefill deck as returned to the client.
+type starterJSON struct {
+	Name  string   `json:"name"`
+	Cards []string `json:"cards"`
+}
+
+// HandleStarters handles GET /starters: the named prebuilt decks per class the
+// deckbuilder offers as one-click prefills. Returns { class: [{name, cards}] }
+// for every playable class that has starters.
+func (a *Auth) HandleStarters(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "GET only")
+		return
+	}
+	out := make(map[string][]starterJSON)
+	for _, c := range cards.PlayableClasses() {
+		decks := cards.StarterDecks(c)
+		if len(decks) == 0 {
+			continue
+		}
+		list := make([]starterJSON, len(decks))
+		for i, d := range decks {
+			list[i] = starterJSON{Name: d.Name, Cards: d.Cards}
+		}
+		out[string(c)] = list
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"starters": out})
+}
+
 // poolCardView converts a card to the client's CardView shape (mirrors
 // match.cardView, kept here to avoid importing the match package).
 func poolCardView(c cards.Card) protocol.CardView {

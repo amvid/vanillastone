@@ -62,6 +62,19 @@ export async function fetchPool(): Promise<Pool> {
   return (await res.json()) as Pool;
 }
 
+// StarterDeck is a named prebuilt deck offered as a one-click prefill.
+export type StarterDeck = { name: string; cards: string[] };
+// Starters maps a class id ("mage", "paladin", ...) to its prefill decks.
+export type Starters = Record<string, StarterDeck[]>;
+
+// fetchStarters returns the named prebuilt decks per class for deck prefill.
+export async function fetchStarters(): Promise<Starters> {
+  const res = await fetch(serverURL("/starters"));
+  if (!res.ok) throw new Error("failed to load starter decks");
+  const data = (await res.json()) as { starters: Starters | null };
+  return data.starters ?? {};
+}
+
 export async function listDecks(token: string): Promise<Deck[]> {
   const res = await fetch(serverURL("/decks"), { headers: authHeaders(token) });
   if (!res.ok) throw new Error(await errorMessage(res, "failed to load decks"));

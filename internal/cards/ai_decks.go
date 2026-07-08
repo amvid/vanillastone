@@ -280,6 +280,45 @@ var aiPaladinMidrange = []string{
 
 var aiPaladinDecks = [][]string{aiPaladinFace, aiPaladinMidrange}
 
+// StarterDeck is a named prebuilt deck offered to players in the deckbuilder as a
+// one-click prefill. Cards mirror the vs-AI decks (AIDecks); the names are flavor
+// only and belong to our custom set (no external IP).
+type StarterDeck struct {
+	Name  string
+	Cards []string
+}
+
+// starterNames labels each class's two AIDecks archetypes, in the SAME order
+// AIDecks returns them: [aggro/face, midrange/control]. Names reference our own
+// custom cards/keywords only.
+var starterNames = map[Class][2]string{
+	ClassMage:    {"Emberlord Tempo", "Rimebound Control"},
+	ClassHunter:  {"Pack Frenzy", "Apex Wild"},
+	ClassWarrior: {"Reckless Onslaught", "Runesteel Wall"},
+	ClassWarlock: {"Hexfire Rush", "Overlord's Pact"},
+	ClassPriest:  {"Radiant Zeal", "Gloomward Control"},
+	ClassPaladin: {"Dawnmace Tempo", "Hallowed Bulwark"},
+}
+
+// StarterDecks returns the named prefill decks for a class (fresh copies, safe for
+// the caller to mutate), or nil if the class has none. Order matches AIDecks.
+func StarterDecks(class Class) []StarterDeck {
+	decks := AIDecks(class)
+	if decks == nil {
+		return nil
+	}
+	names := starterNames[class]
+	out := make([]StarterDeck, len(decks))
+	for i, d := range decks {
+		name := ""
+		if i < len(names) {
+			name = names[i]
+		}
+		out[i] = StarterDeck{Name: name, Cards: d}
+	}
+	return out
+}
+
 // AIDecks returns copies of the prebuilt AI decks for a class, or nil if the
 // class has none. The caller picks one at random.
 func AIDecks(class Class) [][]string {

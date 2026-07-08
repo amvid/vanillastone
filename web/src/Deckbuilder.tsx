@@ -4,10 +4,11 @@ import {
   createDeck,
   deleteDeck,
   fetchPool,
+  fetchStarters,
   listDecks,
   updateDeck,
 } from "./api";
-import type { Deck, Pool } from "./api";
+import type { Deck, Pool, Starters } from "./api";
 import type { CardView } from "./protocol";
 import { CardFace } from "./game/CardFace";
 import { cardColorClass } from "./game/format";
@@ -73,6 +74,7 @@ function cardClass(c: CardView): string {
 export function Deckbuilder(props: { token: string; onBack: () => void }) {
   const { token, onBack } = props;
   const [pool, setPool] = useState<Pool | null>(null);
+  const [starters, setStarters] = useState<Starters>({});
   const [decks, setDecks] = useState<Deck[]>([]);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
@@ -112,6 +114,11 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
 
   useEffect(() => {
     fetchPool().then(setPool).catch((e) => setError((e as Error).message));
+    // Prefill is optional — never block the builder on it, but log so a missing
+    // route/proxy is visible instead of silently hiding the starter buttons.
+    fetchStarters().then(setStarters).catch((e) =>
+      console.warn("starter decks unavailable:", (e as Error).message)
+    );
     reloadDecks().catch((e) => setError((e as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -216,6 +223,13 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
     setRarityFilter(null);
     setTribeFilter(null);
     setEditing({ id: null, name: "New Deck", class: cls, cards: [] });
+  };
+
+  // prefill fills a brand-new empty deck from a named starter (the vs-AI decks).
+  // Only offered while the deck is new and empty, so it never clobbers edits.
+  const prefill = (name: string, cards: string[]) => {
+    if (!editing) return;
+    setEditing({ ...editing, name, cards: [...cards] });
   };
 
   const save = async () => {
@@ -351,6 +365,24 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
         </span>
       </div>
       <div className="edit-class">{classLabel(editing.class)} deck</div>
+
+      {/* Prefill a brand-new empty deck from a named starter (vs-AI decks). */}
+      {editing.id === null && editing.cards.length === 0 &&
+        (starters[editing.class]?.length ?? 0) > 0 && (
+        <div className="edit-starters">
+          <span className="edit-starters-label">Start from a deck</span>
+          {starters[editing.class].map((s) => (
+            <button
+              type="button"
+              key={s.name}
+              className="starter-pick"
+              onClick={() => prefill(s.name, s.cards)}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Mana curve */}
       <div className="curve" title="Mana curve">
@@ -650,7 +682,11 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               {/* New deck (no existing row to attach to): panel opens under the actions. */}
               {editing?.id === null && deckEditPanel}
 
-              {decks.map((d) => (
+              {/* While editing, collapse the list to just the open deck so the
+                 other saved decks don't clutter the panel. */}
+              {(editing ? decks.filter((d) => d.id === editing.id) : decks).map((
+                d,
+              ) => (
                 <Fragment key={d.id}>
                   <div className="deck-row">
                     <button
