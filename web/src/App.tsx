@@ -1,37 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchLeaderboard, fetchProfile, listDecks, login, register } from './api'
-import type { Deck, LeaderRow, Profile } from './api'
-import { Deckbuilder } from './Deckbuilder'
-import { wsURL } from './server'
-import type { CardView, Event, MinionView, OppIntent, PlayerInfo, ServerMessage, Snapshot } from './protocol'
-import type { CharKind, Counts, LogEntry, PendingSpell, Phase } from './game/types'
-import { buildLog, cardColorClass, condMet, minionToCardView, ruleMatches } from './game/format'
-import { animDuration, playGhost } from './game/animate'
-import { CardFace } from './game/CardFace'
-import { GameScreen, useIsMobile } from './game/GameScreen'
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  fetchLeaderboard,
+  fetchProfile,
+  listDecks,
+  login,
+  register,
+} from "./api";
+import type { Deck, LeaderRow, Profile } from "./api";
+import { Deckbuilder } from "./Deckbuilder";
+import { wsURL } from "./server";
+import type {
+  CardView,
+  Event,
+  MinionView,
+  OppIntent,
+  PlayerInfo,
+  ServerMessage,
+  Snapshot,
+} from "./protocol";
+import type {
+  CharKind,
+  Counts,
+  LogEntry,
+  PendingSpell,
+  Phase,
+} from "./game/types";
+import {
+  buildLog,
+  cardColorClass,
+  condMet,
+  minionToCardView,
+  ruleMatches,
+} from "./game/format";
+import { animDuration, playGhost } from "./game/animate";
+import { CardFace } from "./game/CardFace";
+import { GameScreen, useIsMobile } from "./game/GameScreen";
 
-const TOKEN_KEY = 'vs_token'
+const TOKEN_KEY = "vs_token";
 
 // Opening-mulligan time limit (seconds). At 0 the client auto-keeps the current
 // selection; the server backstops a hair later (see mulliganLimit).
-const MULLIGAN_SECS = 20
+const MULLIGAN_SECS = 20;
 
 // When an open dropdown has little room below the trigger (short/landscape
 // viewport), flip its menu above the trigger instead of letting it spill
 // off-screen. Returns true = render upward (adds the `.up` class).
 function useDropUp(open: boolean, ref: React.RefObject<HTMLDivElement>) {
-  const [up, setUp] = useState(false)
+  const [up, setUp] = useState(false);
   useEffect(() => {
     if (!open || !ref.current) {
-      setUp(false)
-      return
+      setUp(false);
+      return;
     }
-    const r = ref.current.getBoundingClientRect()
-    const below = globalThis.innerHeight - r.bottom
+    const r = ref.current.getBoundingClientRect();
+    const below = globalThis.innerHeight - r.bottom;
     // Flip only when below is tight AND there's genuinely more room above.
-    setUp(below < 240 && r.top > below)
-  }, [open, ref])
-  return up
+    setUp(below < 240 && r.top > below);
+  }, [open, ref]);
+  return up;
 }
 
 /** Custom deck dropdown — options show the class art icon like the deck-builder rows. */
@@ -40,49 +66,65 @@ function DeckSelect({
   value,
   onChange,
 }: {
-  options: { id: number; name: string; class: string }[]
-  value: number
-  onChange: (id: number) => void
+  options: { id: number; name: string; class: string }[];
+  value: number;
+  onChange: (id: number) => void;
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-  const up = useDropUp(open, ref)
-  const sel = options.find((o) => o.id === value) ?? options[0]
-  if (!sel) return null // no decks loaded yet
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const up = useDropUp(open, ref);
+  const sel = options.find((o) => o.id === value) ?? options[0];
+  if (!sel) return null; // no decks loaded yet
   return (
-    <div className={'deck-select' + (open ? ' open' : '') + (up ? ' up' : '')} ref={ref}>
-      <button type="button" className="deck-select-trigger" onClick={() => setOpen((v) => !v)}>
-        <span className="deck-row-art" style={{ backgroundImage: `url('/art/${sel.class}_hero.png')` }} />
+    <div
+      className={"deck-select" + (open ? " open" : "") + (up ? " up" : "")}
+      ref={ref}
+    >
+      <button
+        type="button"
+        className="deck-select-trigger"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span
+          className="deck-row-art"
+          style={{ backgroundImage: `url('/art/${sel.class}_hero.png')` }}
+        />
         <span className="deck-row-text">{sel.name}</span>
         <span className="deck-select-caret">▾</span>
       </button>
       {open && (
         <div className="deck-select-menu">
           {options.map((o) => (
-            <button type="button"
+            <button
+              type="button"
               key={o.id}
-              className={'deck-select-opt' + (o.id === value ? ' active' : '')}
+              className={"deck-select-opt" + (o.id === value ? " active" : "")}
               onClick={() => {
-                onChange(o.id)
-                setOpen(false)
+                onChange(o.id);
+                setOpen(false);
               }}
             >
-              <span className="deck-row-art" style={{ backgroundImage: `url('/art/${o.class}_hero.png')` }} />
+              <span
+                className="deck-row-art"
+                style={{ backgroundImage: `url('/art/${o.class}_hero.png')` }}
+              />
               <span className="deck-row-text">{o.name}</span>
             </button>
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Generic styled dropdown (shares deck-select chrome) for plain value lists like
@@ -92,94 +134,124 @@ function FancySelect({
   value,
   onChange,
 }: {
-  options: { value: number | string; label: string; art?: string }[]
-  value: number | string
-  onChange: (v: number | string) => void
+  options: { value: number | string; label: string; art?: string }[];
+  value: number | string;
+  onChange: (v: number | string) => void;
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-  const up = useDropUp(open, ref)
-  const sel = options.find((o) => o.value === value) ?? options[0]
-  if (!sel) return null
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const up = useDropUp(open, ref);
+  const sel = options.find((o) => o.value === value) ?? options[0];
+  if (!sel) return null;
   return (
-    <div className={'deck-select' + (open ? ' open' : '') + (up ? ' up' : '')} ref={ref}>
-      <button type="button" className="deck-select-trigger" onClick={() => setOpen((v) => !v)}>
-        {sel.art && <span className="deck-row-art" style={{ backgroundImage: `url('${sel.art}')` }} />}
+    <div
+      className={"deck-select" + (open ? " open" : "") + (up ? " up" : "")}
+      ref={ref}
+    >
+      <button
+        type="button"
+        className="deck-select-trigger"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {sel.art && (
+          <span
+            className="deck-row-art"
+            style={{ backgroundImage: `url('${sel.art}')` }}
+          />
+        )}
         <span className="deck-row-text">{sel.label}</span>
         <span className="deck-select-caret">▾</span>
       </button>
       {open && (
         <div className="deck-select-menu">
           {options.map((o) => (
-            <button type="button"
+            <button
+              type="button"
               key={String(o.value)}
-              className={'deck-select-opt' + (o.value === value ? ' active' : '')}
+              className={"deck-select-opt" +
+                (o.value === value ? " active" : "")}
               onClick={() => {
-                onChange(o.value)
-                setOpen(false)
+                onChange(o.value);
+                setOpen(false);
               }}
             >
-              {o.art && <span className="deck-row-art" style={{ backgroundImage: `url('${o.art}')` }} />}
+              {o.art && (
+                <span
+                  className="deck-row-art"
+                  style={{ backgroundImage: `url('${o.art}')` }}
+                />
+              )}
               <span className="deck-row-text">{o.label}</span>
             </button>
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Client-side credential checks — mirror the server's authoritative rules
 // (internal/auth) for instant inline feedback. Return null = ok, else a reason.
-const USERNAME_RE = /^[A-Za-z0-9_]+$/
+const USERNAME_RE = /^[A-Za-z0-9_]+$/;
 function usernameError(u: string): string | null {
-  if (!u) return null // don't nag before the user types
-  if (u.length < 3) return 'at least 3 characters'
-  if (u.length > 20) return 'at most 20 characters'
-  if (!USERNAME_RE.test(u)) return 'letters, digits and _ only'
-  return null
+  if (!u) return null; // don't nag before the user types
+  if (u.length < 3) return "at least 3 characters";
+  if (u.length > 20) return "at most 20 characters";
+  if (!USERNAME_RE.test(u)) return "letters, digits and _ only";
+  return null;
 }
 function passwordError(p: string): string | null {
-  if (!p) return null
-  if (p.length < 6) return 'at least 6 characters'
-  if (p.length > 72) return 'at most 72 characters'
-  return null
+  if (!p) return null;
+  if (p.length < 6) return "at least 6 characters";
+  if (p.length > 72) return "at most 72 characters";
+  return null;
 }
 
 /** ProfileModal — a player's ranked stats: rank, overall W/L/winrate, then a row
  *  per class. Fetches on open. Per-class rows are cosmetic; overall = their sum. */
-function ProfileModal({ user, onClose }: { user: string; onClose: () => void }) {
-  const [data, setData] = useState<Profile | null>(null)
-  const [err, setErr] = useState('')
+function ProfileModal(
+  { user, onClose }: { user: string; onClose: () => void },
+) {
+  const [data, setData] = useState<Profile | null>(null);
+  const [err, setErr] = useState("");
   useEffect(() => {
-    let live = true
-    setData(null)
-    setErr('')
+    let live = true;
+    setData(null);
+    setErr("");
     fetchProfile(user)
       .then((p) => live && setData(p))
-      .catch((e) => live && setErr(String(e.message ?? e)))
+      .catch((e) => live && setErr(String(e.message ?? e)));
     return () => {
-      live = false
-    }
-  }, [user])
+      live = false;
+    };
+  }, [user]);
   return (
     <div className="overlay" onClick={onClose}>
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="modal-x" onClick={onClose} aria-label="Close">
+        <button
+          type="button"
+          className="modal-x"
+          onClick={onClose}
+          aria-label="Close"
+        >
           ✕
         </button>
         <div className="stats-head">
           <span className="stats-title">{user}</span>
           {data && (
-            <span className="stats-rank">{data.ranked ? `Rank #${data.rank}` : 'Unranked'}</span>
+            <span className="stats-rank">
+              {data.ranked ? `Rank #${data.rank}` : "Unranked"}
+            </span>
           )}
         </div>
         {err && <p className="stats-err">{err}</p>}
@@ -221,27 +293,34 @@ function ProfileModal({ user, onClose }: { user: string; onClose: () => void }) 
         )}
       </div>
     </div>
-  )
+  );
 }
 
 /** LeaderboardModal — the top 10 players by ladder rank. Rows are clickable to
  *  open that player's profile. */
-function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (user: string) => void }) {
-  const [rows, setRows] = useState<LeaderRow[] | null>(null)
-  const [err, setErr] = useState('')
+function LeaderboardModal(
+  { onClose, onPick }: { onClose: () => void; onPick: (user: string) => void },
+) {
+  const [rows, setRows] = useState<LeaderRow[] | null>(null);
+  const [err, setErr] = useState("");
   useEffect(() => {
-    let live = true
+    let live = true;
     fetchLeaderboard()
       .then((r) => live && setRows(r))
-      .catch((e) => live && setErr(String(e.message ?? e)))
+      .catch((e) => live && setErr(String(e.message ?? e)));
     return () => {
-      live = false
-    }
-  }, [])
+      live = false;
+    };
+  }, []);
   return (
     <div className="overlay" onClick={onClose}>
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="modal-x" onClick={onClose} aria-label="Close">
+        <button
+          type="button"
+          className="modal-x"
+          onClick={onClose}
+          aria-label="Close"
+        >
           ✕
         </button>
         <div className="stats-head">
@@ -249,7 +328,9 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
         </div>
         {err && <p className="stats-err">{err}</p>}
         {!rows && !err && <p className="stats-loading">Loading…</p>}
-        {rows && rows.length === 0 && <p className="stats-empty">No ranked games played yet.</p>}
+        {rows && rows.length === 0 && (
+          <p className="stats-empty">No ranked games played yet.</p>
+        )}
         {rows && rows.length > 0 && (
           <table className="stats-table lb-table">
             <thead>
@@ -263,7 +344,11 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.username} className="lb-row" onClick={() => onPick(r.username)}>
+                <tr
+                  key={r.username}
+                  className="lb-row"
+                  onClick={() => onPick(r.username)}
+                >
                   <td className="lb-rank">{r.rank}</td>
                   <td className="lb-name">{r.username}</td>
                   <td>{r.wins}</td>
@@ -276,60 +361,64 @@ function LeaderboardModal({ onClose, onPick }: { onClose: () => void; onPick: (u
         )}
       </div>
     </div>
-  )
+  );
 }
 
-const DEFAULT_TITLE = 'Vanillastone'
+const DEFAULT_TITLE = "Vanillastone";
 
 export function App() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [phase, setPhase] = useState<Phase>('auth')
-  const [status, setStatus] = useState('not logged in')
-  const [name, setName] = useState('')
-  const [counts, setCounts] = useState<Counts>({ online: 0, inGame: 0 })
-  const [players, setPlayers] = useState<PlayerInfo[]>([])
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [phase, setPhase] = useState<Phase>("auth");
+  const [status, setStatus] = useState("not logged in");
+  const [name, setName] = useState("");
+  const [counts, setCounts] = useState<Counts>({ online: 0, inGame: 0 });
+  const [players, setPlayers] = useState<PlayerInfo[]>([]);
   // Free-text filter for the online-players panel (kept usable with many players).
-  const [playerFilter, setPlayerFilter] = useState('')
+  const [playerFilter, setPlayerFilter] = useState("");
   // Direct invites: who we've challenged (one at a time, null = none), and the
   // queue of players who have challenged us (each can be accepted/declined).
-  const [invitedName, setInvitedName] = useState<string | null>(null)
-  const [incomingInvites, setIncomingInvites] = useState<string[]>([])
+  const [invitedName, setInvitedName] = useState<string | null>(null);
+  const [incomingInvites, setIncomingInvites] = useState<string[]>([]);
   // Deck chosen in the incoming-invite prompt.
-  const [inviteDeck, setInviteDeck] = useState<number>(0)
+  const [inviteDeck, setInviteDeck] = useState<number>(0);
   // Outgoing challenge: who we're about to invite (the challenge window is open
   // for them, null = closed) and the deck picked for it before sending.
-  const [challengeTarget, setChallengeTarget] = useState<string | null>(null)
-  const [challengeDeck, setChallengeDeck] = useState<number>(0)
-  const [snap, setSnap] = useState<Snapshot | null>(null)
-  const [myTurn, setMyTurn] = useState(false)
-  const [turnSecs, setTurnSecs] = useState(0)
-  const [turnNum, setTurnNum] = useState(0)
-  const [winner, setWinner] = useState<string | null>(null)
+  const [challengeTarget, setChallengeTarget] = useState<string | null>(null);
+  const [challengeDeck, setChallengeDeck] = useState<number>(0);
+  const [snap, setSnap] = useState<Snapshot | null>(null);
+  const [myTurn, setMyTurn] = useState(false);
+  const [turnSecs, setTurnSecs] = useState(0);
+  const [turnNum, setTurnNum] = useState(0);
+  const [winner, setWinner] = useState<string | null>(null);
   // Ladder rank change for the just-finished ranked game (null for unranked/AI),
   // shown on the win/loss screen.
-  const [rankUpdate, setRankUpdate] = useState<{ oldRank: number; newRank: number } | null>(null)
+  const [rankUpdate, setRankUpdate] = useState<
+    { oldRank: number; newRank: number } | null
+  >(null);
   // Lobby overlays: a player's profile (by username) and the top-10 leaderboard.
-  const [profileUser, setProfileUser] = useState<string | null>(null)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [profileUser, setProfileUser] = useState<string | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   // Exactly one of these is active at a time: a minion picked to attack, or a
   // targeted spell awaiting its target.
-  const [attacker, setAttacker] = useState<string | null>(null)
-  const [spell, setSpell] = useState<PendingSpell | null>(null)
-  const [heroPowerArmed, setHeroPowerArmed] = useState(false)
-  const [seek, setSeek] = useState<CardView[] | null>(null)
+  const [attacker, setAttacker] = useState<string | null>(null);
+  const [spell, setSpell] = useState<PendingSpell | null>(null);
+  const [heroPowerArmed, setHeroPowerArmed] = useState(false);
+  const [seek, setSeek] = useState<CardView[] | null>(null);
   // Number of cards the opponent is currently seeking (null = not). Drives a
   // non-blocking indicator near their hand; cleared by the next state snapshot.
-  const [oppSeek, setOppSeek] = useState<number | null>(null)
+  const [oppSeek, setOppSeek] = useState<number | null>(null);
   // The opponent's latest ephemeral aiming hint (what they're hovering / aiming at),
   // shown only during their turn. Cleared on every resolved snapshot.
-  const [oppIntent, setOppIntent] = useState<OppIntent | null>(null)
-  const [log, setLog] = useState<LogEntry[]>([])
+  const [oppIntent, setOppIntent] = useState<OppIntent | null>(null);
+  const [log, setLog] = useState<LogEntry[]>([]);
   // The most recent action's event list + a monotonic seq, handed to GameScreen
   // so it can replay attack/damage/heal as animations (settled state already in
   // `snap`). Skipped for match_start / resync (no live action to animate).
-  const [anim, setAnim] = useState<{ seq: number; events: Event[] } | null>(null)
-  const animSeqRef = useRef(0)
+  const [anim, setAnim] = useState<{ seq: number; events: Event[] } | null>(
+    null,
+  );
+  const animSeqRef = useRef(0);
   // Action queue: the server pushes a snapshot+events per action; during a bot
   // burst several can land faster than they animate. We buffer animated actions
   // and play them ONE AT A TIME (apply → wait its animation length → next) instead
@@ -337,146 +426,192 @@ export function App() {
   // (match_start / resync / mulligan / no-event ticks) flush the queue and apply
   // immediately. A game_over that arrives mid-burst waits for the queue to drain so
   // the lethal blow finishes before the result shows.
-  const animQueueRef = useRef<Extract<ServerMessage, { type: 'state' }>[]>([])
-  const drainingRef = useRef(false)
-  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const pendingOverRef = useRef<Extract<ServerMessage, { type: 'game_over' }> | null>(null)
+  const animQueueRef = useRef<Extract<ServerMessage, { type: "state" }>[]>([]);
+  const drainingRef = useRef(false);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const pendingOverRef = useRef<
+    Extract<ServerMessage, { type: "game_over" }> | null
+  >(null);
   // Decks: the player's saved decks and which one is selected for the next game.
-  const [decks, setDecks] = useState<Deck[]>([])
-  const [selectedDeck, setSelectedDeck] = useState<number>(0) // set to first saved deck once loaded
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [selectedDeck, setSelectedDeck] = useState<number>(0); // set to first saved deck once loaded
   // Class the AI opponent plays (a random prebuilt deck of this class). Mage only
   // for now — the rest are reserved until their card pools land.
-  const [aiClass, setAiClass] = useState('mage')
+  const [aiClass, setAiClass] = useState("mage");
   // Which deck the AI opponent plays: 0 = a random prebuilt deck, or one of the
   // player's own saved deck ids.
-  const [aiDeck, setAiDeck] = useState<number>(0)
+  const [aiDeck, setAiDeck] = useState<number>(0);
   // The "how to play" mode picker (vs AI / vs Player / Arena) opened from Play.
-  const [playModal, setPlayModal] = useState(false)
+  const [playModal, setPlayModal] = useState(false);
   // Mobile only: the play-mode modal is a two-step flow. Step 1 picks AI vs PvP;
   // step 2 (this state non-null) picks the deck (+ AI class/deck for AI). Desktop
   // keeps everything on one screen and ignores this.
-  const [setupMode, setSetupMode] = useState<null | 'ai' | 'pvp'>(null)
-  const isMobile = useIsMobile()
+  const [setupMode, setSetupMode] = useState<null | "ai" | "pvp">(null);
+  const isMobile = useIsMobile();
   // Mirror of selectedDeck readable from the ws closure (which has no deps).
-  const selectedDeckRef = useRef(0)
+  const selectedDeckRef = useRef(0);
   // Mulligan phase: which opening-hand indices are toggled for replacement, and
   // whether this player has already submitted (awaiting the opponent).
-  const [mulliganPicks, setMulliganPicks] = useState<Set<number>>(new Set())
-  const [mulliganSubmitted, setMulliganSubmitted] = useState(false)
+  const [mulliganPicks, setMulliganPicks] = useState<Set<number>>(new Set());
+  const [mulliganSubmitted, setMulliganSubmitted] = useState(false);
   // Seconds left on the opening mulligan; auto-keeps at 0. The server backstops
   // this in case the client never submits (disconnect).
-  const [mulliganLeft, setMulliganLeft] = useState(MULLIGAN_SECS)
+  const [mulliganLeft, setMulliganLeft] = useState(MULLIGAN_SECS);
   // True briefly when play begins from the mulligan, to play a reveal animation
   // (the blurred mulligan look dissolving into the live board) instead of a cut.
-  const [introPlay, setIntroPlay] = useState(false)
+  const [introPlay, setIntroPlay] = useState(false);
   // Screen point the opening deal flies from (the mulligan modal's center).
-  const [introFrom, setIntroFrom] = useState<{ x: number; y: number } | null>(null)
-  const introTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [introFrom, setIntroFrom] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const introTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   // True while the opponent is connected; false during their disconnect grace
   // window (drives a "waiting for opponent" banner).
-  const [oppOnline, setOppOnline] = useState(true)
+  const [oppOnline, setOppOnline] = useState(true);
   // When set, we're watching this player's match read-only (their POV). spectatingRef
   // mirrors it for the dep-less ws closure and the action-gating handlers.
-  const [spectating, setSpectating] = useState<string | null>(null)
-  const spectatingRef = useRef<string | null>(null)
+  const [spectating, setSpectating] = useState<string | null>(null);
+  const spectatingRef = useRef<string | null>(null);
   // Usernames watching our match (we're a player). Drives the "being watched" badge.
-  const [spectators, setSpectators] = useState<string[]>([])
-  const wsRef = useRef<WebSocket | null>(null)
-  const tokenRef = useRef<string | null>(null)
-  const meRef = useRef<string | null>(null)
+  const [spectators, setSpectators] = useState<string[]>([]);
+  const wsRef = useRef<WebSocket | null>(null);
+  const tokenRef = useRef<string | null>(null);
+  const meRef = useRef<string | null>(null);
   // The id whose point of view the board is rendered from: our own when playing,
   // the watched player's when spectating. Equal to each snapshot's `you` field.
-  const povRef = useRef<string | null>(null)
+  const povRef = useRef<string | null>(null);
   // Set when the server kicks us for logging in elsewhere, so the imminent
   // onclose doesn't overwrite the explanatory status.
-  const kickedRef = useRef(false)
+  const kickedRef = useRef(false);
   // Auto-reconnect bookkeeping: giveUp suppresses retries (logout / dead token),
   // retries counts attempts, and reconnectTimer holds the pending retry.
-  const giveUpRef = useRef(false)
-  const retriesRef = useRef(0)
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const giveUpRef = useRef(false);
+  const retriesRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   // Accumulated minion uid -> name, so log lines can name minions that have
   // already left the board (e.g. a minion that just died).
-  const namesRef = useRef<Record<string, string>>({})
+  const namesRef = useRef<Record<string, string>>({});
   // Accumulated minion uid -> full CardView, so the log can render a card's art
   // chip + on-hover card face even after it has left the board (a dead minion's
   // finalGasp, a bounced minion).
-  const cardsRef = useRef<Record<string, CardView>>({})
+  const cardsRef = useRef<Record<string, CardView>>({});
   // Holds the "Match found!" → mulligan transition timer.
-  const matchFoundTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const matchFoundTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   // Last committed phase, readable from the ws closure (which has no deps), so a
   // state message can tell whether it is the first snapshot leaving the mulligan.
-  const phaseRef = useRef<Phase>('auth')
+  const phaseRef = useRef<Phase>("auth");
 
   useEffect(() => {
-    phaseRef.current = phase
-  }, [phase])
+    phaseRef.current = phase;
+  }, [phase]);
 
   useEffect(() => {
-    selectedDeckRef.current = selectedDeck
-  }, [selectedDeck])
+    selectedDeckRef.current = selectedDeck;
+  }, [selectedDeck]);
 
   // Browser-tab title: while the tab is hidden, surface what needs attention
   // (and a live counter) so the player notices from another tab. Restores the
   // plain title once the tab is focused again.
-  const searchStartRef = useRef<number | null>(null)
-  const turnDeadlineRef = useRef<number | null>(null)
+  const searchStartRef = useRef<number | null>(null);
+  const turnDeadlineRef = useRef<number | null>(null);
   // Anchor the search timer on entering the queue and the turn timer on each
   // snapshot, so the interval below can render a live countdown.
   useEffect(() => {
-    searchStartRef.current = phase === 'waiting' ? Date.now() : null
-  }, [phase])
+    searchStartRef.current = phase === "waiting" ? Date.now() : null;
+  }, [phase]);
   useEffect(() => {
-    turnDeadlineRef.current =
-      phase === 'playing' && !winner && turnSecs > 0 ? Date.now() + turnSecs * 1000 : null
-  }, [phase, winner, turnSecs, turnNum, myTurn])
+    turnDeadlineRef.current = phase === "playing" && !winner && turnSecs > 0
+      ? Date.now() + turnSecs * 1000
+      : null;
+  }, [phase, winner, turnSecs, turnNum, myTurn]);
   // Latest state read by the interval without re-subscribing every tick.
-  const titleStateRef = useRef({ phase, myTurn, winner, incomingInvites, mulliganLeft })
-  titleStateRef.current = { phase, myTurn, winner, incomingInvites, mulliganLeft }
+  const titleStateRef = useRef({
+    phase,
+    myTurn,
+    winner,
+    incomingInvites,
+    mulliganLeft,
+  });
+  titleStateRef.current = {
+    phase,
+    myTurn,
+    winner,
+    incomingInvites,
+    mulliganLeft,
+  };
   useEffect(() => {
     // Returns the title text plus a blink icon for states that want the player
     // back NOW (their move / a challenge / the result). Passive states (waiting,
     // opponent's turn) carry no icon, so they don't flash.
     const compute = (): { text: string; blink: string | null } => {
-      const { phase, myTurn, winner, incomingInvites, mulliganLeft } = titleStateRef.current
-      if (spectatingRef.current) return { text: DEFAULT_TITLE, blink: null }
-      if (winner) return { text: winner === 'you' ? 'You won!' : 'You lost', blink: '🎉' }
+      const { phase, myTurn, winner, incomingInvites, mulliganLeft } =
+        titleStateRef.current;
+      if (spectatingRef.current) return { text: DEFAULT_TITLE, blink: null };
+      if (winner) {
+        return {
+          text: winner === "you" ? "You won!" : "You lost",
+          blink: "🎉",
+        };
+      }
       if (incomingInvites.length > 0) {
-        return { text: `${incomingInvites[incomingInvites.length - 1]} challenged you!`, blink: '⚔️' }
+        return {
+          text: `${
+            incomingInvites[incomingInvites.length - 1]
+          } challenged you!`,
+          blink: "⚔️",
+        };
       }
-      if (phase === 'matchfound') return { text: 'Match found!', blink: '⚔️' }
-      if (phase === 'mulligan') return { text: `Mulligan ${mulliganLeft}s`, blink: '🔄' }
-      if (phase === 'waiting' && searchStartRef.current != null) {
-        return { text: `Searching ${Math.floor((Date.now() - searchStartRef.current) / 1000)}s`, blink: null }
+      if (phase === "matchfound") return { text: "Match found!", blink: "⚔️" };
+      if (phase === "mulligan") {
+        return { text: `Mulligan ${mulliganLeft}s`, blink: "🔄" };
       }
-      if (phase === 'playing' && turnDeadlineRef.current != null) {
-        const left = Math.max(0, Math.ceil((turnDeadlineRef.current - Date.now()) / 1000))
+      if (phase === "waiting" && searchStartRef.current != null) {
+        return {
+          text: `Searching ${
+            Math.floor((Date.now() - searchStartRef.current) / 1000)
+          }s`,
+          blink: null,
+        };
+      }
+      if (phase === "playing" && turnDeadlineRef.current != null) {
+        const left = Math.max(
+          0,
+          Math.ceil((turnDeadlineRef.current - Date.now()) / 1000),
+        );
         return myTurn
-          ? { text: `Your turn ${left}s`, blink: '🔔' }
-          : { text: `Opponent turn ${left}s`, blink: null }
+          ? { text: `Your turn ${left}s`, blink: "🔔" }
+          : { text: `Opponent turn ${left}s`, blink: null };
       }
-      return { text: DEFAULT_TITLE, blink: null }
-    }
-    let on = false
+      return { text: DEFAULT_TITLE, blink: null };
+    };
+    let on = false;
     const apply = () => {
       if (!document.hidden) {
-        document.title = DEFAULT_TITLE
-        return
+        document.title = DEFAULT_TITLE;
+        return;
       }
-      on = !on
-      const { text, blink } = compute()
-      document.title = blink && on ? `${blink} ${text}` : text
-    }
-    apply()
-    const id = globalThis.setInterval(apply, 700)
-    document.addEventListener('visibilitychange', apply)
+      on = !on;
+      const { text, blink } = compute();
+      document.title = blink && on ? `${blink} ${text}` : text;
+    };
+    apply();
+    const id = globalThis.setInterval(apply, 700);
+    document.addEventListener("visibilitychange", apply);
     return () => {
-      globalThis.clearInterval(id)
-      document.removeEventListener('visibilitychange', apply)
-      document.title = DEFAULT_TITLE
-    }
-  }, [])
+      globalThis.clearInterval(id);
+      document.removeEventListener("visibilitychange", apply);
+      document.title = DEFAULT_TITLE;
+    };
+  }, []);
 
   // Global UI scale knob. Every screen sizes its elements off --u (via
   // calc(px * var(--u)) tokens), so one viewport-driven value keeps the whole app
@@ -487,475 +622,544 @@ export function App() {
     // Design viewport = the display the game was tuned on (looks great at u=1).
     // Smaller screens scale down from here; larger ones are capped at 1 so the
     // tuned look is never upscaled.
-    const DESIGN_W = 2056
-    const DESIGN_H = 1329
+    const DESIGN_W = 2056;
+    const DESIGN_H = 1329;
     const apply = () => {
-      const u = Math.min(1, globalThis.innerWidth / DESIGN_W, globalThis.innerHeight / DESIGN_H)
-      document.documentElement.style.setProperty('--u', String(Math.max(0.65, u)))
-    }
-    apply()
-    globalThis.addEventListener('resize', apply)
-    return () => globalThis.removeEventListener('resize', apply)
-  }, [])
+      const u = Math.min(
+        1,
+        globalThis.innerWidth / DESIGN_W,
+        globalThis.innerHeight / DESIGN_H,
+      );
+      document.documentElement.style.setProperty(
+        "--u",
+        String(Math.max(0.65, u)),
+      );
+    };
+    apply();
+    globalThis.addEventListener("resize", apply);
+    return () => globalThis.removeEventListener("resize", apply);
+  }, []);
 
-  const send = useCallback((msg: object) => wsRef.current?.send(JSON.stringify(msg)), [])
+  const send = useCallback(
+    (msg: object) => wsRef.current?.send(JSON.stringify(msg)),
+    [],
+  );
 
   // Mulligan countdown: tick while the mulligan UI is up and unsubmitted, and
   // auto-keep the current selection at 0 (the server backstops a dead client).
   useEffect(() => {
-    if (phase !== 'mulligan' || mulliganSubmitted || spectating) return
-    setMulliganLeft(MULLIGAN_SECS)
-    const id = globalThis.setInterval(() => setMulliganLeft((l) => (l > 0 ? l - 1 : 0)), 1000)
-    return () => globalThis.clearInterval(id)
-  }, [phase, mulliganSubmitted, spectating])
+    if (phase !== "mulligan" || mulliganSubmitted || spectating) return;
+    setMulliganLeft(MULLIGAN_SECS);
+    const id = globalThis.setInterval(
+      () => setMulliganLeft((l) => (l > 0 ? l - 1 : 0)),
+      1000,
+    );
+    return () => globalThis.clearInterval(id);
+  }, [phase, mulliganSubmitted, spectating]);
 
   useEffect(() => {
-    if (phase !== 'mulligan' || mulliganSubmitted || spectating || mulliganLeft > 0) return
-    send({ type: 'mulligan', indices: [...mulliganPicks] })
-    setMulliganSubmitted(true)
-    setStatus('waiting for opponent…')
-  }, [phase, mulliganSubmitted, spectating, mulliganLeft, mulliganPicks, send])
+    if (
+      phase !== "mulligan" || mulliganSubmitted || spectating ||
+      mulliganLeft > 0
+    ) return;
+    send({ type: "mulligan", indices: [...mulliganPicks] });
+    setMulliganSubmitted(true);
+    setStatus("waiting for opponent…");
+  }, [phase, mulliganSubmitted, spectating, mulliganLeft, mulliganPicks, send]);
 
   // Tear down the current socket and detach its handlers so its onclose can't
   // fire stale reconnect logic. Used before an explicit (re)login so a lingering
   // OPEN socket (e.g. one left after a bad-token bounce) doesn't make connect()
   // early-return and hang on "Connecting".
   const closeSocket = useCallback(() => {
-    const ws = wsRef.current
+    const ws = wsRef.current;
     if (ws) {
-      ws.onopen = null
-      ws.onmessage = null
-      ws.onclose = null
-      ws.close()
-      wsRef.current = null
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.close();
+      wsRef.current = null;
     }
-  }, [])
+  }, []);
 
   // Apply one game snapshot (match_start or a single action's state) to the UI.
   // Pulled out so the action queue can call it one action at a time. All deps are
   // stable setters/refs, so the callback itself is stable.
-  const applyStateMsg = useCallback((msg: Extract<ServerMessage, { type: 'state' | 'match_start' }>) => {
-    // Render from the snapshot's POV: our own id when playing, the watched
-    // player's id when spectating (the server sets `you` to that seat). Using
-    // msg.you makes "whose turn" and the event log read from that POV.
-    povRef.current = msg.you
-    const mine = msg.turn === msg.you
-    // Keep the uid->name map current and turn this action's events into
-    // log lines (match_start carries no events).
-    const names = namesRef.current
-    const cards = cardsRef.current
-    for (const mn of [...msg.self.board, ...msg.opp.board]) {
-      names[mn.instanceId] = mn.name
-      cards[mn.instanceId] = minionToCardView(mn) // persistent uid->card map for the log (survives death)
-    }
-    if (msg.type === 'match_start') {
-      setLog([])
-      setAnim(null) // drop any leftover action animation from a prior match (else it replays on the new board)
-      setRankUpdate(null) // clear any prior game's rank change
-      setOppOnline(true)
-      setInvitedName(null)
-      setIncomingInvites([])
-      setSpectators([])
-    } else {
-      for (const e of msg.events ?? []) {
-        if (e.name && e.source?.[0] === 'u') names[e.source] = e.name
-        if (e.name && e.target?.[0] === 'u') names[e.target] = e.name
+  const applyStateMsg = useCallback(
+    (msg: Extract<ServerMessage, { type: "state" | "match_start" }>) => {
+      // Render from the snapshot's POV: our own id when playing, the watched
+      // player's id when spectating (the server sets `you` to that seat). Using
+      // msg.you makes "whose turn" and the event log read from that POV.
+      povRef.current = msg.you;
+      const mine = msg.turn === msg.you;
+      // Keep the uid->name map current and turn this action's events into
+      // log lines (match_start carries no events).
+      const names = namesRef.current;
+      const cards = cardsRef.current;
+      for (const mn of [...msg.self.board, ...msg.opp.board]) {
+        names[mn.instanceId] = mn.name;
+        cards[mn.instanceId] = minionToCardView(mn); // persistent uid->card map for the log (survives death)
       }
-      const entries: LogEntry[] = buildLog(msg.events ?? [], names, cards, povRef.current)
-      if (msg.resync) {
-        // Reconnect: Events is the full recent history (chronological).
-        // Replace the log, newest on top, recovering what happened while away.
-        setLog([...entries].reverse().slice(0, 40))
-      } else if (entries.length) {
-        // Newest on top, globally: reverse this action's groups so its latest step
-        // sits above its earlier ones (matches the resync path) — no zigzag where a
-        // death reads as happening before the hit that caused it.
-        setLog((prev) => [...entries.slice().reverse(), ...prev].slice(0, 40))
-      }
-      // Drive animations off this action's events (not a bulk resync replay).
-      if (!msg.resync && (msg.events?.length ?? 0) > 0) {
-        animSeqRef.current++
-        setAnim({ seq: animSeqRef.current, events: msg.events })
-      }
-    }
-    setSnap(msg)
-    setTurnSecs(msg.type === 'state' ? (msg.turnSecs ?? 0) : 0)
-    setTurnNum(msg.type === 'state' ? msg.turnNum : 0)
-    setWinner(null)
-    setAttacker(null)
-    setSpell(null)
-    setHeroPowerArmed(false)
-    setSeek(null) // any new snapshot means a paused seek resolved
-    setOppSeek(null) // ...including the opponent's, so clear the indicator
-    setOppIntent(null) // a resolved action invalidates the opponent's old aim hint
-    if (msg.mulligan && !spectatingRef.current) {
-      setMyTurn(false)
-      setStatus('Mulligan — replace any cards, then keep')
-      if (msg.type === 'match_start') {
-        // Opening: show a brief "Match found!" splash, then the mulligan.
-        setMulliganPicks(new Set())
-        setMulliganSubmitted(false)
-        setPhase('matchfound')
-        globalThis.clearTimeout(matchFoundTimerRef.current)
-        matchFoundTimerRef.current = globalThis.setTimeout(() => setPhase('mulligan'), 2000)
+      if (msg.type === "match_start") {
+        setLog([]);
+        setAnim(null); // drop any leftover action animation from a prior match (else it replays on the new board)
+        setRankUpdate(null); // clear any prior game's rank change
+        setOppOnline(true);
+        setInvitedName(null);
+        setIncomingInvites([]);
+        setSpectators([]);
       } else {
-        // Reconnect / resubmit mid-mulligan: go straight to the mulligan UI.
-        setPhase('mulligan')
+        for (const e of msg.events ?? []) {
+          if (e.name && e.source?.[0] === "u") names[e.source] = e.name;
+          if (e.name && e.target?.[0] === "u") names[e.target] = e.name;
+        }
+        const entries: LogEntry[] = buildLog(
+          msg.events ?? [],
+          names,
+          cards,
+          povRef.current,
+        );
+        if (msg.resync) {
+          // Reconnect: Events is the full recent history (chronological).
+          // Replace the log, newest on top, recovering what happened while away.
+          setLog([...entries].reverse().slice(0, 40));
+        } else if (entries.length) {
+          // Newest on top, globally: reverse this action's groups so its latest step
+          // sits above its earlier ones (matches the resync path) — no zigzag where a
+          // death reads as happening before the hit that caused it.
+          setLog((prev) =>
+            [...entries.slice().reverse(), ...prev].slice(0, 40)
+          );
+        }
+        // Drive animations off this action's events (not a bulk resync replay).
+        if (!msg.resync && (msg.events?.length ?? 0) > 0) {
+          animSeqRef.current++;
+          setAnim({ seq: animSeqRef.current, events: msg.events });
+        }
       }
-    } else {
-      // First live snapshot after the mulligan: dissolve the blurred
-      // mulligan view into the board rather than cutting to it.
-      if (phaseRef.current === 'mulligan' || phaseRef.current === 'matchfound') {
-        // Capture the mulligan modal's center NOW (DOM still shows it) so the
-        // kept cards fly from there into the hand once we render the board.
-        const mr = document.querySelector('.mulligan-modal')?.getBoundingClientRect()
-        setIntroFrom(mr ? { x: mr.left + mr.width / 2, y: mr.top + mr.height / 2 } : null)
-        setIntroPlay(true)
-        globalThis.clearTimeout(introTimerRef.current)
-        introTimerRef.current = globalThis.setTimeout(() => setIntroPlay(false), 1700)
-      }
-      setMulliganSubmitted(false)
-      setMyTurn(mine)
-      setPhase('playing')
-      if (spectatingRef.current) {
-        setStatus(`spectating ${spectatingRef.current}`)
+      setSnap(msg);
+      setTurnSecs(msg.type === "state" ? (msg.turnSecs ?? 0) : 0);
+      setTurnNum(msg.type === "state" ? msg.turnNum : 0);
+      setWinner(null);
+      setAttacker(null);
+      setSpell(null);
+      setHeroPowerArmed(false);
+      setSeek(null); // any new snapshot means a paused seek resolved
+      setOppSeek(null); // ...including the opponent's, so clear the indicator
+      setOppIntent(null); // a resolved action invalidates the opponent's old aim hint
+      if (msg.mulligan && !spectatingRef.current) {
+        setMyTurn(false);
+        setStatus("Mulligan — replace any cards, then keep");
+        if (msg.type === "match_start") {
+          // Opening: show a brief "Match found!" splash, then the mulligan.
+          setMulliganPicks(new Set());
+          setMulliganSubmitted(false);
+          setPhase("matchfound");
+          globalThis.clearTimeout(matchFoundTimerRef.current);
+          matchFoundTimerRef.current = globalThis.setTimeout(
+            () => setPhase("mulligan"),
+            2000,
+          );
+        } else {
+          // Reconnect / resubmit mid-mulligan: go straight to the mulligan UI.
+          setPhase("mulligan");
+        }
       } else {
-        setStatus(mine ? 'YOUR TURN' : "opponent's turn")
+        // First live snapshot after the mulligan: dissolve the blurred
+        // mulligan view into the board rather than cutting to it.
+        if (
+          phaseRef.current === "mulligan" || phaseRef.current === "matchfound"
+        ) {
+          // Capture the mulligan modal's center NOW (DOM still shows it) so the
+          // kept cards fly from there into the hand once we render the board.
+          const mr = document.querySelector(".mulligan-modal")
+            ?.getBoundingClientRect();
+          setIntroFrom(
+            mr
+              ? { x: mr.left + mr.width / 2, y: mr.top + mr.height / 2 }
+              : null,
+          );
+          setIntroPlay(true);
+          globalThis.clearTimeout(introTimerRef.current);
+          introTimerRef.current = globalThis.setTimeout(
+            () => setIntroPlay(false),
+            1700,
+          );
+        }
+        setMulliganSubmitted(false);
+        setMyTurn(mine);
+        setPhase("playing");
+        if (spectatingRef.current) {
+          setStatus(`spectating ${spectatingRef.current}`);
+        } else {
+          setStatus(mine ? "YOUR TURN" : "opponent's turn");
+        }
       }
-    }
-  }, [])
+    },
+    [],
+  );
 
   // Resolve the end-of-game result. Deferred until the action queue drains so the
   // lethal blow finishes animating before the win/loss screen appears.
-  const applyGameOver = useCallback((msg: Extract<ServerMessage, { type: 'game_over' }>) => {
-    setSeek(null)
-    setOppSeek(null)
-    setOppOnline(true)
-    // From the rendered POV: our own when playing, the watched player's when
-    // spectating ('you' then means the player we're watching).
-    setWinner(msg.winner === povRef.current ? 'you' : 'opponent')
-  }, [])
+  const applyGameOver = useCallback(
+    (msg: Extract<ServerMessage, { type: "game_over" }>) => {
+      setSeek(null);
+      setOppSeek(null);
+      setOppOnline(true);
+      // From the rendered POV: our own when playing, the watched player's when
+      // spectating ('you' then means the player we're watching).
+      setWinner(msg.winner === povRef.current ? "you" : "opponent");
+    },
+    [],
+  );
 
   // Discard any buffered actions (a fresh match / resync supersedes them).
   const flushQueue = useCallback(() => {
     if (advanceTimerRef.current) {
-      globalThis.clearTimeout(advanceTimerRef.current)
-      advanceTimerRef.current = undefined
+      globalThis.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = undefined;
     }
-    animQueueRef.current = []
-    drainingRef.current = false
-    pendingOverRef.current = null
-  }, [])
+    animQueueRef.current = [];
+    drainingRef.current = false;
+    pendingOverRef.current = null;
+  }, []);
 
   // Play the next buffered action: apply it, then wait its animation length before
   // advancing — so each action's animation finishes before the next replaces the
   // board. Fast-forwards when actions pile up so we never lag far behind.
   const pump = useCallback(() => {
-    if (drainingRef.current) return
-    const q = animQueueRef.current
-    const msg = q.shift()
+    if (drainingRef.current) return;
+    const q = animQueueRef.current;
+    const msg = q.shift();
     if (!msg) {
-      const over = pendingOverRef.current
+      const over = pendingOverRef.current;
       if (over) {
-        pendingOverRef.current = null
-        applyGameOver(over)
+        pendingOverRef.current = null;
+        applyGameOver(over);
       }
-      return
+      return;
     }
-    drainingRef.current = true
-    applyStateMsg(msg)
-    const speed = q.length >= 4 ? 3 : q.length >= 2 ? 2 : 1
-    const dur = Math.min(4000, Math.max(220, animDuration(msg.events) / speed))
+    drainingRef.current = true;
+    applyStateMsg(msg);
+    const speed = q.length >= 4 ? 3 : q.length >= 2 ? 2 : 1;
+    const dur = Math.min(4000, Math.max(220, animDuration(msg.events) / speed));
     advanceTimerRef.current = globalThis.setTimeout(() => {
-      drainingRef.current = false
-      pump()
-    }, dur)
-  }, [applyStateMsg, applyGameOver])
+      drainingRef.current = false;
+      pump();
+    }, dur);
+  }, [applyStateMsg, applyGameOver]);
 
   const connect = useCallback((token: string) => {
     // Guard against opening a second socket. React StrictMode double-invokes the
     // reconnect effect in dev; without this the two connections would race and
     // the second would kick the first (same account) — logging the page out on
     // reload.
-    const existing = wsRef.current
-    if (existing && existing.readyState <= WebSocket.OPEN) return
+    const existing = wsRef.current;
+    if (existing && existing.readyState <= WebSocket.OPEN) return;
     if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current)
-      reconnectTimerRef.current = undefined
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = undefined;
     }
-    tokenRef.current = token
-    meRef.current = null
-    const ws = new WebSocket(wsURL())
-    wsRef.current = ws
+    tokenRef.current = token;
+    meRef.current = null;
+    const ws = new WebSocket(wsURL());
+    wsRef.current = ws;
 
-    ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }))
+    ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token }));
     ws.onclose = () => {
       // A kick already set the phase + an explanatory status; don't clobber it.
       if (kickedRef.current) {
-        kickedRef.current = false
-        return
+        kickedRef.current = false;
+        return;
       }
       // Transient drop while we still hold a session: auto-reconnect. The server
       // keeps our match seat open for a grace window, so a quick reconnect
       // resumes the game. Give up after a few tries and fall back to login.
-      const tok = tokenRef.current
+      const tok = tokenRef.current;
       if (tok && !giveUpRef.current && retriesRef.current < 6) {
-        retriesRef.current++
-        setPhase('connecting')
-        setStatus(`connection lost — reconnecting… (${retriesRef.current})`)
-        reconnectTimerRef.current = globalThis.setTimeout(() => connect(tok), 1500)
-        return
+        retriesRef.current++;
+        setPhase("connecting");
+        setStatus(`connection lost — reconnecting… (${retriesRef.current})`);
+        reconnectTimerRef.current = globalThis.setTimeout(
+          () => connect(tok),
+          1500,
+        );
+        return;
       }
       // If we never authenticated, the connection itself failed.
-      setStatus(meRef.current ? 'disconnected — log in again' : 'connection closed')
-      setPhase('auth')
-    }
+      setStatus(
+        meRef.current ? "disconnected — log in again" : "connection closed",
+      );
+      setPhase("auth");
+    };
     ws.onmessage = (e) => {
-      const msg: ServerMessage = JSON.parse(e.data)
+      const msg: ServerMessage = JSON.parse(e.data);
       switch (msg.type) {
-        case 'joined':
-          meRef.current = msg.you
-          retriesRef.current = 0 // successful (re)connect resets the backoff
-          setName(msg.name)
-          setPhase('lobby')
-          setStatus(`logged in as ${msg.name}`)
-          break
-        case 'lobby':
-          setCounts({ online: msg.online, inGame: msg.inGame })
-          setPlayers(msg.players ?? [])
-          break
-        case 'waiting':
-          setPhase('waiting')
-          setStatus('waiting for an opponent')
-          break
-        case 'match_start':
+        case "joined":
+          meRef.current = msg.you;
+          retriesRef.current = 0; // successful (re)connect resets the backoff
+          setName(msg.name);
+          setPhase("lobby");
+          setStatus(`logged in as ${msg.name}`);
+          break;
+        case "lobby":
+          setCounts({ online: msg.online, inGame: msg.inGame });
+          setPlayers(msg.players ?? []);
+          break;
+        case "waiting":
+          setPhase("waiting");
+          setStatus("waiting for an opponent");
+          break;
+        case "match_start":
           // A fresh match supersedes anything buffered; apply immediately.
-          flushQueue()
-          applyStateMsg(msg)
-          break
-        case 'state': {
+          flushQueue();
+          applyStateMsg(msg);
+          break;
+        case "state": {
           // Animated actions (live, with events) queue and play one at a time so a
           // fast incoming snapshot can't clobber the one mid-animation. Everything
           // else (resync, mulligan, a no-event tick) is authoritative/instant:
           // flush the buffer and apply now.
-          const animated = !msg.resync && !msg.mulligan && (msg.events?.length ?? 0) > 0
+          const animated = !msg.resync && !msg.mulligan &&
+            (msg.events?.length ?? 0) > 0;
           if (animated) {
-            animQueueRef.current.push(msg)
-            pump()
+            animQueueRef.current.push(msg);
+            pump();
           } else {
-            flushQueue()
-            applyStateMsg(msg)
+            flushQueue();
+            applyStateMsg(msg);
           }
-          break
+          break;
         }
-        case 'spectate_start':
+        case "spectate_start":
           // Switch into the read-only spectator view; the watched player's POV
           // snapshot follows immediately and drives the board render.
-          setSpectating(msg.target)
-          spectatingRef.current = msg.target
-          setLog([])
-          setWinner(null)
-          break
-        case 'spectators':
-          setSpectators(msg.names ?? [])
-          break
-        case 'seek':
-          setSeek(msg.options)
-          setStatus('Seek — pick a card')
-          break
-        case 'opp_seek':
-          setOppSeek(msg.count)
-          break
-        case 'opp_intent':
-          setOppIntent({ hoverHand: msg.hoverHand, hover: msg.hover, aimFrom: msg.aimFrom, aimTo: msg.aimTo })
-          break
-        case 'opp_conn':
-          setOppOnline(msg.connected)
-          break
-        case 'invite_received':
-          setIncomingInvites((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]))
-          setInviteDeck(selectedDeckRef.current)
-          break
-        case 'invite_declined':
-          setInvitedName(null)
-          setStatus(`${msg.by} declined your invite`)
-          break
-        case 'invite_cancelled':
-          setIncomingInvites((prev) => prev.filter((n) => n !== msg.from))
-          break
-        case 'game_over':
+          setSpectating(msg.target);
+          spectatingRef.current = msg.target;
+          setLog([]);
+          setWinner(null);
+          break;
+        case "spectators":
+          setSpectators(msg.names ?? []);
+          break;
+        case "seek":
+          setSeek(msg.options);
+          setStatus("Seek — pick a card");
+          break;
+        case "opp_seek":
+          setOppSeek(msg.count);
+          break;
+        case "opp_intent":
+          setOppIntent({
+            hoverHand: msg.hoverHand,
+            hover: msg.hover,
+            aimFrom: msg.aimFrom,
+            aimTo: msg.aimTo,
+          });
+          break;
+        case "opp_conn":
+          setOppOnline(msg.connected);
+          break;
+        case "invite_received":
+          setIncomingInvites((
+            prev,
+          ) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
+          setInviteDeck(selectedDeckRef.current);
+          break;
+        case "invite_declined":
+          setInvitedName(null);
+          setStatus(`${msg.by} declined your invite`);
+          break;
+        case "invite_cancelled":
+          setIncomingInvites((prev) => prev.filter((n) => n !== msg.from));
+          break;
+        case "game_over":
           // If the lethal action is still buffered/animating, hold the result until
           // the queue drains (pump applies it) so the killing blow plays out first.
-          if (drainingRef.current || animQueueRef.current.length > 0) pendingOverRef.current = msg
-          else applyGameOver(msg)
-          break
-        case 'rank_update':
+          if (drainingRef.current || animQueueRef.current.length > 0) {
+            pendingOverRef.current = msg;
+          } else applyGameOver(msg);
+          break;
+        case "rank_update":
           // Ranked game ended: remember our ladder move for the win/loss screen.
-          setRankUpdate({ oldRank: msg.oldRank, newRank: msg.newRank })
-          break
-        case 'error':
+          setRankUpdate({ oldRank: msg.oldRank, newRank: msg.newRank });
+          break;
+        case "error":
           // Kicked because the same account logged in elsewhere: this window
           // logs out (clears its token so a reload won't reconnect and bounce
           // the new session).
-          if (msg.msg === 'logged in elsewhere') {
-            kickedRef.current = true
-            localStorage.removeItem(TOKEN_KEY)
-            meRef.current = null
-            setStatus('logged in from another window')
-            setPhase('auth')
-            wsRef.current?.close()
-            break
+          if (msg.msg === "logged in elsewhere") {
+            kickedRef.current = true;
+            localStorage.removeItem(TOKEN_KEY);
+            meRef.current = null;
+            setStatus("logged in from another window");
+            setPhase("auth");
+            wsRef.current?.close();
+            break;
           }
           // An error before we ever joined means the (stored) token is bad.
           if (!meRef.current) {
-            giveUpRef.current = true // dead token: don't auto-reconnect in a loop
-            localStorage.removeItem(TOKEN_KEY)
-            tokenRef.current = null
-            closeSocket() // drop the dead socket so a fresh login can connect
-            setStatus('session expired — log in again')
-            setPhase('auth')
+            giveUpRef.current = true; // dead token: don't auto-reconnect in a loop
+            localStorage.removeItem(TOKEN_KEY);
+            tokenRef.current = null;
+            closeSocket(); // drop the dead socket so a fresh login can connect
+            setStatus("session expired — log in again");
+            setPhase("auth");
           } else {
             // A failed spectate (e.g. the match just ended) leaves us in the lobby:
             // clear the pending spectator state so the lobby renders normally.
             if (spectatingRef.current) {
-              spectatingRef.current = null
-              setSpectating(null)
+              spectatingRef.current = null;
+              setSpectating(null);
             }
-            setStatus('error: ' + msg.msg)
+            setStatus("error: " + msg.msg);
           }
-          break
+          break;
       }
-    }
-  }, [])
+    };
+  }, []);
 
   // On load, resume an existing session if we have a stored token.
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY)
+    const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
-      setPhase('connecting')
-      setStatus('reconnecting…')
-      connect(token)
+      setPhase("connecting");
+      setStatus("reconnecting…");
+      connect(token);
     }
-  }, [connect])
+  }, [connect]);
 
   const onRegister = async () => {
-    setStatus('creating account…')
+    setStatus("creating account…");
     try {
-      await register(username.trim(), password)
-      await onLogin() // seamless: drop straight into the lobby
+      await register(username.trim(), password);
+      await onLogin(); // seamless: drop straight into the lobby
     } catch (err) {
-      setStatus('register failed: ' + (err as Error).message)
+      setStatus("register failed: " + (err as Error).message);
     }
-  }
+  };
 
   const onLogin = async () => {
     try {
-      const token = await login(username.trim(), password)
-      localStorage.setItem(TOKEN_KEY, token)
-      giveUpRef.current = false // fresh session: re-enable auto-reconnect
-      retriesRef.current = 0
-      closeSocket() // ensure a fresh connection (no lingering socket to early-return on)
-      setPhase('connecting')
-      setStatus('connecting…')
-      connect(token)
+      const token = await login(username.trim(), password);
+      localStorage.setItem(TOKEN_KEY, token);
+      giveUpRef.current = false; // fresh session: re-enable auto-reconnect
+      retriesRef.current = 0;
+      closeSocket(); // ensure a fresh connection (no lingering socket to early-return on)
+      setPhase("connecting");
+      setStatus("connecting…");
+      connect(token);
     } catch (err) {
-      setStatus('login failed: ' + (err as Error).message)
+      setStatus("login failed: " + (err as Error).message);
     }
-  }
+  };
 
   const onLogout = () => {
-    giveUpRef.current = true // intentional disconnect: suppress auto-reconnect
-    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
-    localStorage.removeItem(TOKEN_KEY)
-    tokenRef.current = null
-    meRef.current = null
-    wsRef.current?.close()
-    setPhase('auth')
-    setStatus('logged out')
-  }
+    giveUpRef.current = true; // intentional disconnect: suppress auto-reconnect
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    localStorage.removeItem(TOKEN_KEY);
+    tokenRef.current = null;
+    meRef.current = null;
+    wsRef.current?.close();
+    setPhase("auth");
+    setStatus("logged out");
+  };
 
   const onPlay = () => {
-    send({ type: 'find_match', deckId: selectedDeck })
-  }
+    send({ type: "find_match", deckId: selectedDeck });
+  };
 
   // Play immediately against the AI, which plays a random prebuilt deck of aiClass.
   const onPlayAI = () => {
-    send({ type: 'find_match', deckId: selectedDeck, vsAI: true, aiClass, aiDeckId: aiDeck })
-  }
+    send({
+      type: "find_match",
+      deckId: selectedDeck,
+      vsAI: true,
+      aiClass,
+      aiDeckId: aiDeck,
+    });
+  };
 
   // Direct invites. Clicking Invite opens the challenge window (pick a deck);
   // sending happens from there. Only one outgoing at a time.
   const onInvite = (target: string) => {
-    setChallengeTarget(target)
-    setChallengeDeck(selectedDeck)
-  }
+    setChallengeTarget(target);
+    setChallengeDeck(selectedDeck);
+  };
   const onSendChallenge = () => {
-    if (!challengeTarget) return
-    setInvitedName(challengeTarget)
-    send({ type: 'invite', target: challengeTarget, deckId: challengeDeck })
-    setChallengeTarget(null)
-  }
+    if (!challengeTarget) return;
+    setInvitedName(challengeTarget);
+    send({ type: "invite", target: challengeTarget, deckId: challengeDeck });
+    setChallengeTarget(null);
+  };
   const onCancelInvite = () => {
-    setInvitedName(null)
-    send({ type: 'invite_cancel' })
-  }
+    setInvitedName(null);
+    send({ type: "invite_cancel" });
+  };
   const onRespondInvite = (from: string, accept: boolean) => {
-    send({ type: 'invite_respond', from, accept, deckId: accept ? inviteDeck : undefined })
-    setIncomingInvites((prev) => prev.filter((n) => n !== from))
-  }
+    send({
+      type: "invite_respond",
+      from,
+      accept,
+      deckId: accept ? inviteDeck : undefined,
+    });
+    setIncomingInvites((prev) => prev.filter((n) => n !== from));
+  };
 
   // Load the player's saved decks whenever they land in the lobby.
   useEffect(() => {
-    if (phase !== 'lobby' || !tokenRef.current) return
+    if (phase !== "lobby" || !tokenRef.current) return;
     listDecks(tokenRef.current)
       .then((ds) => {
-        setDecks(ds)
+        setDecks(ds);
         // Keep the selection valid; fall back to the first saved deck.
-        setSelectedDeck((cur) => (ds.some((d) => d.id === cur) ? cur : (ds[0]?.id ?? 0)))
+        setSelectedDeck((
+          cur,
+        ) => (ds.some((d) => d.id === cur) ? cur : (ds[0]?.id ?? 0)));
       })
-      .catch(() => setDecks([]))
-  }, [phase])
+      .catch(() => setDecks([]));
+  }, [phase]);
 
   const onBackToLobby = () => {
-    globalThis.clearTimeout(matchFoundTimerRef.current)
-    send({ type: 'enter_lobby' })
-    setSpectating(null)
-    spectatingRef.current = null
-    setSpectators([])
-    setSnap(null)
-    setWinner(null)
-    setAttacker(null)
-    setSpell(null)
-    setHeroPowerArmed(false)
-    setSeek(null)
-    setOppSeek(null)
-    setMulliganPicks(new Set())
-    setMulliganSubmitted(false)
-    setInvitedName(null)
-    setIncomingInvites([])
-    setStatus(name ? `logged in as ${name}` : 'in lobby')
-    setPhase('lobby')
-  }
+    globalThis.clearTimeout(matchFoundTimerRef.current);
+    send({ type: "enter_lobby" });
+    setSpectating(null);
+    spectatingRef.current = null;
+    setSpectators([]);
+    setSnap(null);
+    setWinner(null);
+    setAttacker(null);
+    setSpell(null);
+    setHeroPowerArmed(false);
+    setSeek(null);
+    setOppSeek(null);
+    setMulliganPicks(new Set());
+    setMulliganSubmitted(false);
+    setInvitedName(null);
+    setIncomingInvites([]);
+    setStatus(name ? `logged in as ${name}` : "in lobby");
+    setPhase("lobby");
+  };
 
   // Start spectating a player's live match (read-only). The server replies with
   // spectate_start + the watched player's POV snapshot.
-  const onSpectate = (target: string) => send({ type: 'spectate', target })
+  const onSpectate = (target: string) => send({ type: "spectate", target });
 
   // hasLegalTarget mirrors the server's hasLegalTargetFor: is there a character the
   // card can hit right now under its rule AND any extra condition (reqAttack /
   // reqTaunt)? Heroes never satisfy a minion condition.
   const hasLegalTarget = (card: CardView): boolean => {
-    if (!snap || !card.target) return false
-    const rule = card.target
+    if (!snap || !card.target) return false;
+    const rule = card.target;
     const ok = (kind: CharKind, m?: MinionView): boolean => {
-      if (kind === 'enemyMinion' && m?.stealth) return false // enemy Stealth untargetable
-      return ruleMatches(rule, kind) && condMet(card, m)
-    }
-    if (ok('selfHero') || ok('oppHero')) return true
-    if (snap.self.board.some((m) => ok('friendlyMinion', m))) return true
-    if (snap.opp.board.some((m) => ok('enemyMinion', m))) return true
-    return false
-  }
+      if (kind === "enemyMinion" && m?.stealth) return false; // enemy Stealth untargetable
+      return ruleMatches(rule, kind) && condMet(card, m);
+    };
+    if (ok("selfHero") || ok("oppHero")) return true;
+    if (snap.self.board.some((m) => ok("friendlyMinion", m))) return true;
+    if (snap.opp.board.some((m) => ok("enemyMinion", m))) return true;
+    return false;
+  };
 
   // Clicking a hand card. A targeted card (a spell, or a minion with a targeted
   // onset) arms targeting when a legal target exists; click it again to
@@ -964,13 +1168,13 @@ export function App() {
   // pos (optional) is the board slot a dragged minion was dropped onto; undefined
   // appends. Ignored for non-minions.
   const onHandCard = (i: number, card: CardView, pos?: number) => {
-    if (!myTurn || winner || spectatingRef.current) return
-    const minionPos = card.cardType === 'minion' ? pos : undefined
-    const rule = card.target
-    if (rule && rule !== 'none') {
+    if (!myTurn || winner || spectatingRef.current) return;
+    const minionPos = card.cardType === "minion" ? pos : undefined;
+    const rule = card.target;
+    if (rule && rule !== "none") {
       if (spell?.handIndex === i) {
-        setSpell(null)
-        return
+        setSpell(null);
+        return;
       }
       if (hasLegalTarget(card)) {
         setSpell({
@@ -980,118 +1184,125 @@ export function App() {
           reqMaxAttack: card.reqMaxAttack,
           reqTaunt: card.reqTaunt,
           pos: minionPos,
-        })
-        setAttacker(null)
-        setHeroPowerArmed(false)
-        return
+        });
+        setAttacker(null);
+        setHeroPowerArmed(false);
+        return;
       }
-      if (card.cardType === 'minion') {
-        send({ type: 'play_card', handIndex: i, pos: minionPos }) // onset fizzles
+      if (card.cardType === "minion") {
+        send({ type: "play_card", handIndex: i, pos: minionPos }); // onset fizzles
       } else {
-        setStatus('no valid target')
+        setStatus("no valid target");
       }
-      return
+      return;
     }
     // Non-minion cards (spell/secret/weapon) fly to the table; minions arrive via
     // the board fly-in instead.
-    if (card.cardType !== 'minion') playGhost(`hand-${i}`)
-    send({ type: 'play_card', handIndex: i, pos: minionPos })
-  }
+    if (card.cardType !== "minion") playGhost(`hand-${i}`);
+    send({ type: "play_card", handIndex: i, pos: minionPos });
+  };
 
   // Clicking the hero power. An untargeted power fires immediately; a targeted one
   // (Fire Dart = any character) arms targeting — click again to cancel.
   const onHeroPower = () => {
-    if (!myTurn || winner || !snap || spectatingRef.current) return
-    const hp = snap.self.heroPower
-    if (!hp || snap.self.heroPowerUsed || hp.cost > snap.self.mana) return
-    const rule = hp.target
-    if (rule && rule !== 'none') {
-      setHeroPowerArmed((on) => !on)
-      setSpell(null)
-      setAttacker(null)
-      return
+    if (!myTurn || winner || !snap || spectatingRef.current) return;
+    const hp = snap.self.heroPower;
+    if (!hp || snap.self.heroPowerUsed || hp.cost > snap.self.mana) return;
+    const rule = hp.target;
+    if (rule && rule !== "none") {
+      setHeroPowerArmed((on) => !on);
+      setSpell(null);
+      setAttacker(null);
+      return;
     }
-    send({ type: 'hero_power' })
-  }
+    send({ type: "hero_power" });
+  };
 
   // True if a character is a legal click target right now. For attacks, Taunt
   // (must hit a taunt minion) and the attacker's hero-reach (Rush) are honored —
   // the server is still authoritative; this only drives highlighting/clicks.
   const targetable = (kind: CharKind, m?: MinionView): boolean => {
-    if (!myTurn || winner || !snap || spectatingRef.current) return false
+    if (!myTurn || winner || !snap || spectatingRef.current) return false;
     if (heroPowerArmed) {
-      const rule = snap.self.heroPower?.target
-      if (!rule) return false
-      if (kind === 'enemyMinion' && m?.stealth) return false
-      if (m?.elusive) return false // Elusive: untargetable by spells/hero powers
-      return ruleMatches(rule, kind)
+      const rule = snap.self.heroPower?.target;
+      if (!rule) return false;
+      if (kind === "enemyMinion" && m?.stealth) return false;
+      if (m?.elusive) return false; // Elusive: untargetable by spells/hero powers
+      return ruleMatches(rule, kind);
     }
     if (spell) {
-      if (kind === 'enemyMinion' && m?.stealth) return false // enemy Stealth untargetable
-      if (m?.elusive) return false // Elusive: untargetable by spells/hero powers
-      return ruleMatches(spell.target, kind) && condMet(spell, m)
+      if (kind === "enemyMinion" && m?.stealth) return false; // enemy Stealth untargetable
+      if (m?.elusive) return false; // Elusive: untargetable by spells/hero powers
+      return ruleMatches(spell.target, kind) && condMet(spell, m);
     }
     if (attacker) {
       // A Stealthed Taunt is hidden, so it does not compel attacks.
-      const enemyTaunt = snap.opp.board.some((x) => x.taunt && !x.stealth)
-      if (attacker === 'selfHero') {
+      const enemyTaunt = snap.opp.board.some((x) => x.taunt && !x.stealth);
+      if (attacker === "selfHero") {
         // Hero (weapon) attack: may go face unless a taunt is up; no Rush limits.
-        if (kind === 'oppHero') return !enemyTaunt
-        if (kind === 'enemyMinion') {
-          if (m?.stealth) return false
-          return enemyTaunt ? !!m?.taunt : true
+        if (kind === "oppHero") return !enemyTaunt;
+        if (kind === "enemyMinion") {
+          if (m?.stealth) return false;
+          return enemyTaunt ? !!m?.taunt : true;
         }
-        return false
+        return false;
       }
-      const atk = snap.self.board.find((x) => x.instanceId === attacker)
-      if (kind === 'oppHero') return !!atk?.canAttackHero && !enemyTaunt
-      if (kind === 'enemyMinion') {
-        if (m?.stealth) return false // can't attack a Stealthed minion
-        return enemyTaunt ? !!m?.taunt : true
+      const atk = snap.self.board.find((x) => x.instanceId === attacker);
+      if (kind === "oppHero") return !!atk?.canAttackHero && !enemyTaunt;
+      if (kind === "enemyMinion") {
+        if (m?.stealth) return false; // can't attack a Stealthed minion
+        return enemyTaunt ? !!m?.taunt : true;
       }
-      return false
+      return false;
     }
-    return false
-  }
+    return false;
+  };
 
   // Clicking a character resolves the active hero power, spell, or attack.
   const onChar = (targetId: string, kind: CharKind, m?: MinionView) => {
-    if (!myTurn || winner || spectatingRef.current) return
+    if (!myTurn || winner || spectatingRef.current) return;
     if (heroPowerArmed) {
       if (targetable(kind, m)) {
-        send({ type: 'hero_power', targetId })
-        setHeroPowerArmed(false)
+        send({ type: "hero_power", targetId });
+        setHeroPowerArmed(false);
       }
-      return
+      return;
     }
     if (spell) {
       if (targetable(kind, m)) {
-        const played = snap?.self.hand?.[spell.handIndex]
-        if (played && played.cardType !== 'minion') playGhost(`hand-${spell.handIndex}`)
-        send({ type: 'play_card', handIndex: spell.handIndex, targetId, pos: spell.pos })
-        setSpell(null)
+        const played = snap?.self.hand?.[spell.handIndex];
+        if (played && played.cardType !== "minion") {
+          playGhost(`hand-${spell.handIndex}`);
+        }
+        send({
+          type: "play_card",
+          handIndex: spell.handIndex,
+          targetId,
+          pos: spell.pos,
+        });
+        setSpell(null);
       }
-      return
+      return;
     }
-    if (kind === 'friendlyMinion') {
+    if (kind === "friendlyMinion") {
       if (m && m.canAttack && m.attack > 0) {
-        setAttacker((cur) => (cur === targetId ? null : targetId))
+        setAttacker((cur) => (cur === targetId ? null : targetId));
       }
-      return
+      return;
     }
-    if (kind === 'selfHero') {
+    if (kind === "selfHero") {
       // Select the weapon-armed hero as the attacker (click again to deselect).
       if (snap?.self.heroCanAttack) {
-        setAttacker((cur) => (cur === 'selfHero' ? null : 'selfHero'))
+        setAttacker((cur) => (cur === "selfHero" ? null : "selfHero"));
       }
-      return
+      return;
     }
-    if ((kind === 'enemyMinion' || kind === 'oppHero') && attacker) {
-      if (!targetable(kind, m)) return // illegal (taunt / no hero reach)
-      send({ type: 'attack', attackerId: attacker, targetId })
-      setAttacker(null)
+    if ((kind === "enemyMinion" || kind === "oppHero") && attacker) {
+      if (!targetable(kind, m)) return; // illegal (taunt / no hero reach)
+      send({ type: "attack", attackerId: attacker, targetId });
+      setAttacker(null);
     }
-  }
+  };
 
   const ghLink = (
     <a
@@ -1108,14 +1319,14 @@ export function App() {
         />
       </svg>
     </a>
-  )
+  );
 
-  if (phase === 'auth' || phase === 'connecting') {
-    const busy = phase === 'connecting'
-    const uErr = usernameError(username.trim())
-    const pErr = passwordError(password)
-    const filled = username.trim().length > 0 && password.length > 0
-    const canSubmit = !busy && filled && !uErr && !pErr
+  if (phase === "auth" || phase === "connecting") {
+    const busy = phase === "connecting";
+    const uErr = usernameError(username.trim());
+    const pErr = passwordError(password);
+    const filled = username.trim().length > 0 && password.length > 0;
+    const canSubmit = !busy && filled && !uErr && !pErr;
     return (
       <div className="lobby-screen">
         <div className="lobby-card">
@@ -1124,7 +1335,7 @@ export function App() {
 
           <div className="auth-field">
             <input
-              className={'auth-input' + (uErr ? ' invalid' : '')}
+              className={"auth-input" + (uErr ? " invalid" : "")}
               placeholder="username"
               value={username}
               disabled={busy}
@@ -1133,7 +1344,7 @@ export function App() {
               spellCheck={false}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && canSubmit) onLogin()
+                if (e.key === "Enter" && canSubmit) onLogin();
               }}
             />
             {uErr && <span className="field-err">{uErr}</span>}
@@ -1141,30 +1352,42 @@ export function App() {
 
           <div className="auth-field">
             <input
-              className={'auth-input' + (pErr ? ' invalid' : '')}
+              className={"auth-input" + (pErr ? " invalid" : "")}
               type="password"
               placeholder="password"
               value={password}
               disabled={busy}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && canSubmit) onLogin()
+                if (e.key === "Enter" && canSubmit) onLogin();
               }}
             />
             {pErr && <span className="field-err">{pErr}</span>}
           </div>
 
-          <button type="button" className={'play-btn' + (busy ? ' waiting' : '')} onClick={onLogin} disabled={!canSubmit}>
-            {busy ? (
-              <>
-                <span className="play-spinner" />
-                Connecting
-              </>
-            ) : (
-              '▶ Login'
-            )}
+          <button
+            type="button"
+            className={"play-btn" + (busy ? " waiting" : "")}
+            onClick={onLogin}
+            disabled={!canSubmit}
+          >
+            {busy
+              ? (
+                <>
+                  <span className="play-spinner" />
+                  Connecting
+                </>
+              )
+              : (
+                "▶ Login"
+              )}
           </button>
-          <button type="button" className="build-btn" onClick={onRegister} disabled={!canSubmit}>
+          <button
+            type="button"
+            className="build-btn"
+            onClick={onRegister}
+            disabled={!canSubmit}
+          >
             Register
           </button>
 
@@ -1172,315 +1395,475 @@ export function App() {
           {ghLink}
         </div>
       </div>
-    )
+    );
   }
 
-  if (phase === 'lobby' || phase === 'waiting') {
-    const waiting = phase === 'waiting'
+  if (phase === "lobby" || phase === "waiting") {
+    const waiting = phase === "waiting";
     return (
       <div className="lobby-screen">
-        {/* On a landscape phone this wrapper becomes a single bordered panel
+        {
+          /* On a landscape phone this wrapper becomes a single bordered panel
             holding the lobby card + players list as two sections; on desktop it
-            is display:contents (no effect) so the panel stays fixed as before. */}
+            is display:contents (no effect) so the panel stays fixed as before. */
+        }
         <div className="lobby-merge">
-        <div className="lobby-card">
-          <h1 className="logo">Vanillastone</h1>
-          <p className="welcome">
-            Welcome, <strong>{name}</strong>
-          </p>
-          <p className="presence">
-            <span className="dot" /> {counts.online} online · {counts.inGame} in game
-          </p>
+          <div className="lobby-card">
+            <h1 className="logo">Vanillastone</h1>
+            <p className="welcome">
+              Welcome, <strong>{name}</strong>
+            </p>
+            <p className="presence">
+              <span className="dot" /> {counts.online} online · {counts.inGame}
+              {" "}
+              in game
+            </p>
 
-          {/* Play opens the mode picker; while searching (queued vs a human) it
-              becomes the cancel toggle back to the lobby. */}
-          <button type="button"
-            className={'play-btn' + (waiting ? ' waiting' : '')}
-            onClick={waiting ? onBackToLobby : () => setPlayModal(true)}
-          >
-            {waiting ? (
-              <>
-                <span className="play-spinner" />
-                Finding opponent
-              </>
-            ) : (
-              '▶ Play'
-            )}
-          </button>
-          {waiting && <p className="cancel-hint">click again to cancel</p>}
-
-          <button type="button" className="build-btn" onClick={() => setPhase('deckbuilder')} disabled={waiting}>
-            📖 Build deck
-          </button>
-
-          <div className="lobby-stats-row">
-            <button type="button" className="stats-btn" onClick={() => setShowLeaderboard(true)}>
-              🏆 Leaderboard
+            {
+              /* Play opens the mode picker; while searching (queued vs a human) it
+              becomes the cancel toggle back to the lobby. */
+            }
+            <button
+              type="button"
+              className={"play-btn" + (waiting ? " waiting" : "")}
+              onClick={waiting ? onBackToLobby : () => setPlayModal(true)}
+            >
+              {waiting
+                ? (
+                  <>
+                    <span className="play-spinner" />
+                    Finding opponent
+                  </>
+                )
+                : (
+                  "▶ Play"
+                )}
             </button>
-            <button type="button" className="stats-btn" onClick={() => setProfileUser(name)}>
-              👤 My profile
+            {waiting && <p className="cancel-hint">click again to cancel</p>}
+
+            <button
+              type="button"
+              className="build-btn"
+              onClick={() => setPhase("deckbuilder")}
+              disabled={waiting}
+            >
+              📖 Build deck
             </button>
-          </div>
 
-          <button type="button" className="logout" onClick={onLogout} disabled={waiting}>
-            Log out
-          </button>
-          <p className="lobby-status">{status}</p>
-          {ghLink}
-        </div>
-
-        {/* Mode picker opened by Play: vs AI (pick its class), vs a live player
-            (queue), or Arena (reserved). */}
-        {playModal && !waiting && (
-          <div className="overlay" onClick={() => { setPlayModal(false); setSetupMode(null) }}>
-            <div className="mode-picker" onClick={(e) => e.stopPropagation()}>
-              {isMobile && setupMode ? (
-                /* Mobile step 2: pick your deck (+ AI class/deck for AI), then go. */
-                <>
-                  <div className="mode-top">
-                    <button type="button" className="mode-back" onClick={() => setSetupMode(null)} aria-label="Back">
-                      ‹
-                    </button>
-                    <h2>{setupMode === 'ai' ? 'Play vs AI' : 'Play vs Player'}</h2>
-                    <button type="button"
-                      className="mode-close"
-                      onClick={() => { setPlayModal(false); setSetupMode(null) }}
-                      aria-label="Close"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="mode-setup">
-                    <label className="mode-deck">
-                      <span>Your deck</span>
-                      <DeckSelect value={selectedDeck} onChange={setSelectedDeck} options={decks} />
-                    </label>
-                    {setupMode === 'ai' && (
-                      <>
-                        <label className="mode-aiclass">
-                          <span>AI plays</span>
-                          <FancySelect
-                            value={aiClass}
-                            onChange={(v) => {
-                              setAiClass(String(v))
-                              setAiDeck(0)
-                            }}
-                            options={[
-                              { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
-                              { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
-                              { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
-                              { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
-                              { value: 'priest', label: 'Priest', art: '/art/priest_hero.png' },
-                              { value: 'paladin', label: 'Paladin', art: '/art/paladin_hero.png' },
-                            ]}
-                          />
-                        </label>
-                        <label className="mode-aiclass">
-                          <span>AI deck</span>
-                          <FancySelect
-                            value={aiDeck}
-                            onChange={(v) => setAiDeck(Number(v))}
-                            options={[
-                              { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
-                              ...decks
-                                .filter((d) => d.class === aiClass)
-                                .map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
-                            ]}
-                          />
-                        </label>
-                      </>
-                    )}
-                    <button type="button"
-                      className="mode-go"
-                      onClick={() => {
-                        const ai = setupMode === 'ai'
-                        setPlayModal(false)
-                        setSetupMode(null)
-                        if (ai) onPlayAI()
-                        else onPlay()
-                      }}
-                    >
-                      {setupMode === 'ai' ? 'Start' : 'Find match'}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                /* Step 1 (mobile: mode only) / full single-screen modal (desktop). */
-                <>
-                  {/* Title + (desktop) shared deck selector + close on one row. */}
-                  <div className="mode-top">
-                    <h2>Choose how to play</h2>
-                    {!isMobile && (
-                      <label className="mode-deck">
-                        <span>Your deck</span>
-                        <DeckSelect value={selectedDeck} onChange={setSelectedDeck} options={decks} />
-                      </label>
-                    )}
-                    <button type="button" className="mode-close" onClick={() => setPlayModal(false)} aria-label="Close">
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="mode-grid">
-                    <div className="mode-card">
-                      <span className="mode-icon">🤖</span>
-                      <span className="mode-name">Play vs AI</span>
-                      <span className="mode-desc">Practice against the computer.</span>
-                      {/* Desktop picks the AI class/deck here; mobile defers to step 2. */}
-                      {!isMobile && (
-                        <>
-                          <label className="mode-aiclass">
-                            <span>AI plays</span>
-                            <FancySelect
-                              value={aiClass}
-                              onChange={(v) => {
-                                setAiClass(String(v))
-                                setAiDeck(0)
-                              }}
-                              options={[
-                                { value: 'mage', label: 'Mage', art: '/art/mage_hero.png' },
-                                { value: 'hunter', label: 'Hunter', art: '/art/hunter_hero.png' },
-                                { value: 'warrior', label: 'Warrior', art: '/art/warrior_hero.png' },
-                                { value: 'warlock', label: 'Warlock', art: '/art/warlock_hero.png' },
-                                { value: 'priest', label: 'Priest', art: '/art/priest_hero.png' },
-                              ]}
-                            />
-                          </label>
-                          <label className="mode-aiclass">
-                            <span>AI deck</span>
-                            <FancySelect
-                              value={aiDeck}
-                              onChange={(v) => setAiDeck(Number(v))}
-                              options={[
-                                { value: 0, label: 'Random deck', art: `/art/${aiClass}_hero.png` },
-                                ...decks
-                                  .filter((d) => d.class === aiClass)
-                                  .map((d) => ({ value: d.id, label: d.name, art: `/art/${d.class}_hero.png` })),
-                              ]}
-                            />
-                          </label>
-                        </>
-                      )}
-                      <button type="button"
-                        className="mode-go"
-                        onClick={() => {
-                          if (isMobile) setSetupMode('ai')
-                          else {
-                            setPlayModal(false)
-                            onPlayAI()
-                          }
-                        }}
-                      >
-                        {isMobile ? 'Next' : 'Start'}
-                      </button>
-                    </div>
-
-                    <div className="mode-card">
-                      <span className="mode-icon">⚔️</span>
-                      <span className="mode-name">Play vs Player</span>
-                      <span className="mode-desc">Queue for a live opponent.</span>
-                      <button type="button"
-                        className="mode-go"
-                        onClick={() => {
-                          if (isMobile) setSetupMode('pvp')
-                          else {
-                            setPlayModal(false)
-                            onPlay()
-                          }
-                        }}
-                      >
-                        {isMobile ? 'Next' : 'Find match'}
-                      </button>
-                    </div>
-
-                    <div className="mode-card disabled">
-                      <span className="mode-icon">🏟️</span>
-                      <span className="mode-name">Arena</span>
-                      <span className="mode-desc">Draft a deck, climb a run.</span>
-                      <span className="mode-soon">Coming soon</span>
-                    </div>
-                  </div>
-                </>
-              )}
+            <div className="lobby-stats-row">
+              <button
+                type="button"
+                className="stats-btn"
+                onClick={() => setShowLeaderboard(true)}
+              >
+                🏆 Leaderboard
+              </button>
+              <button
+                type="button"
+                className="stats-btn"
+                onClick={() => setProfileUser(name)}
+              >
+                👤 My profile
+              </button>
             </div>
-          </div>
-        )}
 
-        {/* Online players live in their own fixed, full-height, internally
-            scrolling panel — independent of the centered lobby card — so a long
-            list (15+ players) never pushes the card's controls off-screen. */}
-        {players.length > 0 &&
-          (() => {
-            const q = playerFilter.trim().toLowerCase()
-            const shown = q ? players.filter((p) => p.name.toLowerCase().includes(q)) : players
-            return (
-              <aside className="player-panel">
-                <div className="player-panel-head">
-                  <span className="pp-title">Players online</span>
-                  <span className="pp-count">{players.length}</span>
-                </div>
-                <input
-                  className="player-search"
-                  placeholder="Search players…"
-                  value={playerFilter}
-                  onChange={(e) => setPlayerFilter(e.target.value)}
-                />
-                <ul className="player-list">
-                  {shown.length === 0 ? (
-                    <li className="pl-empty">No players match “{playerFilter}”.</li>
-                  ) : (
-                    shown.map((p) => (
-                      <li key={p.name} className={'pl-row pl-' + p.status}>
-                        <span className={'pl-dot ' + p.status} />
-                        <button type="button"
-                          className="pl-name"
-                          onClick={() => setProfileUser(p.name)}
-                          title={`View ${p.name}'s profile`}
+            <button
+              type="button"
+              className="logout"
+              onClick={onLogout}
+              disabled={waiting}
+            >
+              Log out
+            </button>
+            <p className="lobby-status">{status}</p>
+            {ghLink}
+          </div>
+
+          {
+            /* Mode picker opened by Play: vs AI (pick its class), vs a live player
+            (queue), or Arena (reserved). */
+          }
+          {playModal && !waiting && (
+            <div
+              className="overlay"
+              onClick={() => {
+                setPlayModal(false);
+                setSetupMode(null);
+              }}
+            >
+              <div className="mode-picker" onClick={(e) => e.stopPropagation()}>
+                {isMobile && setupMode
+                  ? (
+                    /* Mobile step 2: pick your deck (+ AI class/deck for AI), then go. */
+                    <>
+                      <div className="mode-top">
+                        <button
+                          type="button"
+                          className="mode-back"
+                          onClick={() => setSetupMode(null)}
+                          aria-label="Back"
                         >
-                          {p.name}
-                          {p.name === name && ' (you)'}
+                          ‹
                         </button>
-                        {p.name !== name && p.status === 'lobby' ? (
-                          invitedName === p.name ? (
-                            <button type="button" className="pl-invite invited" onClick={onCancelInvite} title="Cancel invite">
-                              invited… ✕
-                            </button>
-                          ) : (
-                            <button type="button"
-                              className="pl-invite"
-                              onClick={() => onInvite(p.name)}
-                              disabled={invitedName !== null || waiting}
-                              title="Invite to a match"
-                            >
-                              ⚔️ Invite
-                            </button>
-                          )
-                        ) : p.status === 'in_game' ? (
-                          <span className="pl-status">
-                            ⚔️ vs {p.vs}
-                            <button type="button"
-                              className="pl-invite pl-spectate"
-                              onClick={() => onSpectate(p.name)}
-                              disabled={waiting}
-                              title={`Spectate ${p.name}'s match`}
-                            >
-                              👁 Watch
-                            </button>
-                          </span>
-                        ) : (
-                          <span className="pl-status">{p.status === 'waiting' ? 'searching…' : 'in lobby'}</span>
+                        <h2>
+                          {setupMode === "ai" ? "Play vs AI" : "Play vs Player"}
+                        </h2>
+                        <button
+                          type="button"
+                          className="mode-close"
+                          onClick={() => {
+                            setPlayModal(false);
+                            setSetupMode(null);
+                          }}
+                          aria-label="Close"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="mode-setup">
+                        <label className="mode-deck">
+                          <span>Your deck</span>
+                          <DeckSelect
+                            value={selectedDeck}
+                            onChange={setSelectedDeck}
+                            options={decks}
+                          />
+                        </label>
+                        {setupMode === "ai" && (
+                          <>
+                            <label className="mode-aiclass">
+                              <span>AI plays</span>
+                              <FancySelect
+                                value={aiClass}
+                                onChange={(v) => {
+                                  setAiClass(String(v));
+                                  setAiDeck(0);
+                                }}
+                                options={[
+                                  {
+                                    value: "mage",
+                                    label: "Mage",
+                                    art: "/art/mage_hero.png",
+                                  },
+                                  {
+                                    value: "hunter",
+                                    label: "Hunter",
+                                    art: "/art/hunter_hero.png",
+                                  },
+                                  {
+                                    value: "warrior",
+                                    label: "Warrior",
+                                    art: "/art/warrior_hero.png",
+                                  },
+                                  {
+                                    value: "warlock",
+                                    label: "Warlock",
+                                    art: "/art/warlock_hero.png",
+                                  },
+                                  {
+                                    value: "priest",
+                                    label: "Priest",
+                                    art: "/art/priest_hero.png",
+                                  },
+                                  {
+                                    value: "paladin",
+                                    label: "Paladin",
+                                    art: "/art/paladin_hero.png",
+                                  },
+                                ]}
+                              />
+                            </label>
+                            <label className="mode-aiclass">
+                              <span>AI deck</span>
+                              <FancySelect
+                                value={aiDeck}
+                                onChange={(v) => setAiDeck(Number(v))}
+                                options={[
+                                  {
+                                    value: 0,
+                                    label: "Random deck",
+                                    art: `/art/${aiClass}_hero.png`,
+                                  },
+                                  ...decks
+                                    .filter((d) => d.class === aiClass)
+                                    .map((d) => ({
+                                      value: d.id,
+                                      label: d.name,
+                                      art: `/art/${d.class}_hero.png`,
+                                    })),
+                                ]}
+                              />
+                            </label>
+                          </>
                         )}
-                      </li>
-                    ))
+                        <button
+                          type="button"
+                          className="mode-go"
+                          onClick={() => {
+                            const ai = setupMode === "ai";
+                            setPlayModal(false);
+                            setSetupMode(null);
+                            if (ai) onPlayAI();
+                            else onPlay();
+                          }}
+                        >
+                          {setupMode === "ai" ? "Start" : "Find match"}
+                        </button>
+                      </div>
+                    </>
+                  )
+                  : (
+                    /* Step 1 (mobile: mode only) / full single-screen modal (desktop). */
+                    <>
+                      {/* Title + (desktop) shared deck selector + close on one row. */}
+                      <div className="mode-top">
+                        <h2>Choose how to play</h2>
+                        {!isMobile && (
+                          <label className="mode-deck">
+                            <span>Your deck</span>
+                            <DeckSelect
+                              value={selectedDeck}
+                              onChange={setSelectedDeck}
+                              options={decks}
+                            />
+                          </label>
+                        )}
+                        <button
+                          type="button"
+                          className="mode-close"
+                          onClick={() => setPlayModal(false)}
+                          aria-label="Close"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="mode-grid">
+                        <div className="mode-card">
+                          <span className="mode-icon">🤖</span>
+                          <span className="mode-name">Play vs AI</span>
+                          <span className="mode-desc">
+                            Practice against the computer.
+                          </span>
+                          {/* Desktop picks the AI class/deck here; mobile defers to step 2. */}
+                          {!isMobile && (
+                            <>
+                              <label className="mode-aiclass">
+                                <span>AI plays</span>
+                                <FancySelect
+                                  value={aiClass}
+                                  onChange={(v) => {
+                                    setAiClass(String(v));
+                                    setAiDeck(0);
+                                  }}
+                                  options={[
+                                    {
+                                      value: "mage",
+                                      label: "Mage",
+                                      art: "/art/mage_hero.png",
+                                    },
+                                    {
+                                      value: "hunter",
+                                      label: "Hunter",
+                                      art: "/art/hunter_hero.png",
+                                    },
+                                    {
+                                      value: "warrior",
+                                      label: "Warrior",
+                                      art: "/art/warrior_hero.png",
+                                    },
+                                    {
+                                      value: "warlock",
+                                      label: "Warlock",
+                                      art: "/art/warlock_hero.png",
+                                    },
+                                    {
+                                      value: "priest",
+                                      label: "Priest",
+                                      art: "/art/priest_hero.png",
+                                    },
+                                  ]}
+                                />
+                              </label>
+                              <label className="mode-aiclass">
+                                <span>AI deck</span>
+                                <FancySelect
+                                  value={aiDeck}
+                                  onChange={(v) => setAiDeck(Number(v))}
+                                  options={[
+                                    {
+                                      value: 0,
+                                      label: "Random deck",
+                                      art: `/art/${aiClass}_hero.png`,
+                                    },
+                                    ...decks
+                                      .filter((d) => d.class === aiClass)
+                                      .map((d) => ({
+                                        value: d.id,
+                                        label: d.name,
+                                        art: `/art/${d.class}_hero.png`,
+                                      })),
+                                  ]}
+                                />
+                              </label>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="mode-go"
+                            onClick={() => {
+                              if (isMobile) setSetupMode("ai");
+                              else {
+                                setPlayModal(false);
+                                onPlayAI();
+                              }
+                            }}
+                          >
+                            {isMobile ? "Next" : "Start"}
+                          </button>
+                        </div>
+
+                        <div className="mode-card">
+                          <span className="mode-icon">⚔️</span>
+                          <span className="mode-name">Play vs Player</span>
+                          <span className="mode-desc">
+                            Queue for a live opponent.
+                          </span>
+                          <button
+                            type="button"
+                            className="mode-go"
+                            onClick={() => {
+                              if (isMobile) setSetupMode("pvp");
+                              else {
+                                setPlayModal(false);
+                                onPlay();
+                              }
+                            }}
+                          >
+                            {isMobile ? "Next" : "Find match"}
+                          </button>
+                        </div>
+
+                        <div className="mode-card disabled">
+                          <span className="mode-icon">🏟️</span>
+                          <span className="mode-name">Arena</span>
+                          <span className="mode-desc">
+                            Draft a deck, climb a run.
+                          </span>
+                          <span className="mode-soon">Coming soon</span>
+                        </div>
+                      </div>
+                    </>
                   )}
-                </ul>
-              </aside>
-            )
-          })()}
+              </div>
+            </div>
+          )}
+
+          {
+            /* Online players live in their own fixed, full-height, internally
+            scrolling panel — independent of the centered lobby card — so a long
+            list (15+ players) never pushes the card's controls off-screen. */
+          }
+          {players.length > 0 &&
+            (() => {
+              const q = playerFilter.trim().toLowerCase();
+              const shown = q
+                ? players.filter((p) => p.name.toLowerCase().includes(q))
+                : players;
+              return (
+                <aside className="player-panel">
+                  <div className="player-panel-head">
+                    <span className="pp-title">Players online</span>
+                    <span className="pp-count">{players.length}</span>
+                  </div>
+                  <input
+                    className="player-search"
+                    placeholder="Search players…"
+                    value={playerFilter}
+                    onChange={(e) => setPlayerFilter(e.target.value)}
+                  />
+                  <ul className="player-list">
+                    {shown.length === 0
+                      ? (
+                        <li className="pl-empty">
+                          No players match “{playerFilter}”.
+                        </li>
+                      )
+                      : (
+                        shown.map((p) => (
+                          <li key={p.name} className={"pl-row pl-" + p.status}>
+                            <span className={"pl-dot " + p.status} />
+                            <button
+                              type="button"
+                              className="pl-name"
+                              onClick={() =>
+                                setProfileUser(p.name)}
+                              title={`View ${p.name}'s profile`}
+                            >
+                              {p.name}
+                              {p.name === name && " (you)"}
+                            </button>
+                            {p.name !== name && p.status === "lobby"
+                              ? (
+                                invitedName === p.name
+                                  ? (
+                                    <button
+                                      type="button"
+                                      className="pl-invite invited"
+                                      onClick={onCancelInvite}
+                                      title="Cancel invite"
+                                    >
+                                      invited… ✕
+                                    </button>
+                                  )
+                                  : (
+                                    <button
+                                      type="button"
+                                      className="pl-invite"
+                                      onClick={() => onInvite(p.name)}
+                                      disabled={invitedName !== null || waiting}
+                                      title="Invite to a match"
+                                    >
+                                      ⚔️ Invite
+                                    </button>
+                                  )
+                              )
+                              : p.status === "in_game"
+                              ? (
+                                <span className="pl-status">
+                                  ⚔️ vs {p.vs}
+                                  <button
+                                    type="button"
+                                    className="pl-invite pl-spectate"
+                                    onClick={() => onSpectate(p.name)}
+                                    disabled={waiting}
+                                    title={`Spectate ${p.name}'s match`}
+                                  >
+                                    👁 Watch
+                                  </button>
+                                </span>
+                              )
+                              : (
+                                <span className="pl-status">
+                                  {p.status === "waiting"
+                                    ? "searching…"
+                                    : "in lobby"}
+                                </span>
+                              )}
+                          </li>
+                        ))
+                      )}
+                  </ul>
+                </aside>
+              );
+            })()}
         </div>
 
         {challengeTarget !== null && (
-          <div className="invite-overlay" onClick={() => setChallengeTarget(null)}>
+          <div
+            className="invite-overlay"
+            onClick={() => setChallengeTarget(null)}
+          >
             <div className="invite-modal" onClick={(e) => e.stopPropagation()}>
               <h2>⚔️ Challenge</h2>
               <p className="invite-from">
@@ -1488,13 +1871,25 @@ export function App() {
               </p>
               <label className="deck-pick">
                 <span>Your deck</span>
-                <DeckSelect value={challengeDeck} onChange={setChallengeDeck} options={decks} />
+                <DeckSelect
+                  value={challengeDeck}
+                  onChange={setChallengeDeck}
+                  options={decks}
+                />
               </label>
               <div className="invite-actions">
-                <button type="button" className="accept" onClick={onSendChallenge}>
+                <button
+                  type="button"
+                  className="accept"
+                  onClick={onSendChallenge}
+                >
                   ⚔️ Invite
                 </button>
-                <button type="button" className="decline" onClick={() => setChallengeTarget(null)}>
+                <button
+                  type="button"
+                  className="decline"
+                  onClick={() => setChallengeTarget(null)}
+                >
                   Cancel
                 </button>
               </div>
@@ -1505,10 +1900,16 @@ export function App() {
         {incomingInvites.length > 0 && (
           <div className="invite-overlay">
             <div className="invite-modal">
-              <h2>⚔️ {incomingInvites.length > 1 ? 'Challenges!' : 'Challenge!'}</h2>
+              <h2>
+                ⚔️ {incomingInvites.length > 1 ? "Challenges!" : "Challenge!"}
+              </h2>
               <label className="deck-pick">
                 <span>Your deck</span>
-                <DeckSelect value={inviteDeck} onChange={setInviteDeck} options={decks} />
+                <DeckSelect
+                  value={inviteDeck}
+                  onChange={setInviteDeck}
+                  options={decks}
+                />
               </label>
               <ul className="invite-queue">
                 {incomingInvites.map((from) => (
@@ -1517,10 +1918,20 @@ export function App() {
                       <strong>{from}</strong> invites you
                     </span>
                     <div className="invite-actions">
-                      <button type="button" className="accept" onClick={() => onRespondInvite(from, true)}>
+                      <button
+                        type="button"
+                        className="accept"
+                        onClick={() =>
+                          onRespondInvite(from, true)}
+                      >
                         Accept
                       </button>
-                      <button type="button" className="decline" onClick={() => onRespondInvite(from, false)}>
+                      <button
+                        type="button"
+                        className="decline"
+                        onClick={() =>
+                          onRespondInvite(from, false)}
+                      >
                         Decline
                       </button>
                     </div>
@@ -1531,19 +1942,34 @@ export function App() {
           </div>
         )}
 
-        {/* From the leaderboard a row opens that player's profile; both close back
+        {
+          /* From the leaderboard a row opens that player's profile; both close back
             to the lobby. Profile takes precedence so a leaderboard click stacks it
-            on top. */}
+            on top. */
+        }
         {showLeaderboard && (
-          <LeaderboardModal onClose={() => setShowLeaderboard(false)} onPick={(u) => setProfileUser(u)} />
+          <LeaderboardModal
+            onClose={() => setShowLeaderboard(false)}
+            onPick={(u) => setProfileUser(u)}
+          />
         )}
-        {profileUser && <ProfileModal user={profileUser} onClose={() => setProfileUser(null)} />}
+        {profileUser && (
+          <ProfileModal
+            user={profileUser}
+            onClose={() => setProfileUser(null)}
+          />
+        )}
       </div>
-    )
+    );
   }
 
-  if (phase === 'deckbuilder') {
-    return <Deckbuilder token={tokenRef.current ?? ''} onBack={() => setPhase('lobby')} />
+  if (phase === "deckbuilder") {
+    return (
+      <Deckbuilder
+        token={tokenRef.current ?? ""}
+        onBack={() => setPhase("lobby")}
+      />
+    );
   }
 
   if (!snap) {
@@ -1553,15 +1979,14 @@ export function App() {
         <p>{status}</p>
         <button type="button" onClick={onBackToLobby}>Back to lobby</button>
       </div>
-    )
+    );
   }
 
-  const hint =
-    heroPowerArmed || spell
-      ? ' — pick a target'
-      : attacker
-        ? ' — pick an attack target'
-        : ''
+  const hint = heroPowerArmed || spell
+    ? " — pick a target"
+    : attacker
+    ? " — pick an attack target"
+    : "";
 
   // The game board. Rendered on its own during play, and (blurred) behind the
   // mulligan overlay so the table is visible while you mulligan.
@@ -1597,72 +2022,86 @@ export function App() {
       spectating={spectating}
       spectators={spectators}
     />
-  )
+  );
 
-  if (phase === 'matchfound') {
+  if (phase === "matchfound") {
     return (
       <div className="lobby-screen">
         <div className="matchfound">
           <div className="mf-swords">⚔️</div>
           <div className="mf-title">Match found!</div>
           <div className="mf-vs">
-            <strong>{name}</strong> vs <strong>{snap?.opp.name || 'Opponent'}</strong>
+            <strong>{name}</strong> vs{" "}
+            <strong>{snap?.opp.name || "Opponent"}</strong>
           </div>
           <div className="play-spinner mf-spinner" />
         </div>
       </div>
-    )
+    );
   }
 
-  if (phase === 'mulligan') {
+  if (phase === "mulligan") {
     const toggle = (i: number) =>
       setMulliganPicks((prev) => {
-        const next = new Set(prev)
-        if (next.has(i)) next.delete(i)
-        else next.add(i)
-        return next
-      })
+        const next = new Set(prev);
+        if (next.has(i)) next.delete(i);
+        else next.add(i);
+        return next;
+      });
     const submit = () => {
-      send({ type: 'mulligan', indices: [...mulliganPicks] })
-      setMulliganSubmitted(true)
-      setStatus('waiting for opponent…')
-    }
-    const hand = snap.self.hand ?? []
+      send({ type: "mulligan", indices: [...mulliganPicks] });
+      setMulliganSubmitted(true);
+      setStatus("waiting for opponent…");
+    };
+    const hand = snap.self.hand ?? [];
     return (
       <>
         <div className="mulligan-bg">{board}</div>
         <div className="overlay">
           <div className="mulligan-modal">
-            <div className="seek-title">Mulligan — replace any cards, then keep</div>
+            <div className="seek-title">
+              Mulligan — replace any cards, then keep
+            </div>
             {!oppOnline && (
-              <div className="banner warn">⚠ Opponent disconnected — waiting for them to reconnect…</div>
+              <div className="banner warn">
+                ⚠ Opponent disconnected — waiting for them to reconnect…
+              </div>
             )}
-            {mulliganSubmitted ? (
-              <p>Cards locked in. Waiting for your opponent…</p>
-            ) : (
-              <>
-                <div className="hand mulligan">
-                  {hand.map((c, i) => (
-                    <button type="button"
-                      key={i}
-                      className={'card' + cardColorClass(c) + (mulliganPicks.has(i) ? ' tossed' : '')}
-                      onClick={() => toggle(i)}
-                    >
-                      <CardFace card={c} />
-                    </button>
-                  ))}
-                </div>
-                <div className={'mulligan-timer' + (mulliganLeft <= 5 ? ' low' : '')}>⏳ {mulliganLeft}s</div>
-                <button type="button" className="keep-btn" onClick={submit}>
-                  {mulliganPicks.size === 0 ? 'Keep all' : `Replace ${mulliganPicks.size}`}
-                </button>
-              </>
-            )}
+            {mulliganSubmitted
+              ? <p>Cards locked in. Waiting for your opponent…</p>
+              : (
+                <>
+                  <div className="hand mulligan">
+                    {hand.map((c, i) => (
+                      <button
+                        type="button"
+                        key={i}
+                        className={"card" + cardColorClass(c) +
+                          (mulliganPicks.has(i) ? " tossed" : "")}
+                        onClick={() => toggle(i)}
+                      >
+                        <CardFace card={c} />
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    className={"mulligan-timer" +
+                      (mulliganLeft <= 5 ? " low" : "")}
+                  >
+                    ⏳ {mulliganLeft}s
+                  </div>
+                  <button type="button" className="keep-btn" onClick={submit}>
+                    {mulliganPicks.size === 0
+                      ? "Keep all"
+                      : `Replace ${mulliganPicks.size}`}
+                  </button>
+                </>
+              )}
           </div>
         </div>
       </>
-    )
+    );
   }
 
-  return board
+  return board;
 }

@@ -5,14 +5,16 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
-Last updated: **2026-07-07** (**Paladin CODE COMPLETE + wired (art in progress)** — sixth playable class. Spec + id reservation in
+Last updated: **2026-07-08** (**Paladin CODE COMPLETE + wired + ART COMPLETE** — sixth playable class. Spec + id reservation in
 `.notes/classic-mapping.md` "PALADIN" (26 collectible = 10 Basic + 16 Classic) + prompts in
 `.notes/art-prompts.md` "# PALADIN" (hero portrait, hero power `muster`, all 26 cards + 3 tokens).
-ART placed: `paladin_hero.png` male dwarf holy paladin portrait (512x512, 136KB) and `muster.png`
-hero-power icon (512x512, 141KB), plus Paladin collectible art **9/26**:
-`valor_blessing` (108KB), `warding_hand` (104KB), `meekness` (123KB), `dawnmace` (141KB),
-`radiant_mending` (128KB), `wrathhammer` (135KB), `hallowed_ground` (130KB), `royal_blessing` (143KB),
-`pureheart_blade` (147KB), and token art **1/3**: `lightsworn_recruit` (114KB). Hero power = `muster` "Muster" (summon a 1/1
+ART COMPLETE: `paladin_hero.png` male dwarf holy paladin portrait (512x512, 136KB), `muster.png`
+hero-power icon (512x512, 141KB), Paladin collectible art **26/26**, and token art **3/3**. Final
+2026-07-08 art pass added `crown_guardian`, `insight_blessing`, `retribution_vow`, `valiant_ward`,
+`second_dawn`, `penance_seal`, `great_leveling`, `dawnguard_templar`, `zealots_verdict`,
+`providence`, `riftwarden_pacifier`, `verdict_edge`, `exalted_might`, `aegis_hymn`,
+`avenging_light`, `laying_of_hands`, `highlord_valdric`, plus tokens `oath_defender` and
+`dawnbringer`; all are 512x512 and under/at the 150KB target. Hero power = `muster` "Muster" (summon a 1/1
 `lightsworn_recruit`, Reinforce analog). Divine Shield renamed to our **Aegis**; Draenei → **Riftborn**.
 Tokens: `lightsworn_recruit` 1/1, `oath_defender` 2/1 (from `valiant_ward`), `dawnbringer` 5/3 weapon
 (from `highlord_valdric` Final Gasp). CODE: full set now in `internal/cards/paladin.go` (26 collectible
@@ -32,8 +34,8 @@ the `feint_trap` redirect path) · `SecretResummonFriendly` (second_dawn = Redem
 `internal/match/paladin_mechanics_test.go` (17). `go test -race ./...`, vet, gofmt all green; client
 `deno check`/`deno lint`/`deno task build` all green. Client wired: gold `.card.paladin`/`.deck-card.paladin`,
 ⚜️ glyph, deckcode char `l`, deckbuilder + vs-AI class pickers, `defaultPaladinDeck` + `aiPaladinFace`/
-`aiPaladinMidrange`. Next: finish Paladin art (remaining collectibles + `oath_defender`/`dawnbringer`
-tokens) into `web/public/art/`. Prior: **Desktop
+`aiPaladinMidrange`. Next: quick in-client visual smoke test for Paladin deckbuilder/game surfaces and
+art crop/readability. Prior: **Desktop
 build scaffolding** — see Open/next. Prior: **Priest CODE COMPLETE + art started**. CODE: full Basic + Classic
 Priest set in `internal/cards/priest.go` — 33 collectible (20 spells + 13 minions) + hero power
 `mend` (Lesser Heal, restore 2) + replacement hero power token `gloom_spike` (Shadowform "deal 2").
@@ -163,10 +165,26 @@ drops, all 30 legendary prompts drafted in `.notes/art-prompts.md`. See `web/pub
 
 ---
 
-## Next Session: Priest Visual Smoke Test
+## Next Session: Paladin Visual Smoke Test
 
-Warlock and Priest code/art are complete. Read this file, `.notes/art-prompts.md`,
-`web/public/art/README.md`, and `.notes/classic-mapping.md` "PRIEST" before follow-up work.
+Paladin code/art are complete. Read this file, `.notes/art-prompts.md`,
+`web/public/art/README.md`, and `.notes/classic-mapping.md` "PALADIN" before follow-up work.
+
+Paladin UI/art now present:
+- `paladin_hero.png` — male dwarf holy Paladin hero portrait, 512w, 136KB.
+- `muster.png` — Paladin hero-power icon, summon-one-recruit gold ring, 512w, 141KB.
+- Paladin collectible card art: **26/26 done**. Final pass added
+  `crown_guardian`, `insight_blessing`, `retribution_vow`, `valiant_ward`, `second_dawn`,
+  `penance_seal`, `great_leveling`, `dawnguard_templar`, `zealots_verdict`, `providence`,
+  `riftwarden_pacifier`, `verdict_edge`, `exalted_might`, `aegis_hymn`, `avenging_light`,
+  `laying_of_hands`, and `highlord_valdric`.
+- Paladin token art: **3/3 done** — `lightsworn_recruit`, `oath_defender`, `dawnbringer`.
+
+Suggested next work: quick in-client visual smoke test for Paladin deckbuilder/game surfaces and card
+crop/readability, especially secrets, `highlord_valdric` -> `dawnbringer`, and `muster` ->
+`lightsworn_recruit`.
+
+Warlock and Priest code/art are complete.
 
 Priest UI/art now present:
 - `priest_hero.png` — human woman Priest hero portrait, 512w, 114KB.
@@ -202,8 +220,8 @@ Suggested next work: quick in-client visual smoke test for Warlock deckbuilder/g
 especially `EffectReplaceHero` portrait/power swap and `infernal_eruption` token summon, then enrich
 curated/AI Warlock decks if needed.
 
-Historical context: collectible card art is complete through Priest: **303/303 collectible** and
-**46/46 token** art files are placed in `web/public/art/`. Previous final neutral 4-card chunk
+Historical context: collectible card art is complete through Paladin: **329/329 collectible** and
+**49/49 token** art files are placed in `web/public/art/`. Previous final neutral 4-card chunk
 completed on 2026-06-26:
 `tavern_medic` (133KB), `thornvale_panther` (126KB), `tideblade_raider` (122KB), and
 `tidereaver` (126KB). No missing collectible or token art remains.

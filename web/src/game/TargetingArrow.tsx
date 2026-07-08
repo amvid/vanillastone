@@ -5,19 +5,28 @@ export function TargetingArrow({
   sourceId,
   pointer,
 }: {
-  sourceId: string
-  pointer: { x: number; y: number } | null
+  sourceId: string;
+  pointer: { x: number; y: number } | null;
 }) {
-  if (!pointer) return null
-  const el = document.querySelector<HTMLElement>(`[data-cid="${CSS.escape(sourceId)}"]`)
-  if (!el) return null
-  const r = el.getBoundingClientRect()
-  const sx = r.left + r.width / 2
-  const sy = r.top + r.height / 2
+  if (!pointer) return null;
+  const el = document.querySelector<HTMLElement>(
+    `[data-cid="${CSS.escape(sourceId)}"]`,
+  );
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const sx = r.left + r.width / 2;
+  const sy = r.top + r.height / 2;
   return (
     <svg className="targeting-arrow">
       <defs>
-        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
+        <marker
+          id="arrowhead"
+          markerWidth="8"
+          markerHeight="8"
+          refX="5"
+          refY="4"
+          orient="auto"
+        >
           <path d="M0,0 L8,4 L0,8 Z" fill="#e05555" />
         </marker>
       </defs>
@@ -33,5 +42,5 @@ export function TargetingArrow({
       />
       <circle cx={sx} cy={sy} r="6" fill="#e05555" />
     </svg>
-  )
+  );
 }
