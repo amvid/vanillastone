@@ -5,6 +5,13 @@ Living doc for future sessions. **Keep updated every session. Read this first.**
 Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 `HANDOFF.archive.md` and git history — this file is the lean current-state summary.
 
+> **Web toolchain = Deno, NOT npm/node.** `web/package.json` exists only as the dep
+> manifest Deno reads — do **not** run `npm run …`/`npm install`. Use `deno task dev`,
+> `deno task build`, `deno task check` (type gate = `deno check src`, there is no tsc).
+> **New Go HTTP route?** Also add its path to `server.proxy` in `web/vite.config.ts`
+> (explicit allowlist) or dev fetches fall through to the SPA fallback and fail
+> silently; editing that config needs a dev-server restart.
+
 Last updated: **2026-07-08** (**Paladin CODE COMPLETE + wired + ART COMPLETE** — sixth playable class. Spec + id reservation in
 `.notes/classic-mapping.md` "PALADIN" (26 collectible = 10 Basic + 16 Classic) + prompts in
 `.notes/art-prompts.md` "# PALADIN" (hero portrait, hero power `muster`, all 26 cards + 3 tokens).
