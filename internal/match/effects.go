@@ -901,12 +901,12 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			m.drawCard(caster)
 		}
 	case cards.EffectGrantDrawOnAttack:
-		// `insight_blessing`: enchant the target minion so its controller draws a card
-		// whenever it attacks. Silence strips it with the rest of the enchants.
+		// `insight_blessing`: enchant the target minion so the caster draws a card
+		// whenever it attacks (even an enemy minion). Silence strips it with the rest.
 		if ref.minion == nil {
 			return
 		}
-		ref.minion.enchants = append(ref.minion.enchants, enchant{drawOnAttack: 1})
+		ref.minion.enchants = append(ref.minion.enchants, enchant{drawOnAttack: 1, drawOwner: caster})
 		m.emit(protocol.Event{Kind: "buff", Target: ref.minion.uid})
 	case cards.EffectSummonRandom:
 		// Summon a random minion onto the caster's board (board cap via summonMinion).
@@ -1572,6 +1572,9 @@ func (m *Match) damageTargets(caster int, eff *cards.Effect, ref charRef) []char
 			}
 		}
 		return out
+	case eff.Area == cards.AreaEnemyChars:
+		// The enemy hero and every live enemy minion (`hallowed_ground` mass clear).
+		return m.enemyChars(caster)
 	case eff.Area == cards.AreaEnemyHero:
 		return []charRef{{owner: 1 - caster}}
 	case eff.Area == cards.AreaFriendlyHero:

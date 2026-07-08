@@ -341,10 +341,11 @@ func (m *Match) Attack(c Sender, attackerID, targetID string) (bool, string) {
 
 	atk.attacksMade++
 	atk.stealthed = false // attacking breaks Stealth
-	// `insight_blessing` (Blessing of Wisdom): the attacker's controller draws a card
-	// whenever it attacks. Reads the live enchant count (silence removes it).
-	for i := 0; i < atk.drawsOnAttack(); i++ {
-		m.drawCard(pi)
+	// `insight_blessing` (Blessing of Wisdom): the blessing's caster draws a card
+	// whenever the enchanted minion attacks — even an enemy minion. Reads the live
+	// enchants (silence removes them).
+	for _, owner := range atk.drawOnAttackOwners() {
+		m.drawCard(owner)
 	}
 	m.finish()
 	return true, ""

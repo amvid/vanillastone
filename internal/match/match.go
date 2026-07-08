@@ -63,10 +63,12 @@ type enchant struct {
 	tempNextTurn bool
 	tempOwner    int
 
-	// drawOnAttack: while this enchantment holds, the minion's controller draws a
-	// card whenever it attacks (`insight_blessing`). Stripped by Silence with the
-	// rest of the enchants.
+	// drawOnAttack: while this enchantment holds, drawOwner draws a card whenever
+	// this minion attacks (`insight_blessing`). drawOwner is the player who cast the
+	// blessing, NOT the minion's controller — cast on an enemy minion, the caster
+	// still draws. Stripped by Silence with the rest of the enchants.
 	drawOnAttack int
+	drawOwner    int
 }
 
 // minion is a minion instance in play. uid is unique within the match. Attack
@@ -185,15 +187,17 @@ func (mn *minion) attacksPerTurn() int {
 // hasAttacked reports whether the minion has used any of its attacks this turn.
 func (mn *minion) hasAttacked() bool { return mn.attacksMade > 0 }
 
-// drawsOnAttack is how many cards the minion's controller draws when it attacks,
-// summed over its `insight_blessing` enchantments (0 when silenced — silence nils
-// the enchants).
-func (mn *minion) drawsOnAttack() int {
-	n := 0
+// drawOnAttackOwners returns, for each card to be drawn when this minion attacks,
+// the player who should draw it (the caster of each `insight_blessing`, not the
+// minion's controller). Empty when silenced — silence nils the enchants.
+func (mn *minion) drawOnAttackOwners() []int {
+	var owners []int
 	for _, e := range mn.enchants {
-		n += e.drawOnAttack
+		for i := 0; i < e.drawOnAttack; i++ {
+			owners = append(owners, e.drawOwner)
+		}
 	}
-	return n
+	return owners
 }
 
 // spellDamageOf is the minion's live Spell Damage contribution (0 if silenced):

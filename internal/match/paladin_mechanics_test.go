@@ -132,6 +132,31 @@ func TestInsightBlessingDrawsOnAttack(t *testing.T) {
 	}
 }
 
+// TestInsightBlessingDrawsForCasterOnEnemyMinion: cast on an ENEMY minion, the
+// caster (not the minion's controller) draws when it attacks. This is the whole
+// point of the card and the interaction a prior bug got wrong (controller drew).
+func TestInsightBlessingDrawsForCasterOnEnemyMinion(t *testing.T) {
+	m, a, b := newMatch()
+	place(m, 1, "foe", "clay_acolyte", 3, 2, true) // player 1's minion
+	m.state[0].deck = testDeck([]string{"pebble_imp"})
+	m.state[1].deck = testDeck([]string{"pebble_imp"})
+	castFrom(t, m, a, 0, "insight_blessing", "foe") // player 0 blesses the enemy minion
+	m.EndTurn(a)                                    // player 1's turn; their blessed minion can now attack
+	// Snapshot hands after the turn-start draw so the attack is the only variable.
+	casterHand, oppHand := len(m.state[0].hand), len(m.state[1].hand)
+	if ok, msg := m.Attack(b, "foe", oppHeroTarget); !ok {
+		t.Fatalf("enemy minion attack should resolve: %s", msg)
+	}
+	if len(m.state[0].hand) != casterHand+1 {
+		t.Fatalf("caster (player 0) should draw on the blessed minion's attack, hand %d->%d",
+			casterHand, len(m.state[0].hand))
+	}
+	if len(m.state[1].hand) != oppHand {
+		t.Fatalf("controller (player 1) must not draw from the blessing; hand %d->%d",
+			oppHand, len(m.state[1].hand))
+	}
+}
+
 // TestPureheartBladeHealsOnHeroAttack: Truesilver-style — the hero heals 3 whenever
 // it attacks with the weapon.
 func TestPureheartBladeHealsOnHeroAttack(t *testing.T) {

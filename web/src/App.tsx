@@ -1682,6 +1682,11 @@ export function App() {
                                       label: "Priest",
                                       art: "/art/priest_hero.png",
                                     },
+                                    {
+                                      value: "paladin",
+                                      label: "Paladin",
+                                      art: "/art/paladin_hero.png",
+                                    },
                                   ]}
                                 />
                               </label>
