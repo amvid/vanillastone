@@ -35,7 +35,6 @@ desktop/static/
 *.swp
 .idea/
 .vscode/
-.zed/
 
 # Go
 *.test
