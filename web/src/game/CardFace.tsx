@@ -140,12 +140,16 @@ export function CardFace({ card }: { card: CardView }) {
   // markers (server-injected; rendered as a green number) so a buffed card doesn't
   // shrink its text just because the marker syntax is longer than the digit.
   const descLen = desc.replace(/\{sd:(\d+)\}/g, "$1").length;
-  const descStyle = descLen > 130
-    ? { fontSize: "7px" }
-    : descLen > 95
+  // Longest card text in the set is ~110 chars, so the floor tier is 8px (95+). Short
+  // and mid texts step up a size vs the box's default for crisper reading; the
+  // longest 95+ cards can't grow without clipping the fixed box, so hover-scale (the
+  // read-mode on hand/collection cards) is what makes those legible.
+  const descStyle = descLen > 95
     ? { fontSize: "8px" }
     : descLen > 60
     ? { fontSize: "9px" }
+    : descLen > 30
+    ? { fontSize: "10px" }
     : undefined;
   return (
     <>
