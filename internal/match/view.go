@@ -49,6 +49,17 @@ func hasTaunt(ps *playerState) bool {
 	return false
 }
 
+// hasGrantedFinalGasp reports whether an enchantment grants the minion a
+// deathrattle (`forest_soul`), so the client shows the finalGasp indicator.
+func hasGrantedFinalGasp(mn *minion) bool {
+	for _, e := range mn.enchants {
+		if e.finalGasp != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveDeaths removes dead minions and fires their finalGasps, cascading
 // until no minion is left at <=0 health (a finalGasp's damage can kill more).
 // Deaths are emitted and finalGasps fire in board order. Heroes are not
@@ -89,6 +100,17 @@ func (m *Match) resolveDeaths() {
 				m.emit(protocol.Event{Kind: "finalGasp", Source: d.uid, Name: d.card.Name})
 				e := eff
 				m.applyEffect(d.owner, &e, charRef{}, 0, d.uid)
+			}
+			// Deathrattles granted by an enchantment (`forest_soul`). Silence already
+			// stripped the enchants (the `d.silenced` continue above), so a granted
+			// finalGasp only survives on an un-silenced minion.
+			for _, e := range d.enchants {
+				if e.finalGasp == nil {
+					continue
+				}
+				m.emit(protocol.Event{Kind: "finalGasp", Source: d.uid, Name: d.card.Name})
+				fg := e.finalGasp
+				m.applyEffect(d.owner, fg, charRef{}, 0, d.uid)
 			}
 		}
 		// Loop: finalGasp damage may have created new deaths.
@@ -190,7 +212,7 @@ func (m *Match) minionViews(board []*minion) []protocol.MinionView {
 			Stealth:       mn.stealthed,
 			Poisonous:     mn.has(cards.KeywordPoisonous),
 			Lifesteal:     mn.has(cards.KeywordLifesteal),
-			FinalGasp:     !mn.silenced && len(mn.card.FinalGasps()) > 0,
+			FinalGasp:     !mn.silenced && (len(mn.card.FinalGasps()) > 0 || hasGrantedFinalGasp(mn)),
 			SpellDamage:   spellDamageOf(mn),
 			Enraged:       mn.enraged(),
 			HasEnrage:     !mn.silenced && (mn.card.Enrage != nil || mn.card.EnrageWeaponAtk > 0 || len(mn.card.EnrageGrant) > 0),
@@ -243,6 +265,15 @@ func cardView(c cards.Card) protocol.CardView {
 	} else if bc := c.Onset(); bc != nil {
 		cv.Target = string(bc.Target)
 		cv.ReqAttack, cv.ReqMaxAttack, cv.ReqTaunt, cv.ReqTribe = bc.ReqAttack, bc.ReqMaxAttack, bc.ReqTaunt, string(bc.ReqTribe)
+	}
+	// Duality (Choose One): expose each option's label + per-option targeting rule.
+	// Top-level Target stays empty so the client arms targeting only after a pick.
+	for _, ch := range c.Choices {
+		e := ch.Effect
+		cv.Choices = append(cv.Choices, protocol.ChoiceView{
+			Text: ch.Text, Target: string(e.Target),
+			ReqAttack: e.ReqAttack, ReqMaxAttack: e.ReqMaxAttack, ReqTaunt: e.ReqTaunt, ReqTribe: string(e.ReqTribe),
+		})
 	}
 	return cv
 }

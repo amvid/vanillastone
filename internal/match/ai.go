@@ -287,7 +287,7 @@ func (mv aiMove) applyTo(m *Match, seat int) (bool, string) {
 	c := m.players[seat]
 	switch mv.kind {
 	case mPlay:
-		return m.PlayCardAt(c, mv.hand, mv.target, -1)
+		return m.PlayCardAt(c, mv.hand, mv.target, -1, 0)
 	case mAttack:
 		return m.Attack(c, mv.attacker, mv.target)
 	case mPower:

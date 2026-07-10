@@ -269,6 +269,10 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if eff.ScaleByArmor {
 			amt = m.state[caster].armor
 		}
+		// `savage_slash`: the amount dealt is the caster's current hero Attack.
+		if eff.ScaleByHeroAttack {
+			amt = heroAttackValue(m.state[caster])
+		}
 		if amt > 0 {
 			amt += sp
 			amt = m.castDouble(amt) // `oracle_velneth`: double spell/hero-power damage
@@ -297,6 +301,25 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			for _, t := range m.adjacentRefs(ref, false) {
 				if t.minion != nil {
 					total += m.damageMinion(t.minion, splash, srcID)
+				}
+			}
+		}
+		// `claw_sweep` (Swipe): after the main hit on the chosen enemy, also deal a
+		// smaller amount to every OTHER enemy character (hero + minions). Spell Damage
+		// adds to it too. The primary target is skipped (it already took `amt`).
+		if eff.OtherEnemyAmount > 0 {
+			other := m.castDouble(eff.OtherEnemyAmount + sp)
+			for _, t := range m.enemyChars(caster) {
+				if t.minion != nil && t.minion == ref.minion {
+					continue
+				}
+				if t.minion == nil && ref.minion == nil && t.owner == ref.owner {
+					continue // the primary target was the enemy hero
+				}
+				if t.minion != nil {
+					total += m.damageMinion(t.minion, other, srcID)
+				} else {
+					total += m.damageHero(t.owner, other, srcID)
 				}
 			}
 		}
@@ -638,8 +661,17 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			side = 1 - caster // e.g. `the_gorehound`: summon for the opponent
 		}
 		for i := 0; i < n; i++ {
-			if m.summonMinion(side, tok) == nil {
+			mn := m.summonMinion(side, tok)
+			if mn == nil {
 				break // board full: remaining tokens are discarded
+			}
+			// `call_the_grove` (Charge) / `sylvaros` (Taunt): grant keywords to the token
+			// as it enters. `call_the_grove` also marks them to die at the end of the turn.
+			if len(eff.SummonGrant) > 0 {
+				mn.enchants = append(mn.enchants, enchant{keywords: eff.SummonGrant})
+			}
+			if eff.SummonDestroyEndOfTurn {
+				mn.destroyAtTurnEnd = true
 			}
 		}
 	case cards.EffectMana:
@@ -826,6 +858,50 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if m.state[opp].maxMana < maxMana {
 			m.state[opp].maxMana++
 			m.emit(protocol.Event{Kind: "mana", Target: m.pid(opp), Amount: 1})
+		}
+	case cards.EffectRampMana:
+		// `verdant_growth` (Wild Growth): gain an empty Mana Crystal (max mana only).
+		// `verdant_bounty` (Nourish): gain 2 Mana Crystals filled (max + current).
+		// Past the crystal cap each excess crystal instead adds OverflowGenerate to hand
+		// (`overflow_mana`, the Excess Mana analog); a full hand burns it.
+		ps := m.state[caster]
+		n := eff.Amount
+		if n < 1 {
+			n = 1
+		}
+		for i := 0; i < n; i++ {
+			if ps.maxMana >= maxMana {
+				if eff.OverflowGenerate != "" {
+					if gen, ok := cards.Get(eff.OverflowGenerate); ok {
+						if len(ps.hand) >= maxHand {
+							m.emitBurn(caster, gen)
+						} else {
+							ps.hand = append(ps.hand, gen)
+							m.emit(protocol.Event{Kind: "generate", Target: m.pid(caster)})
+						}
+					}
+				}
+				continue
+			}
+			ps.maxMana++
+			if !eff.Empty {
+				ps.mana++ // a filled crystal is available this turn (Nourish); Wild Growth's is empty
+			}
+			m.emit(protocol.Event{Kind: "mana", Target: m.pid(caster), Amount: 1})
+		}
+	case cards.EffectGrantFinalGasp:
+		// `forest_soul` (Soul of the Forest): enchant every friendly minion so it also
+		// fires FinalGasp when it dies. Stored on the enchant (stripped by Silence),
+		// fired alongside the card's own finalGasps in resolveDeaths.
+		if eff.FinalGasp == nil {
+			return
+		}
+		for _, t := range m.damageTargets(caster, eff, ref) {
+			if t.minion == nil {
+				continue
+			}
+			t.minion.enchants = append(t.minion.enchants, enchant{finalGasp: eff.FinalGasp})
+			m.emit(protocol.Event{Kind: "buff", Target: t.minion.uid})
 		}
 	case cards.EffectSetHealth:
 		// Set the target's Health to Amount. For a hero (`emberqueen_valtha`): a direct

@@ -25,6 +25,7 @@ export type PendingSpell = {
   reqMaxAttack?: number; // target minion must have attack <= this
   reqTaunt?: boolean; // target minion must have Taunt
   pos?: number;
+  choice?: number; // Duality (Choose One): the picked option index, sent with play_card
 };
 
 export type Counts = { online: number; inGame: number };

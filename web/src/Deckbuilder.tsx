@@ -44,6 +44,7 @@ const CLASS_OPTIONS: { id: string; label: string }[] = [
   { id: "warlock", label: "Warlock" },
   { id: "priest", label: "Priest" },
   { id: "paladin", label: "Paladin" },
+  { id: "druid", label: "Druid" },
 ];
 
 const RARITIES = ["common", "rare", "epic", "legendary"] as const;
@@ -682,52 +683,56 @@ export function Deckbuilder(props: { token: string; onBack: () => void }) {
               {/* New deck (no existing row to attach to): panel opens under the actions. */}
               {editing?.id === null && deckEditPanel}
 
-              {/* While editing, collapse the list to just the open deck so the
-                 other saved decks don't clutter the panel. */}
-              {(editing ? decks.filter((d) => d.id === editing.id) : decks).map((
-                d,
-              ) => (
-                <Fragment key={d.id}>
-                  <div className="deck-row">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditing({
-                          id: d.id,
-                          name: d.name,
-                          class: d.class,
-                          cards: d.cards,
-                        })}
-                    >
-                      <span
-                        className="deck-row-art"
-                        style={{
-                          backgroundImage: `url('/art/${d.class}_hero.png')`,
-                        }}
-                      />
-                      <span className="deck-row-text">{d.name}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="copy-code"
-                      onClick={() => copyCode(d)}
-                      title="Copy deck code"
-                    >
-                      {copiedId === d.id ? "✓" : "⧉"}
-                    </button>
-                    <button
-                      type="button"
-                      className="del"
-                      onClick={() => remove(d.id, d.name)}
-                      title="Delete"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  {/* Edit panel opens inline, right under the deck being edited. */}
-                  {editing?.id === d.id && deckEditPanel}
-                </Fragment>
-              ))}
+              {
+                /* While editing, collapse the list to just the open deck so the
+                 other saved decks don't clutter the panel. */
+              }
+              {(editing ? decks.filter((d) => d.id === editing.id) : decks).map(
+                (
+                  d,
+                ) => (
+                  <Fragment key={d.id}>
+                    <div className="deck-row">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditing({
+                            id: d.id,
+                            name: d.name,
+                            class: d.class,
+                            cards: d.cards,
+                          })}
+                      >
+                        <span
+                          className="deck-row-art"
+                          style={{
+                            backgroundImage: `url('/art/${d.class}_hero.png')`,
+                          }}
+                        />
+                        <span className="deck-row-text">{d.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="copy-code"
+                        onClick={() => copyCode(d)}
+                        title="Copy deck code"
+                      >
+                        {copiedId === d.id ? "✓" : "⧉"}
+                      </button>
+                      <button
+                        type="button"
+                        className="del"
+                        onClick={() => remove(d.id, d.name)}
+                        title="Delete"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {/* Edit panel opens inline, right under the deck being edited. */}
+                    {editing?.id === d.id && deckEditPanel}
+                  </Fragment>
+                )
+              )}
             </div>
 
             {!editing && (

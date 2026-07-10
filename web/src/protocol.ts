@@ -22,7 +22,8 @@ export type CardView = {
     | "warrior"
     | "warlock"
     | "priest"
-    | "paladin"; // drives card color (mage = blue); absent/neutral = default
+    | "paladin"
+    | "druid"; // drives card color (mage = blue); absent/neutral = default
   rarity?: "common" | "rare" | "epic" | "legendary"; // drives the rarity gem
   cost: number;
   baseCost?: number; // hand cards: printed cost (present so the client can colour a cost-modified card)
@@ -36,6 +37,18 @@ export type CardView = {
   reqTaunt?: boolean; // targeted onset: target minion must have Taunt
   reqTribe?: string; // targeted onset: target minion must be of this tribe
   text?: string; // rules text for the hover box
+  choices?: ChoiceView[]; // Duality (Choose One): two options; present triggers the play-time chooser
+};
+
+// ChoiceView is one Duality option: its label + the targeting rule/conditions
+// the client arms once the option is picked.
+export type ChoiceView = {
+  text: string;
+  target?: TargetRule;
+  reqAttack?: number;
+  reqMaxAttack?: number;
+  reqTaunt?: boolean;
+  reqTribe?: string;
 };
 
 export type MinionView = {
@@ -50,7 +63,8 @@ export type MinionView = {
     | "warrior"
     | "warlock"
     | "priest"
-    | "paladin"; // drives card color in the hover preview
+    | "paladin"
+    | "druid"; // drives card color in the hover preview
   cost: number; // printed mana cost (for the full-card hover preview)
   attack: number;
   health: number;
@@ -170,7 +184,13 @@ export type ClientMessage =
   }
   | { type: "enter_lobby" }
   | { type: "end_turn" }
-  | { type: "play_card"; handIndex: number; targetId?: string; pos?: number }
+  | {
+    type: "play_card";
+    handIndex: number;
+    targetId?: string;
+    pos?: number;
+    choice?: number; // Duality (Choose One) option index (0/1); omitted for non-Duality cards
+  }
   | { type: "attack"; attackerId: string; targetId: string }
   | { type: "concede" }
   | { type: "choose"; index: number }

@@ -45,7 +45,7 @@ const MULLIGAN_SECS = 20;
 // When an open dropdown has little room below the trigger (short/landscape
 // viewport), flip its menu above the trigger instead of letting it spill
 // off-screen. Returns true = render upward (adds the `.up` class).
-function useDropUp(open: boolean, ref: React.RefObject<HTMLDivElement>) {
+function useDropUp(open: boolean, ref: React.RefObject<HTMLDivElement | null>) {
   const [up, setUp] = useState(false);
   useEffect(() => {
     if (!open || !ref.current) {
@@ -403,6 +403,12 @@ export function App() {
   // targeted spell awaiting its target.
   const [attacker, setAttacker] = useState<string | null>(null);
   const [spell, setSpell] = useState<PendingSpell | null>(null);
+  // A Duality (Choose One) card awaiting its option pick. Once the player picks,
+  // an untargeted option plays immediately; a targeted one arms `spell` with the
+  // chosen index so onChar sends play_card carrying it.
+  const [duality, setDuality] = useState<
+    { handIndex: number; card: CardView; pos?: number } | null
+  >(null);
   const [heroPowerArmed, setHeroPowerArmed] = useState(false);
   const [seek, setSeek] = useState<CardView[] | null>(null);
   // Number of cards the opponent is currently seeking (null = not). Drives a
@@ -1170,6 +1176,15 @@ export function App() {
   const onHandCard = (i: number, card: CardView, pos?: number) => {
     if (!myTurn || winner || spectatingRef.current) return;
     const minionPos = card.cardType === "minion" ? pos : undefined;
+    // Duality (Choose One): open the two-option chooser before playing. The pick
+    // (in chooseDuality) then plays immediately, or arms targeting for its option.
+    if (card.choices && card.choices.length > 0) {
+      setSpell(null);
+      setAttacker(null);
+      setHeroPowerArmed(false);
+      setDuality({ handIndex: i, card, pos: minionPos });
+      return;
+    }
     const rule = card.target;
     if (rule && rule !== "none") {
       if (spell?.handIndex === i) {
@@ -1200,6 +1215,50 @@ export function App() {
     // the board fly-in instead.
     if (card.cardType !== "minion") playGhost(`hand-${i}`);
     send({ type: "play_card", handIndex: i, pos: minionPos });
+  };
+
+  // Picking a Duality option. An untargeted option plays at once; a targeted one
+  // arms targeting (carrying the chosen index) if a legal target exists — else a
+  // minion still plays (its onset fizzles) and a spell reports no valid target.
+  const chooseDuality = (idx: number) => {
+    if (!duality || !snap) return;
+    const { handIndex, card, pos } = duality;
+    const opt = card.choices?.[idx];
+    setDuality(null);
+    if (!opt) return;
+    const rule = opt.target;
+    if (rule && rule !== "none") {
+      const legal = ((): boolean => {
+        const ok = (kind: CharKind, m?: MinionView): boolean => {
+          if (kind === "enemyMinion" && m?.stealth) return false;
+          return ruleMatches(rule, kind) && condMet(opt, m);
+        };
+        if (ok("selfHero") || ok("oppHero")) return true;
+        if (snap.self.board.some((m) => ok("friendlyMinion", m))) return true;
+        if (snap.opp.board.some((m) => ok("enemyMinion", m))) return true;
+        return false;
+      })();
+      if (legal) {
+        setSpell({
+          handIndex,
+          target: rule,
+          reqAttack: opt.reqAttack,
+          reqMaxAttack: opt.reqMaxAttack,
+          reqTaunt: opt.reqTaunt,
+          pos,
+          choice: idx,
+        });
+        return;
+      }
+      if (card.cardType === "minion") {
+        send({ type: "play_card", handIndex, pos, choice: idx }); // onset fizzles
+      } else {
+        setStatus("no valid target");
+      }
+      return;
+    }
+    if (card.cardType !== "minion") playGhost(`hand-${handIndex}`);
+    send({ type: "play_card", handIndex, pos, choice: idx });
   };
 
   // Clicking the hero power. An untargeted power fires immediately; a targeted one
@@ -1279,6 +1338,7 @@ export function App() {
           handIndex: spell.handIndex,
           targetId,
           pos: spell.pos,
+          choice: spell.choice,
         });
         setSpell(null);
       }
@@ -1570,6 +1630,11 @@ export function App() {
                                     label: "Paladin",
                                     art: "/art/paladin_hero.png",
                                   },
+                                  {
+                                    value: "druid",
+                                    label: "Druid",
+                                    art: "/art/druid_hero.png",
+                                  },
                                 ]}
                               />
                             </label>
@@ -1686,6 +1751,11 @@ export function App() {
                                       value: "paladin",
                                       label: "Paladin",
                                       art: "/art/paladin_hero.png",
+                                    },
+                                    {
+                                      value: "druid",
+                                      label: "Druid",
+                                      art: "/art/druid_hero.png",
                                     },
                                   ]}
                                 />
@@ -2108,5 +2178,44 @@ export function App() {
     );
   }
 
-  return board;
+  return (
+    <>
+      {board}
+      {duality && (
+        <div className="overlay" onClick={() => setDuality(null)}>
+          <div
+            className="duality-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="seek-title">Choose One</div>
+            <div className="duality-body">
+              <div className={"card duality-card" + cardColorClass(duality.card)}>
+                <CardFace card={duality.card} />
+              </div>
+              <div className="duality-opts">
+                {(duality.card.choices ?? []).map((opt, idx) => (
+                  <button
+                    type="button"
+                    key={idx}
+                    className={"duality-opt" + cardColorClass(duality.card)}
+                    onClick={() => chooseDuality(idx)}
+                  >
+                    <span className="duality-opt-num">{idx + 1}</span>
+                    <span className="duality-opt-text">{opt.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="duality-cancel"
+              onClick={() => setDuality(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }

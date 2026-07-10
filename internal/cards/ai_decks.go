@@ -280,6 +280,60 @@ var aiPaladinMidrange = []string{
 
 var aiPaladinDecks = [][]string{aiPaladinFace, aiPaladinMidrange}
 
+// aiDruidFace is a nature tempo/beast deck: cheap ramp + reach (Mana Bloom,
+// Moonbeam, Feral Claws), Might of the Grove board buffs, Clawform Druid's Charge
+// mode, Claw Sweep clear, Treant swarm (Call the Grove), sticky neutral bodies,
+// topped by the class legendary. Leans on options the greedy bot plays straight
+// (untargeted / self buffs / plain-targeted removal).
+var aiDruidFace = []string{
+	"mana_bloom", "mana_bloom",
+	"moonbeam", "moonbeam",
+	"feral_claws", "feral_claws",
+	"might_of_the_grove", "might_of_the_grove",
+	"claw_sweep", "claw_sweep",
+	"silverback_elder", "silverback_elder",
+	"grove_warden", "grove_warden",
+	"clawform_druid", "clawform_druid",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"dire_rider", "dire_rider",
+	"tusker_runt", "tusker_runt",
+	"mirefang_raptor", "mirefang_raptor",
+	"starbolt",
+	"call_the_grove",
+	"elder_of_battle",
+	"molten_hound",
+	"war_colossus",
+	"sylvaros",
+}
+
+// aiDruidMidrange is a slower nature ramp/control deck: mana acceleration (Mana
+// Bloom / Verdant Growth / Verdant Bounty) into beefy bodies, Claw Sweep clear,
+// Ancients, sturdy neutral walls, topped by the class legendary. Every card
+// stands alone for the bot.
+var aiDruidMidrange = []string{
+	"mana_bloom", "mana_bloom",
+	"verdant_growth", "verdant_growth",
+	"feral_claws", "feral_claws",
+	"silverback_elder", "silverback_elder",
+	"grove_warden", "grove_warden",
+	"verdant_bounty", "verdant_bounty",
+	"clawform_druid", "clawform_druid",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"claw_sweep", "claw_sweep",
+	"might_of_the_grove", "might_of_the_grove",
+	"barkhide_colossus",
+	"elder_of_wisdom",
+	"elder_of_battle",
+	"wilds_gift",
+	"dawnguard_protector",
+	"crag_ogre",
+	"war_colossus",
+	"sylvaros",
+}
+
+var aiDruidDecks = [][]string{aiDruidFace, aiDruidMidrange}
+
 // StarterDeck is a named prebuilt deck offered to players in the deckbuilder as a
 // one-click prefill. Cards mirror the vs-AI decks (AIDecks); the names are flavor
 // only and belong to our custom set (no external IP).
@@ -298,6 +352,7 @@ var starterNames = map[Class][2]string{
 	ClassWarlock: {"Hexfire Rush", "Overlord's Pact"},
 	ClassPriest:  {"Radiant Zeal", "Gloomward Control"},
 	ClassPaladin: {"Dawnmace Tempo", "Hallowed Bulwark"},
+	ClassDruid:   {"Grove Frenzy", "Verdant Ramp"},
 }
 
 // StarterDecks returns the named prefill decks for a class (fresh copies, safe for
@@ -336,6 +391,8 @@ func AIDecks(class Class) [][]string {
 		src = aiPriestDecks
 	case ClassPaladin:
 		src = aiPaladinDecks
+	case ClassDruid:
+		src = aiDruidDecks
 	default:
 		return nil
 	}

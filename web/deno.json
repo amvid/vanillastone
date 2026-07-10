@@ -21,5 +21,6 @@
     "build": "deno check src && deno run -A npm:vite build",
     "preview": "deno run -A npm:vite preview",
     "check": "deno check src"
-  }
+  },
+  "allowScripts": ["npm:@swc/core"]
 }

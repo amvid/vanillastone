@@ -69,6 +69,11 @@ type enchant struct {
 	// still draws. Stripped by Silence with the rest of the enchants.
 	drawOnAttack int
 	drawOwner    int
+
+	// finalGasp: a deathrattle granted by an enchantment (`forest_soul` — "your
+	// minions gain Final Gasp: summon a 2/2 Thornling"). Fired in resolveDeaths
+	// alongside the card's own finalGasps. Stripped by Silence with the enchants.
+	finalGasp *cards.Effect
 }
 
 // minion is a minion instance in play. uid is unique within the match. Attack

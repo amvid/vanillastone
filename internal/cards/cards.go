@@ -25,12 +25,13 @@ const (
 	ClassWarlock Class = "warlock"
 	ClassPriest  Class = "priest"
 	ClassPaladin Class = "paladin"
+	ClassDruid   Class = "druid"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
 func PlayableClasses() []Class {
-	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin}
+	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin, ClassDruid}
 }
 
 // classPlayable reports whether decks may be built for this class.
@@ -137,6 +138,10 @@ const (
 	EffectDrawAndBolt       EffectKind = "drawAndBolt"       // draw the top card, then deal damage equal to its Cost to the target minion (`zealots_verdict`); Spell Damage + cast doubling apply
 	EffectDrawToOpponent    EffectKind = "drawToOpponent"    // draw until the caster's hand size matches the opponent's (stops at an empty deck or a full hand) (`providence`)
 	EffectGrantDrawOnAttack EffectKind = "grantDrawOnAttack" // enchant the target minion so its controller draws a card whenever it attacks (`insight_blessing`); silence removes it
+
+	// Druid staples (Nature — ramp, beasts, treants, claws, Duality/Choose One).
+	EffectRampMana       EffectKind = "rampMana"       // gain Amount Mana Crystals: Empty adds max mana only (`verdant_growth`), else max+current (`verdant_bounty`); OverflowGenerate = card added per crystal past the cap (`overflow_mana`)
+	EffectGrantFinalGasp EffectKind = "grantFinalGasp" // enchant every friendly minion (AreaFriendlyMinions) so it also gains the FinalGasp effect on death (`forest_soul`); silence removes it
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -260,6 +265,15 @@ type Effect struct {
 	ReqMaxAttack      int     `json:"reqMaxAttack,omitempty"`      // targeted/area effect: the target minion's Attack must be <= this (`gloom_word_ache`, `gloom_word_undoing`, `gloom_thrall`, `cabal_mindbinder`); 0 = no max
 	TempUntilNextTurn bool    `json:"tempUntilNextTurn,omitempty"` // EffectBuff: the buff/debuff expires at the START of the caster's next turn (`crimson_subduer`'s -2 Attack)
 	TempControl       bool    `json:"tempControl,omitempty"`       // EffectMindControl: return the stolen minion to its owner at the END of this turn (`gloom_thrall`)
+
+	// Druid riders/fields.
+	ScaleByHeroAttack      bool      `json:"scaleByHeroAttack,omitempty"`      // EffectDamage: the amount dealt equals the caster's current hero Attack (`savage_slash`)
+	OtherEnemyAmount       int       `json:"otherEnemyAmount,omitempty"`       // EffectDamage (single target): also deal this to every OTHER enemy character (`claw_sweep`); Spell Damage adds to it too
+	SummonGrant            []Keyword `json:"summonGrant,omitempty"`            // EffectSummon: grant these keywords to each summoned token (`call_the_grove` Charge, `sylvaros` Taunt)
+	SummonDestroyEndOfTurn bool      `json:"summonDestroyEndOfTurn,omitempty"` // EffectSummon: each summoned token dies at the end of this turn (`call_the_grove`)
+	Empty                  bool      `json:"empty,omitempty"`                  // EffectRampMana: add max mana only (an empty crystal), not current mana (`verdant_growth`)
+	OverflowGenerate       string    `json:"overflowGenerate,omitempty"`       // EffectRampMana: card id added to hand for each crystal past the cap (`verdant_growth` → `overflow_mana`)
+	FinalGasp              *Effect   `json:"finalGasp,omitempty"`              // EffectGrantFinalGasp: the deathrattle effect granted to each friendly minion (`forest_soul`)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -451,6 +465,14 @@ type SelfCountAtk struct {
 	Atk   int   `json:"atk"`
 }
 
+// Choice is one option of a Duality (Choose One) card. Text is the option's
+// rules text (shown on the client's chooser); Effect is what resolves when it is
+// picked — a spell's effect, or a minion's onset (anchored on the played minion).
+type Choice struct {
+	Text   string `json:"text"`
+	Effect Effect `json:"effect"`
+}
+
 // Card is a card definition. Minions use Attack/Health; spells use Effect.
 // Text is human-readable rules text shown in the client's hover box; vanilla
 // minions with no special behavior leave it empty.
@@ -466,6 +488,7 @@ type Card struct {
 	Durability        int           `json:"durability,omitempty"` // weapons only
 	Text              string        `json:"text,omitempty"`
 	Effect            *Effect       `json:"effect,omitempty"`            // spells only
+	Choices           []Choice      `json:"choices,omitempty"`           // Duality (Choose One): exactly two options; the player picks one at play time — the chosen Effect replaces the card's spell Effect / minion onset (`might_of_the_grove`, `clawform_druid`)
 	Triggers          []Trigger     `json:"triggers,omitempty"`          // minions: onset / finalGasp
 	Keywords          []Keyword     `json:"keywords,omitempty"`          // minions: static keywords
 	Tribe             Tribe         `json:"tribe,omitempty"`             // minions: creature type (tribal synergies)
@@ -498,7 +521,9 @@ func (c Card) Has(k Keyword) bool {
 	return slices.Contains(c.Keywords, k)
 }
 
-// Onset returns the minion's on_play effect, or nil if it has none.
+// Onset returns the minion's on_play effect, or nil if it has none. For a
+// Duality minion the onset is the chosen option's effect — the caller must pick
+// via ChosenEffect (Onset returns nil so the un-chosen card carries no target).
 func (c Card) Onset() *Effect {
 	for i := range c.Triggers {
 		if c.Triggers[i].When == OnPlay {
@@ -506,6 +531,16 @@ func (c Card) Onset() *Effect {
 		}
 	}
 	return nil
+}
+
+// ChosenEffect returns the effect for Duality option idx (0 or 1), or nil when
+// the card has no Choices or idx is out of range. It is the played card's real
+// effect once the player has picked — a spell's effect or a minion's onset.
+func (c Card) ChosenEffect(idx int) *Effect {
+	if idx < 0 || idx >= len(c.Choices) {
+		return nil
+	}
+	return &c.Choices[idx].Effect
 }
 
 // FinalGasps returns the minion's on_death effects in declared order.
@@ -533,7 +568,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards, druidCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -568,6 +603,8 @@ func HeroPowerForClass(c Class) Card {
 		return set["mend"]
 	case ClassPaladin:
 		return set["muster"]
+	case ClassDruid:
+		return set["wild_shape"]
 	default:
 		return set["fire_dart"]
 	}
@@ -872,6 +909,40 @@ var defaultPaladinDeck = []string{
 	"highlord_valdric",
 }
 
+// defaultDruidDeck is the curated fallback Druid deck: a nature ramp-midrange
+// list — early mana acceleration (Mana Bloom / Verdant Growth) into flexible
+// Duality tempo (Might of the Grove / Wrath / Mark of Nature), Treant swarm
+// (Force of Nature / Cenarius) and beefy Ancients, over a small neutral core,
+// topped by the class legendary. Kept 30 cards, ≤2 of any id, ≤1 legendary —
+// TestDefaultDruidDeckIsLegal enforces it.
+var defaultDruidDeck = []string{
+	// Ramp + cheap flex.
+	"mana_bloom", "mana_bloom",
+	"verdant_growth", "verdant_growth",
+	// 2-drop Duality tempo + buffs.
+	"wild_mark", "wild_mark",
+	"might_of_the_grove", "might_of_the_grove",
+	"thornlash", "thornlash",
+	// 3-drops: buff + swarm payoff.
+	"wild_endowment", "wild_endowment",
+	// 4-drops: flexible body + neutral wall.
+	"grove_warden", "grove_warden",
+	"silverback_elder", "silverback_elder",
+	// 5-drops: removal, ramp/draw, shifter body, neutral wall.
+	"star_rain", "star_rain",
+	"verdant_bounty", "verdant_bounty",
+	"clawform_druid", "clawform_druid",
+	"harbor_bodyguard", "harbor_bodyguard",
+	// 6-drop: Treant swarm.
+	"call_the_grove",
+	// Top end: Ancients + finishers.
+	"elder_of_wisdom",
+	"elder_of_battle",
+	"wilds_gift",
+	"barkhide_colossus",
+	"sylvaros",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -894,6 +965,8 @@ func DefaultDeckFor(class Class) []string {
 		return append([]string(nil), defaultPriestDeck...)
 	case ClassPaladin:
 		return append([]string(nil), defaultPaladinDeck...)
+	case ClassDruid:
+		return append([]string(nil), defaultDruidDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}

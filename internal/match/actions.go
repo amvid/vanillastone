@@ -8,15 +8,16 @@ import (
 // PlayCard plays the card at handIndex, appending a played minion to the board.
 // Convenience wrapper over PlayCardAt for callers that don't choose a position.
 func (m *Match) PlayCard(c Sender, handIndex int, targetID string) (bool, string) {
-	return m.PlayCardAt(c, handIndex, targetID, -1)
+	return m.PlayCardAt(c, handIndex, targetID, -1, 0)
 }
 
 // PlayCardAt plays the card at handIndex for the current player. Minions are
 // summoned (inserted at board position pos, or appended when pos < 0); spells
 // resolve their effect against targetID (ignored for minions and untargeted
-// spells). All validation happens before any mutation so a rejected play leaves
-// state untouched.
-func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (bool, string) {
+// spells). choice selects a Duality (Choose One) option — 0/1 — and is ignored
+// for cards without Choices. All validation happens before any mutation so a
+// rejected play leaves state untouched.
+func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice int) (bool, string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.over {
@@ -42,9 +43,15 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 		return false, "not enough mana"
 	}
 
+	// Duality (Choose One): the played card must carry a valid option index. Both
+	// spells and minions read the chosen effect in place of their default one.
+	if len(card.Choices) > 0 && (choice < 0 || choice >= len(card.Choices)) {
+		return false, "no such choice"
+	}
+
 	if card.Type == cards.TypeSpell {
 		m.resetLog()
-		return m.playSpell(pi, handIndex, card, targetID, cost)
+		return m.playSpell(pi, handIndex, card, targetID, cost, choice)
 	}
 
 	if card.Type == cards.TypeSecret {
@@ -71,7 +78,12 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 	// Onset (on_play) validation happens before any mutation. A onset
 	// that needs a target requires a legal one when targets exist; with no legal
 	// targets it fizzles and the minion still plays (standard behavior).
+	// A Duality minion (`clawform_druid`, `grove_warden`, …) uses the chosen option's
+	// effect as its onset; a normal minion uses its on_play trigger.
 	bc := card.Onset()
+	if len(card.Choices) > 0 {
+		bc = card.ChosenEffect(choice)
+	}
 	applyBC := bc != nil
 	var bcRef charRef
 	if bc != nil && needsTarget(bc.Target) {
@@ -144,12 +156,14 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 		// "each player draws" / "give both players" rider — `brineseer_diviner`,
 		// `warhorn_chieftain`). These are untargeted by construction; fire each in
 		// declared order. A future targeted extra would need its own resolution.
-		for _, extra := range card.TriggersFor(cards.OnPlay)[1:] {
-			e := extra
-			if needsTarget(e.Target) {
-				continue
+		if onsetTriggers := card.TriggersFor(cards.OnPlay); len(onsetTriggers) > 1 {
+			for _, extra := range onsetTriggers[1:] {
+				e := extra
+				if needsTarget(e.Target) {
+					continue
+				}
+				m.applyEffect(pi, &e, charRef{}, 0, mn.uid)
 			}
-			m.applyEffect(pi, &e, charRef{}, 0, mn.uid)
 		}
 	}
 	m.fireTriggers(pi, cards.OnPlayCard, mn) // "after you play a card" (the minion itself doesn't count)
@@ -160,8 +174,11 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos int) (b
 // playSpell validates the target, then spends mana, discards the card, applies
 // the effect, and resolves deaths/win. Caller holds m.mu and has already
 // checked turn and mana.
-func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, cost int) (bool, string) {
+func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, cost, choice int) (bool, string) {
 	eff := card.Effect
+	if len(card.Choices) > 0 { // Duality spell (`might_of_the_grove`, `wrath`, …)
+		eff = card.ChosenEffect(choice)
+	}
 	var ref charRef
 	if eff.Target != cards.TargetNone {
 		var ok bool

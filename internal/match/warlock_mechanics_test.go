@@ -218,7 +218,7 @@ func TestRaveningHorrorConsumesAdjacent(t *testing.T) {
 	m.state[0].mana, m.state[0].maxMana = 10, 10
 	m.state[0].hand = []cards.Card{getCard("ravening_horror")}
 	m.sendStateAll()
-	if ok, msg := m.PlayCardAt(a, 0, "", 1); !ok { // insert between L and R
+	if ok, msg := m.PlayCardAt(a, 0, "", 1, 0); !ok { // insert between L and R
 		t.Fatalf("Ravening Horror should resolve: %s", msg)
 	}
 	if findMinion(m.state[0].board, "L") != nil || findMinion(m.state[0].board, "R") != nil {

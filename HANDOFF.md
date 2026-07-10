@@ -12,7 +12,41 @@ Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 > (explicit allowlist) or dev fetches fall through to the SPA fallback and fail
 > silently; editing that config needs a dev-server restart.
 
-Last updated: **2026-07-08** (**Paladin CODE COMPLETE + wired + ART COMPLETE** — sixth playable class. Spec + id reservation in
+Last updated: **2026-07-10** (**Druid CODE + ART COMPLETE** — seventh playable class. Full 26-card set
+(10 Basic + 16 Classic) + hero power `wild_shape` (Shapeshift, "+1 Attack this turn, +1 Armor") + 3
+tokens reserved in `.notes/classic-mapping.md` "DRUID" and art prompts in `.notes/art-prompts.md`
+"# DRUID" (hero portrait, hero power, all 26 cards + tokens). UI ART COMPLETE: `druid_hero.png`
+(male centaur-like forest guardian, 512x512, 141KB) + `wild_shape.png` (green claw over bark shield,
+512x512, 114KB). All 10 Basic card arts approved and placed at 512x512 under 150KB:
+`mana_bloom`, `moonbeam`, `feral_claws`, `wild_mark`, `verdant_growth`, `mending_touch`,
+`feral_howl`, `claw_sweep`, `starbolt`, `barkhide_colossus`. First five Classic arts approved and
+placed: `wild_reclaim`, `savage_slash`, `might_of_the_grove`, `thornlash`, `wild_endowment`. Next five
+Classic arts approved and placed: `forest_soul`, `savage_bite`, `grove_warden`, `call_the_grove`,
+`verdant_bounty`. `call_the_grove` needed a simplified-prompt retry after an output safety false
+positive. Next five Classic arts approved and placed: `star_rain`, `clawform_druid`,
+`elder_of_wisdom`, `elder_of_battle`, `sylvaros`. Final collectible `wilds_gift` and all three tokens
+(`overflow_mana`, `grove_panther`, `thornling`) approved and placed. Druid art totals: hero portrait
++ hero power, 26/26 collectible, 3/3 token; all 512x512 and under 150KB. Token count corrected from
+stale 6 to current 3; the
+separate cat/bear form tokens were dropped during implementation. NEW keyword: HS "Choose One" → our
+**Duality**; treant token → our **Thornling**. Card colour = orange/brown. Values = **ORIGINAL
+Classic-era printings** per user ("back in the time"): Innervate +2 mana, Force of Nature 6-mana
+Charge/doomed thornlings, Druid of the Claw 5-mana 4/4 self-buff (no transform), Ancient of Lore
+5/5 draw-2/heal-5, Mark of the Wild +2/+2, Swipe 4-mana — see mapping "Original-era resolutions".
+CODE: full set in `internal/cards/druid.go` (22 spells + 4 minions) + `wild_shape` + 3 tokens
+(`overflow_mana`, `grove_panther`, `thornling`); unit-tested `internal/match/druid_mechanics_test.go`
+(13). **Duality** = client-side 2-option chooser (`chooseDuality` in App.tsx) sending `PlayCard.Choice`
+inline with the target — NO server pause (unlike Seek); `PlayCardAt(...,choice)` picks
+`card.ChosenEffect(choice)`. New engine vocab: `Card.Choices` + `protocol.CardView.Choices`/`ChoiceView`;
+`EffectRampMana` (Empty/OverflowGenerate); `EffectGrantFinalGasp` + `enchant.finalGasp` (fired in
+resolveDeaths); EffectDamage `ScaleByHeroAttack`+`OtherEnemyAmount`; EffectSummon `SummonGrant`+
+`SummonDestroyEndOfTurn`. Client wired: orange/brown `.card.druid`, 🍃 glyph, deckcode `d`, deckbuilder +
+vs-AI pickers, `defaultDruidDeck` + `aiDruidFace`/`aiDruidMidrange`, Duality chooser modal. **Build
+toolchain: `web/` swapped `@vitejs/plugin-react` → `@vitejs/plugin-react-swc` (^4.3.1)** — SWC transform;
+needs `deno install` + `deno approve-scripts npm:@swc/core` (native postinstall). `go test -race ./...`,
+vet, gofmt, `deno check`/`deno lint`/`deno task build` all green. Remaining: finish Druid art (Classic
+cards + tokens), then in-client visual smoke test (Duality chooser, `wild_shape`, thornling swarm).
+Prior: **Paladin CODE COMPLETE + wired + ART COMPLETE** — sixth playable class. Spec + id reservation in
 `.notes/classic-mapping.md` "PALADIN" (26 collectible = 10 Basic + 16 Classic) + prompts in
 `.notes/art-prompts.md` "# PALADIN" (hero portrait, hero power `muster`, all 26 cards + 3 tokens).
 ART COMPLETE: `paladin_hero.png` male dwarf holy paladin portrait (512x512, 136KB), `muster.png`

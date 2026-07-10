@@ -134,6 +134,10 @@ type PlayCard struct {
 	// the player drag a card between minions on the table. nil = append to the
 	// end (back-compat / non-minion plays). Clamped server-side.
 	Pos *int `json:"pos,omitempty"`
+	// Choice is the picked Duality (Choose One) option index (0 or 1); ignored for
+	// cards without Choices. The client picks it before targeting, so TargetID (if
+	// any) applies to the chosen option's effect.
+	Choice int `json:"choice,omitempty"`
 }
 
 // Attack orders the friendly minion AttackerID to attack a target. TargetID is
@@ -268,6 +272,20 @@ type CardView struct {
 	ReqTaunt     bool   `json:"reqTaunt,omitempty"`     // targeted onset: target minion must have Taunt
 	ReqTribe     string `json:"reqTribe,omitempty"`     // targeted onset: target minion must be of this tribe
 	Text         string `json:"text,omitempty"`         // human-readable rules text for the hover box
+	// Choices are the Duality (Choose One) options; when present the client shows a
+	// two-option chooser at play time and arms targeting per the chosen option.
+	Choices []ChoiceView `json:"choices,omitempty"`
+}
+
+// ChoiceView is one Duality option in a CardView: its label plus the targeting
+// rule + conditions the client uses to arm targeting once the option is picked.
+type ChoiceView struct {
+	Text         string `json:"text"`
+	Target       string `json:"target,omitempty"`
+	ReqAttack    int    `json:"reqAttack,omitempty"`
+	ReqMaxAttack int    `json:"reqMaxAttack,omitempty"`
+	ReqTaunt     bool   `json:"reqTaunt,omitempty"`
+	ReqTribe     string `json:"reqTribe,omitempty"`
 }
 
 // MinionView is a minion in play, visible to both players. CanAttack means the

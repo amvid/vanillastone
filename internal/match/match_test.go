@@ -849,7 +849,7 @@ func TestAdjacencyOnsetBuffsNeighbours(t *testing.T) {
 	place(m, 0, "right", "pebble_imp", 1, 1, true)
 	m.state[0].hand = []cards.Card{getCard("bannerguard")}
 	m.state[0].mana, m.state[0].maxMana = 4, 4
-	if ok, msg := m.PlayCardAt(a, 0, "", 1); !ok { // drop between left and right
+	if ok, msg := m.PlayCardAt(a, 0, "", 1, 0); !ok { // drop between left and right
 		t.Fatalf("play should resolve: %s", msg)
 	}
 	for _, uid := range []string{"left", "right"} {
@@ -876,7 +876,7 @@ func TestGrantedKeywordStrippedBySilence(t *testing.T) {
 	place(m, 0, "ally", "pebble_imp", 1, 1, true)
 	m.state[0].hand = []cards.Card{getCard("wardstone_sentinel")} // BC: adjacent gain Taunt
 	m.state[0].mana, m.state[0].maxMana = 2, 2
-	if ok, msg := m.PlayCardAt(a, 0, "", 0); !ok { // drop left of ally
+	if ok, msg := m.PlayCardAt(a, 0, "", 0, 0); !ok { // drop left of ally
 		t.Fatalf("play should resolve: %s", msg)
 	}
 	ally := findMinion(m.state[0].board, "ally")
@@ -2406,7 +2406,7 @@ func TestPlayCardAtPosition(t *testing.T) {
 		return -1
 	}
 	play := func(id string, pos int) {
-		if ok, msg := m.PlayCardAt(a, handIdx(id), "", pos); !ok {
+		if ok, msg := m.PlayCardAt(a, handIdx(id), "", pos, 0); !ok {
 			t.Fatalf("play %s at %d: %s", id, pos, msg)
 		}
 	}
@@ -3507,7 +3507,7 @@ func TestAncientMageGrantsSpellDamage(t *testing.T) {
 	place(m, 0, "right", "pebble_imp", 1, 1, true)
 	m.state[0].hand = []cards.Card{getCard("runeward_sage")}
 	m.state[0].mana, m.state[0].maxMana = 4, 4
-	if ok, msg := m.PlayCardAt(a, 0, "", 1); !ok { // drop between the two
+	if ok, msg := m.PlayCardAt(a, 0, "", 1, 0); !ok { // drop between the two
 		t.Fatalf("play sage: %s", msg)
 	}
 	left, right := boardMinion(m, 0, "left"), boardMinion(m, 0, "right")

@@ -866,7 +866,7 @@ func (s *Server) handlePlayCard(data []byte, c *Client) {
 	if p.Pos != nil {
 		pos = *p.Pos
 	}
-	if ok, msg := m.PlayCardAt(c, p.HandIndex, p.TargetID, pos); !ok {
+	if ok, msg := m.PlayCardAt(c, p.HandIndex, p.TargetID, pos, p.Choice); !ok {
 		c.Send(protocol.Marshal(protocol.Error{Type: protocol.TypeError, Msg: msg}))
 	}
 }

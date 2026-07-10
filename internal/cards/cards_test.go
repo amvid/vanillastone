@@ -159,6 +159,12 @@ func TestDefaultPaladinDeckIsLegal(t *testing.T) {
 	}
 }
 
+func TestDefaultDruidDeckIsLegal(t *testing.T) {
+	if err := ValidateDeck(DefaultDeckFor(ClassDruid), ClassDruid); err != nil {
+		t.Fatalf("default Druid deck must be legal: %v", err)
+	}
+}
+
 // TestHeroPowerForClass: each playable class resolves to its own hero power card;
 // an unknown class falls back to the Mage hero power (never empty).
 func TestHeroPowerForClass(t *testing.T) {
@@ -179,6 +185,9 @@ func TestHeroPowerForClass(t *testing.T) {
 	}
 	if hp := HeroPowerForClass(ClassPaladin); hp.ID != "muster" {
 		t.Fatalf("Paladin hero power want muster, got %q", hp.ID)
+	}
+	if hp := HeroPowerForClass(ClassDruid); hp.ID != "wild_shape" {
+		t.Fatalf("Druid hero power want wild_shape, got %q", hp.ID)
 	}
 	if hp := HeroPowerForClass(ClassNeutral); hp.ID != "fire_dart" {
 		t.Fatalf("unknown class must fall back to Mage hero power, got %q", hp.ID)

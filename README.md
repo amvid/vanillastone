@@ -44,7 +44,7 @@ Built deliberately, one phase at a time:
 |    10 | Landscaped mobile support                                         |  ✅   |
 |    11 | Priest class                                                      |  ✅   |
 |    12 | Paladin class                                                     |  ✅   |
-|    13 | Druid class                                                       |  ⏳   |
+|    13 | Druid class                                                       |  ✅   |
 |    14 | Rogue class                                                       |  ⏳   |
 |    15 | Shaman class                                                      |  ⏳   |
 |    ?? | Polish UI, improve animations                                     |  ⏳   |
