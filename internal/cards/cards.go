@@ -26,12 +26,13 @@ const (
 	ClassPriest  Class = "priest"
 	ClassPaladin Class = "paladin"
 	ClassDruid   Class = "druid"
+	ClassRogue   Class = "rogue"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
 func PlayableClasses() []Class {
-	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin, ClassDruid}
+	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin, ClassDruid, ClassRogue}
 }
 
 // classPlayable reports whether decks may be built for this class.
@@ -142,6 +143,13 @@ const (
 	// Druid staples (Nature — ramp, beasts, treants, claws, Duality/Choose One).
 	EffectRampMana       EffectKind = "rampMana"       // gain Amount Mana Crystals: Empty adds max mana only (`verdant_growth`), else max+current (`verdant_bounty`); OverflowGenerate = card added per crystal past the cap (`overflow_mana`)
 	EffectGrantFinalGasp EffectKind = "grantFinalGasp" // enchant every friendly minion (AreaFriendlyMinions) so it also gains the FinalGasp effect on death (`forest_soul`); silence removes it
+
+	// Rogue staples (daggers, poison, tempo, the Chain/Combo keyword).
+	EffectForceAttackNeighbors EffectKind = "forceAttackNeighbors" // the target enemy minion deals its Attack to each minion beside it (`turncoat` = Betrayal)
+	EffectWeaponSweep          EffectKind = "weaponSweep"          // destroy the caster's weapon and deal its Attack to every enemy minion (`blade_whirl` = Blade Flurry); fizzles with no weapon
+	EffectDiscountNextSpell    EffectKind = "discountNextSpell"    // the caster's next spell this turn costs Amount less (`groundwork` = Preparation)
+	EffectPickpocket           EffectKind = "pickpocket"           // add a random collectible from a class other than the caster's (and not neutral) to the caster's hand (`pickpocket` = Pilfer)
+	EffectBounceAll            EffectKind = "bounceAll"            // return every minion on both boards to its owner's hand (`vanishing_act` = Vanish)
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -274,6 +282,11 @@ type Effect struct {
 	Empty                  bool      `json:"empty,omitempty"`                  // EffectRampMana: add max mana only (an empty crystal), not current mana (`verdant_growth`)
 	OverflowGenerate       string    `json:"overflowGenerate,omitempty"`       // EffectRampMana: card id added to hand for each crystal past the cap (`verdant_growth` → `overflow_mana`)
 	FinalGasp              *Effect   `json:"finalGasp,omitempty"`              // EffectGrantFinalGasp: the deathrattle effect granted to each friendly minion (`forest_soul`)
+
+	// Rogue riders/fields.
+	ReqUndamaged          bool `json:"reqUndamaged,omitempty"`          // targeted effect: the target minion must be UNDAMAGED (current Health == max) (`blindside` = Backstab)
+	BounceCostDelta       int  `json:"bounceCostDelta,omitempty"`       // EffectBounce: permanently add this to the returned card's Cost in hand (`slip_away` = Shadowstep: -2); floored at 0
+	PerCardPlayedThisTurn bool `json:"perCardPlayedThisTurn,omitempty"` // EffectBuff: scale the buff by the number of OTHER cards the caster has played this turn (`shadowlord_vex` = Edwin VanCleef)
 
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
@@ -477,43 +490,46 @@ type Choice struct {
 // Text is human-readable rules text shown in the client's hover box; vanilla
 // minions with no special behavior leave it empty.
 type Card struct {
-	ID                string        `json:"id"`
-	Name              string        `json:"name"`
-	Type              Type          `json:"type"`
-	Class             Class         `json:"class,omitempty"`  // neutral (default) or mage — drives client color
-	Rarity            Rarity        `json:"rarity,omitempty"` // common/rare/epic/legendary; empty for tokens & hero power
-	Cost              int           `json:"cost"`
-	Attack            int           `json:"attack,omitempty"`     // minions and weapons
-	Health            int           `json:"health,omitempty"`     // minions only
-	Durability        int           `json:"durability,omitempty"` // weapons only
-	Text              string        `json:"text,omitempty"`
-	Effect            *Effect       `json:"effect,omitempty"`            // spells only
-	Choices           []Choice      `json:"choices,omitempty"`           // Duality (Choose One): exactly two options; the player picks one at play time — the chosen Effect replaces the card's spell Effect / minion onset (`might_of_the_grove`, `clawform_druid`)
-	Triggers          []Trigger     `json:"triggers,omitempty"`          // minions: onset / finalGasp
-	Keywords          []Keyword     `json:"keywords,omitempty"`          // minions: static keywords
-	Tribe             Tribe         `json:"tribe,omitempty"`             // minions: creature type (tribal synergies)
-	SpellDamage       int           `json:"spellDamage,omitempty"`       // minions: bonus added to the controller's spell damage
-	Aura              *Aura         `json:"aura,omitempty"`              // minions: continuous buff to other friendly minions
-	CostAura          *CostAura     `json:"costAura,omitempty"`          // minions: continuous hand-cost modifier while in play
-	CostRule          *CostRule     `json:"costRule,omitempty"`          // intrinsic per-card cost modifier (cost depends on board state)
-	SelfCountAtk      *SelfCountAtk `json:"selfCountAtk,omitempty"`      // minions: +Atk per other minion of a tribe in play (`brinelord_gorrak`)
-	Enrage            *Aura         `json:"enrage,omitempty"`            // minions: stat bonus active only while damaged (Atk only; HP unsupported)
-	EnrageWeaponAtk   int           `json:"enrageWeaponAtk,omitempty"`   // minions: while this is damaged, the controller's weapon gets +N Attack (`grudge_smith`)
-	TurnSeconds       int           `json:"turnSeconds,omitempty"`       // minions: while in play, caps every turn to N seconds (`chronlord_zhal`)
-	Secret            *SecretDef    `json:"secret,omitempty"`            // secrets only: trigger + behavior
-	CopiesSpells      bool          `json:"copiesSpells,omitempty"`      // while in play, every spell cast adds a copy to the non-caster's hand (`archivist_solenne`)
-	ChargeWithWeapon  bool          `json:"chargeWithWeapon,omitempty"`  // has Charge only while its controller has a weapon equipped (`tideblade_raider`)
-	EnrageGrant       []Keyword     `json:"enrageGrant,omitempty"`       // keywords granted while this minion is damaged (`moonfury_stalker`: Twinstrike)
-	Token             bool          `json:"token,omitempty"`             // summon-only; excluded from Seek/decks
-	WeaponSecretGain  bool          `json:"weaponSecretGain,omitempty"`  // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
-	ImmuneAttacking   bool          `json:"immuneAttacking,omitempty"`   // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
-	WearByAttack      bool          `json:"wearByAttack,omitempty"`      // weapons: attacking a MINION costs 1 Attack instead of 1 Durability (`bloodwail`)
-	WeaponHealHero    int           `json:"weaponHealHero,omitempty"`    // weapons: whenever the wielder's hero attacks, restore this much Health to it (`pureheart_blade`)
-	SummonBuffAtk     int           `json:"summonBuffAtk,omitempty"`     // weapons: after its wielder summons a minion, give it +SummonBuffAtk Attack and lose 1 Durability (`verdict_edge`)
-	SummonBuffHP      int           `json:"summonBuffHP,omitempty"`      // weapons: paired with SummonBuffAtk — the +Health half of the on-summon buff (`verdict_edge`)
-	AtkEqualsHealth   bool          `json:"atkEqualsHealth,omitempty"`   // minions: Attack is always equal to current Health (`lumen_wisp`); silence cancels it
-	HealsDealDamage   bool          `json:"healsDealDamage,omitempty"`   // minions: while in play, the controller's heals deal damage instead (`auralast_zealot`); silence cancels it
-	DoublesCastOutput bool          `json:"doublesCastOutput,omitempty"` // minions: while in play, double the damage/healing of the controller's spells + hero power (`oracle_velneth`); silence cancels it
+	ID                 string        `json:"id"`
+	Name               string        `json:"name"`
+	Type               Type          `json:"type"`
+	Class              Class         `json:"class,omitempty"`  // neutral (default) or mage — drives client color
+	Rarity             Rarity        `json:"rarity,omitempty"` // common/rare/epic/legendary; empty for tokens & hero power
+	Cost               int           `json:"cost"`
+	Attack             int           `json:"attack,omitempty"`     // minions and weapons
+	Health             int           `json:"health,omitempty"`     // minions only
+	Durability         int           `json:"durability,omitempty"` // weapons only
+	Text               string        `json:"text,omitempty"`
+	Effect             *Effect       `json:"effect,omitempty"`             // spells only
+	Choices            []Choice      `json:"choices,omitempty"`            // Duality (Choose One): exactly two options; the player picks one at play time — the chosen Effect replaces the card's spell Effect / minion onset (`might_of_the_grove`, `clawform_druid`)
+	ChainEffect        *Effect       `json:"chainEffect,omitempty"`        // Chain (Combo) spells: this effect replaces the base Effect when the caster already played a card this turn (`cold_venom`, `lacerate`)
+	ChainOnset         *Effect       `json:"chainOnset,omitempty"`         // Chain (Combo) minions/weapons: an onset that fires (anchored on the played card) ONLY when the caster already played a card this turn (`guild_agent`, `guild_ringleader`, `shadowlord_vex`, `ruin_dagger`)
+	ChainReturnsToHand bool          `json:"chainReturnsToHand,omitempty"` // Chain (Combo) spell: when the chain condition holds, return this spell to the caster's hand at the start of their next turn (`skullcrack` = Headcrack)
+	Triggers           []Trigger     `json:"triggers,omitempty"`           // minions: onset / finalGasp
+	Keywords           []Keyword     `json:"keywords,omitempty"`           // minions: static keywords
+	Tribe              Tribe         `json:"tribe,omitempty"`              // minions: creature type (tribal synergies)
+	SpellDamage        int           `json:"spellDamage,omitempty"`        // minions: bonus added to the controller's spell damage
+	Aura               *Aura         `json:"aura,omitempty"`               // minions: continuous buff to other friendly minions
+	CostAura           *CostAura     `json:"costAura,omitempty"`           // minions: continuous hand-cost modifier while in play
+	CostRule           *CostRule     `json:"costRule,omitempty"`           // intrinsic per-card cost modifier (cost depends on board state)
+	SelfCountAtk       *SelfCountAtk `json:"selfCountAtk,omitempty"`       // minions: +Atk per other minion of a tribe in play (`brinelord_gorrak`)
+	Enrage             *Aura         `json:"enrage,omitempty"`             // minions: stat bonus active only while damaged (Atk only; HP unsupported)
+	EnrageWeaponAtk    int           `json:"enrageWeaponAtk,omitempty"`    // minions: while this is damaged, the controller's weapon gets +N Attack (`grudge_smith`)
+	TurnSeconds        int           `json:"turnSeconds,omitempty"`        // minions: while in play, caps every turn to N seconds (`chronlord_zhal`)
+	Secret             *SecretDef    `json:"secret,omitempty"`             // secrets only: trigger + behavior
+	CopiesSpells       bool          `json:"copiesSpells,omitempty"`       // while in play, every spell cast adds a copy to the non-caster's hand (`archivist_solenne`)
+	ChargeWithWeapon   bool          `json:"chargeWithWeapon,omitempty"`   // has Charge only while its controller has a weapon equipped (`tideblade_raider`)
+	EnrageGrant        []Keyword     `json:"enrageGrant,omitempty"`        // keywords granted while this minion is damaged (`moonfury_stalker`: Twinstrike)
+	Token              bool          `json:"token,omitempty"`              // summon-only; excluded from Seek/decks
+	WeaponSecretGain   bool          `json:"weaponSecretGain,omitempty"`   // weapons: gain +1 Durability whenever one of the wielder's Secrets is revealed (`hawkeye_bow`)
+	ImmuneAttacking    bool          `json:"immuneAttacking,omitempty"`    // weapons: the wielder's hero is Immune while attacking with it (`duelists_longbow`)
+	WearByAttack       bool          `json:"wearByAttack,omitempty"`       // weapons: attacking a MINION costs 1 Attack instead of 1 Durability (`bloodwail`)
+	WeaponHealHero     int           `json:"weaponHealHero,omitempty"`     // weapons: whenever the wielder's hero attacks, restore this much Health to it (`pureheart_blade`)
+	SummonBuffAtk      int           `json:"summonBuffAtk,omitempty"`      // weapons: after its wielder summons a minion, give it +SummonBuffAtk Attack and lose 1 Durability (`verdict_edge`)
+	SummonBuffHP       int           `json:"summonBuffHP,omitempty"`       // weapons: paired with SummonBuffAtk — the +Health half of the on-summon buff (`verdict_edge`)
+	AtkEqualsHealth    bool          `json:"atkEqualsHealth,omitempty"`    // minions: Attack is always equal to current Health (`lumen_wisp`); silence cancels it
+	HealsDealDamage    bool          `json:"healsDealDamage,omitempty"`    // minions: while in play, the controller's heals deal damage instead (`auralast_zealot`); silence cancels it
+	DoublesCastOutput  bool          `json:"doublesCastOutput,omitempty"`  // minions: while in play, double the damage/healing of the controller's spells + hero power (`oracle_velneth`); silence cancels it
 }
 
 // Has reports whether the card has the given keyword.
@@ -568,7 +584,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards, druidCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards, druidCards, rogueCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -605,6 +621,8 @@ func HeroPowerForClass(c Class) Card {
 		return set["muster"]
 	case ClassDruid:
 		return set["wild_shape"]
+	case ClassRogue:
+		return set["hone_blade"]
 	default:
 		return set["fire_dart"]
 	}
@@ -943,6 +961,39 @@ var defaultDruidDeck = []string{
 	"sylvaros",
 }
 
+// defaultRogueDeck is the curated fallback Rogue deck: a dagger/poison tempo list
+// — cheap removal (Blindside / Lacerate) + reach (Sly Jab), Chain (Combo) bodies
+// (Guild Ringleader / Guild Agent), a weapon, Onset stealth/poison bodies, over a
+// small neutral core, topped by the class legendary. Kept 30 cards, ≤2 of any id,
+// ≤1 legendary — TestDefaultRogueDeckIsLegal enforces it.
+var defaultRogueDeck = []string{
+	// 0/1-drops: cheap removal + reach.
+	"blindside", "blindside",
+	"sly_jab", "sly_jab",
+	// 2-drops: bounce tempo, ping+draw, AoE, Chain body, removal.
+	"waylay", "waylay",
+	"quickstab", "quickstab",
+	"blade_fan", "blade_fan",
+	"guild_ringleader", "guild_ringleader",
+	"lacerate", "lacerate",
+	// 3-drops: Chain body + neutral wall.
+	"guild_agent", "guild_agent",
+	"silverback_elder", "silverback_elder",
+	// 4-drops: removal + Onset bodies + weapon.
+	"final_cut", "final_cut",
+	"masked_infiltrator", "masked_infiltrator",
+	"plague_carrier",
+	"assassins_edge",
+	// 5-drops: neutral wall.
+	"harbor_bodyguard", "harbor_bodyguard",
+	// 6-drops: Chain bounce body.
+	"snatcher_brute",
+	// Top end: fat neutrals + legendary.
+	"molten_hound",
+	"war_colossus",
+	"shadowlord_vex",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -967,6 +1018,8 @@ func DefaultDeckFor(class Class) []string {
 		return append([]string(nil), defaultPaladinDeck...)
 	case ClassDruid:
 		return append([]string(nil), defaultDruidDeck...)
+	case ClassRogue:
+		return append([]string(nil), defaultRogueDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}
@@ -1004,6 +1057,28 @@ func RandomGenPoolIDs(class Class, typ Type, rarity Rarity, tribe Tribe) []strin
 			continue
 		}
 		if tribe != TribeNone && c.Tribe != tribe {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// OtherClassCardIDs returns the sorted ids of every collectible (non-token, non
+// hero-power) card belonging to a PLAYABLE class other than `exclude` (neutrals
+// are excluded — Pilfer steals from other classes, not the shared pool). Used by
+// EffectPickpocket; the caller's RNG picks the id, so sorting keeps tests stable.
+func OtherClassCardIDs(exclude Class) []string {
+	var ids []string
+	for id, c := range set {
+		if c.Token || c.Type == TypeHeroPower {
+			continue
+		}
+		if c.Class == ClassNeutral || c.Class == "" || c.Class == exclude {
+			continue
+		}
+		if !classPlayable(c.Class) {
 			continue
 		}
 		ids = append(ids, id)

@@ -43,6 +43,10 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 		return false, "not enough mana"
 	}
 
+	// Rogue Chain (Combo): this card "has Chain" when the player already played a
+	// card earlier this turn. Captured BEFORE the play increments the counter.
+	chain := ps.cardsPlayedThisTurn > 0
+
 	// Duality (Choose One): the played card must carry a valid option index. Both
 	// spells and minions read the chosen effect in place of their default one.
 	if len(card.Choices) > 0 && (choice < 0 || choice >= len(card.Choices)) {
@@ -51,7 +55,7 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 
 	if card.Type == cards.TypeSpell {
 		m.resetLog()
-		return m.playSpell(pi, handIndex, card, targetID, cost, choice)
+		return m.playSpell(pi, handIndex, card, targetID, cost, choice, chain)
 	}
 
 	if card.Type == cards.TypeSecret {
@@ -60,12 +64,39 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 	}
 
 	if card.Type == cards.TypeWeapon {
+		// Weapon battlecry (`ruin_dagger`): a base Onset with a Chain variant. Its
+		// target is validated before any mutation, mirroring a minion onset (Elusive
+		// is ignored — battlecries bypass it).
+		bc := card.Onset()
+		if chain && card.ChainOnset != nil {
+			bc = card.ChainOnset
+		}
+		applyBC := bc != nil
+		var bcRef charRef
+		if bc != nil && needsTarget(bc.Target) {
+			if m.hasLegalTargetFor(pi, bc) {
+				ref, ok := m.resolveTarget(pi, targetID)
+				if !ok {
+					return false, "no such target"
+				}
+				if !validTarget(bc.Target, ref, pi) || !targetCondOK(bc, ref) {
+					return false, "illegal target"
+				}
+				bcRef = ref
+			} else {
+				applyBC = false // fizzle (no legal target for a conditional battlecry)
+			}
+		}
 		m.resetLog()
 		ps.hand = append(ps.hand[:handIndex], ps.hand[handIndex+1:]...)
 		ps.mana -= cost
+		ps.cardsPlayedThisTurn++
 		ps.weapon = &weaponInst{card: card, attack: card.Attack, durability: card.Durability} // replaces any current weapon
 		m.emitPlay(pi, card)
 		m.emit(protocol.Event{Kind: "equip", Source: m.pid(pi), Name: card.Name})
+		if applyBC {
+			m.applyEffect(pi, bc, bcRef, 0, m.pid(pi)) // weapon battlecries are not boosted by Spell Damage
+		}
 		m.fireTriggers(pi, cards.OnPlayCard, nil)
 		m.finish()
 		return true, ""
@@ -83,6 +114,11 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 	bc := card.Onset()
 	if len(card.Choices) > 0 {
 		bc = card.ChosenEffect(choice)
+	}
+	// Rogue Chain (Combo) minion (`guild_agent`, `guild_ringleader`, `shadowlord_vex`,
+	// `snatcher_brute`): its battlecry is a ChainOnset that fires only under Chain.
+	if chain && card.ChainOnset != nil {
+		bc = card.ChainOnset
 	}
 	applyBC := bc != nil
 	var bcRef charRef
@@ -106,6 +142,7 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 	ps.hand = append(ps.hand[:handIndex], ps.hand[handIndex+1:]...)
 	ps.mana -= cost
 	ps.minionsPlayedThisTurn++ // after cost is locked, so `pocket_conjurer` discounts THIS minion
+	ps.cardsPlayedThisTurn++   // Chain (Combo) counter; `shadowlord_vex` reads it minus itself
 	m.emitPlay(pi, card)
 	mn := m.summonMinion(pi, card)
 	m.placeAt(pi, mn, pos) // honor a drag-to-position drop (no-op if pos < 0)
@@ -174,10 +211,15 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 // playSpell validates the target, then spends mana, discards the card, applies
 // the effect, and resolves deaths/win. Caller holds m.mu and has already
 // checked turn and mana.
-func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, cost, choice int) (bool, string) {
+func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, cost, choice int, chain bool) (bool, string) {
 	eff := card.Effect
 	if len(card.Choices) > 0 { // Duality spell (`might_of_the_grove`, `wrath`, …)
 		eff = card.ChosenEffect(choice)
+	}
+	// Rogue Chain (Combo) spell (`cold_venom`, `lacerate`): the ChainEffect replaces
+	// the base effect when the player already played a card this turn.
+	if chain && card.ChainEffect != nil {
+		eff = card.ChainEffect
 	}
 	var ref charRef
 	if eff.Target != cards.TargetNone {
@@ -199,6 +241,8 @@ func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, c
 	ps := m.state[pi]
 	ps.hand = append(ps.hand[:handIndex], ps.hand[handIndex+1:]...)
 	ps.mana -= cost
+	ps.cardsPlayedThisTurn++ // Chain (Combo) counter
+	ps.nextSpellDiscount = 0 // `groundwork`'s discount is consumed by this spell (a fresh cast may re-set it below)
 	m.emitPlay(pi, card)
 	// The opponent's "enemy casts a spell" secrets trigger before the effect. A
 	// counter cancels it (card + mana still spent); a retarget secret (`decoy_ward`)
@@ -230,6 +274,15 @@ func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, c
 	}
 	m.applyEffect(pi, eff, ref, m.spellPower(pi), m.pid(pi))
 	m.castMul = 0
+	// `skullcrack` (Headcrack) Chain: queue a pristine copy to return to hand at the
+	// start of the caster's next turn.
+	if chain && card.ChainReturnsToHand {
+		base, ok := cards.Get(card.ID)
+		if !ok {
+			base = card
+		}
+		ps.returnToHandNextTurn = append(ps.returnToHandNextTurn, base)
+	}
 	m.copySpellToOpponent(pi, card)
 	m.fireTriggers(pi, cards.OnSpellCast, nil)
 	m.fireTriggers(pi, cards.OnPlayCard, nil)

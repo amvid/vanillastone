@@ -110,6 +110,13 @@ func (m *Match) startTurn(pi int) {
 	ps.heroAttacked = false
 	ps.nextSecretFree = false    // `spellwarden_magus`'s "this turn" free secret expires
 	ps.minionsPlayedThisTurn = 0 // reset `pocket_conjurer`'s first-minion counter
+	ps.cardsPlayedThisTurn = 0   // reset the Rogue Chain (Combo) counter
+	ps.nextSpellDiscount = 0     // `groundwork`'s "this turn" spell discount expires
+	// `skullcrack` (Headcrack) Chain: cards it queued return to hand now (burned if full).
+	for _, c := range ps.returnToHandNextTurn {
+		m.addToHand(pi, c)
+	}
+	ps.returnToHandNextTurn = nil
 	for _, mn := range ps.board {
 		mn.summonedThisTurn = false
 		mn.attacksMade = 0
@@ -133,16 +140,26 @@ func (m *Match) startTurn(pi int) {
 	for side := 0; side < 2; side++ {
 		for _, mn := range m.state[side].board {
 			kept := mn.enchants[:0]
-			changed := false
+			changed, unstealthed := false, false
 			for _, e := range mn.enchants {
 				if e.tempNextTurn && e.tempOwner == pi {
 					changed = true
+					// `shadow_veil` (Conceal): a Stealth granted "until your next turn"
+					// clears the live Stealth flag now (unless the card is innately Stealthed).
+					for _, k := range e.keywords {
+						if k == cards.KeywordStealth {
+							unstealthed = true
+						}
+					}
 					continue
 				}
 				kept = append(kept, e)
 			}
 			if changed {
 				mn.enchants = kept
+				if unstealthed && !mn.card.Has(cards.KeywordStealth) {
+					mn.stealthed = false
+				}
 				if mn.health > mn.maxHP() {
 					mn.health = mn.maxHP()
 				}

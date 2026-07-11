@@ -12,7 +12,41 @@ Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 > (explicit allowlist) or dev fetches fall through to the SPA fallback and fail
 > silently; editing that config needs a dev-server restart.
 
-Last updated: **2026-07-10** (**Druid CODE + ART COMPLETE** — seventh playable class. Full 26-card set
+Last updated: **2026-07-11** (**ROGUE CODE + ART COMPLETE** — eighth playable class. Full
+27-card spec (10 Basic + 17 Classic) transcribed VERBATIM from user screenshots in
+`.notes/classic-mapping.md` "ROGUE" + all 31 art prompts (hero, hero power `hone_blade`, 27 collectible,
+2 tokens `night_shiv`/`guild_thug`) in `.notes/art-prompts.md` "# ROGUE". Costs/stats are OLD-ERA
+("back in the days") per screenshots — deltas from modern HS flagged in the mapping "Screenshot deltas"
+(e.g. Fan of Knives 2, Assassinate 4, Sprint 5, Assassin's Blade 4-mana 2/5, Blade Flurry 2/all-enemy-
+minions, SI:7 Chain deal 3). NEW keyword: HS "Combo" → our **Chain** (needs a per-seat
+`cardsPlayedThisTurn` counter; no play-time chooser). Card colour = dark teal/venom-green, glyph 🗡️,
+deckcode char `g` (`r` = warrior, taken). Kept keywords Stealth/Poisonous + Undead tribe.
+CODE COMPLETE + wired: full set in `internal/cards/rogue.go` (18 spells + 6 minions + 2 weapons + hero
+power `hone_blade` + 2 tokens) + unit-tested `internal/match/rogue_mechanics_test.go` (19); `go test -race
+./...`, vet, gofmt, `deno check`/`deno lint`/`deno task build` all green. Chain engine: per-seat
+`cardsPlayedThisTurn` (reset `startTurn`, ++ in `PlayCardAt`/`playSpell`/`playSecret`); `Card.ChainEffect`
+(spell swap), `Card.ChainOnset` (combo-only battlecry, incl. weapon `ruin_dagger`), `PerCardPlayedThisTurn`
+(Edwin `shadowlord_vex`), `ChainReturnsToHand`+`returnToHandNextTurn` (`skullcrack`). Combo-only-target
+minions expose their target in `selfView` ONLY when the counter > 0 (no chooser). Other new engine:
+`EffectForceAttackNeighbors`/`EffectWeaponSweep`/`EffectDiscountNextSpell`(+`nextSpellDiscount` in
+`effectiveCost`)/`EffectPickpocket`(+`cards.OtherClassCardIDs`)/`EffectBounceAll`/`BounceCostDelta`(slip_away
+-2)/`ReqUndamaged`(blindside); grant-Stealth sets the live flag + "until next turn" clears it. Client:
+dark-teal/venom `.card.rogue`, 🗡️ glyph, `defaultRogueDeck` + `aiRogueTempo`/`aiRogueMidrange` ("Shadow
+Tempo"/"Venom Control").
+UI ART COMPLETE: `rogue_hero.png` (original nocturnal moon-elf woman assassin, 512x512, 110KB) +
+`hone_blade.png` (curved dagger on whetstone, 512x512, 107KB). First five Basic arts approved and
+placed: `blindside`, `venom_coat`, `sly_jab`, `waylay`, `quickstab`. Remaining five Basic arts also
+approved and placed: `blade_fan`, `final_cut`, `assassins_edge`, `hasty_dash`, `vanishing_act`.
+All are 512x512 and under 150KB. First five Classic arts approved and placed: `shadow_veil`,
+`groundwork`, `slip_away`, `cold_venom`, `pickpocket`. Next five Classic arts approved and placed:
+`turncoat`, `blade_whirl`, `guild_ringleader`, `lacerate`, `still_assassin`. Next five Classic arts
+approved and placed: `shadowlord_vex`, `skullcrack`, `ruin_dagger`, `guild_agent`,
+`masked_infiltrator`. Final collectibles `plague_carrier` and `snatcher_brute` plus tokens
+`night_shiv` and `guild_thug` are approved and placed. Collectible/token art is 29/29; the full Rogue
+art manifest is complete (hero + hero power + 27 collectible + 2 tokens), all 512x512 and under 150KB.
+NEXT: an in-client visual smoke test
+(Chain targeting, `hone_blade` → `night_shiv`, `guild_ringleader` → `guild_thug`). Prior: **Druid CODE + ART COMPLETE**
+— seventh playable class. Full 26-card set
 (10 Basic + 16 Classic) + hero power `wild_shape` (Shapeshift, "+1 Attack this turn, +1 Armor") + 3
 tokens reserved in `.notes/classic-mapping.md` "DRUID" and art prompts in `.notes/art-prompts.md`
 "# DRUID" (hero portrait, hero power, all 26 cards + tokens). UI ART COMPLETE: `druid_hero.png`

@@ -165,6 +165,12 @@ func TestDefaultDruidDeckIsLegal(t *testing.T) {
 	}
 }
 
+func TestDefaultRogueDeckIsLegal(t *testing.T) {
+	if err := ValidateDeck(DefaultDeckFor(ClassRogue), ClassRogue); err != nil {
+		t.Fatalf("default Rogue deck must be legal: %v", err)
+	}
+}
+
 // TestHeroPowerForClass: each playable class resolves to its own hero power card;
 // an unknown class falls back to the Mage hero power (never empty).
 func TestHeroPowerForClass(t *testing.T) {

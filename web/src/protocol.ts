@@ -23,7 +23,8 @@ export type CardView = {
     | "warlock"
     | "priest"
     | "paladin"
-    | "druid"; // drives card color (mage = blue); absent/neutral = default
+    | "druid"
+    | "rogue"; // drives card color (mage = blue); absent/neutral = default
   rarity?: "common" | "rare" | "epic" | "legendary"; // drives the rarity gem
   cost: number;
   baseCost?: number; // hand cards: printed cost (present so the client can colour a cost-modified card)
@@ -36,6 +37,7 @@ export type CardView = {
   reqMaxAttack?: number; // targeted effect: target minion must have attack <= this
   reqTaunt?: boolean; // targeted onset: target minion must have Taunt
   reqTribe?: string; // targeted onset: target minion must be of this tribe
+  chain?: boolean; // Rogue Chain (Combo): card has a combo bonus (yellow outline when chainActive)
   text?: string; // rules text for the hover box
   choices?: ChoiceView[]; // Duality (Choose One): two options; present triggers the play-time chooser
 };
@@ -64,7 +66,8 @@ export type MinionView = {
     | "warlock"
     | "priest"
     | "paladin"
-    | "druid"; // drives card color in the hover preview
+    | "druid"
+    | "rogue"; // drives card color in the hover preview
   cost: number; // printed mana cost (for the full-card hover preview)
   attack: number;
   health: number;
@@ -113,6 +116,7 @@ export type PlayerView = {
   weapon?: WeaponView; // equipped weapon (public)
   heroAttack?: number; // current hero attack (weapon attack)
   heroCanAttack?: boolean; // hero may attack right now
+  chainActive?: boolean; // own side: you already played a card this turn, so Rogue Chain (Combo) bonuses are live
 };
 
 export type WeaponView = {

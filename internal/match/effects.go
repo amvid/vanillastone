@@ -83,6 +83,9 @@ func targetCondOK(eff *cards.Effect, ref charRef) bool {
 	if eff.ReqDamaged && (ref.minion == nil || ref.minion.health >= ref.minion.maxHP()) {
 		return false // `berserk_surge` / `finishing_cut`: target must already be damaged
 	}
+	if eff.ReqUndamaged && (ref.minion == nil || ref.minion.health < ref.minion.maxHP()) {
+		return false // `blindside` (Backstab): target must be at full Health
+	}
 	return true
 }
 
@@ -215,6 +218,11 @@ func (m *Match) effectiveCost(pi int, card cards.Card) int {
 	// reduced result). Apply it before the absolute 0-floor.
 	if floor > 0 && cost < floor && card.Cost >= floor {
 		cost = floor
+	}
+	// `groundwork` (Preparation): the caster's next spell this turn costs less.
+	// Applied after cost auras so it can push a spell below an aura floor.
+	if card.Type == cards.TypeSpell && m.state[pi].nextSpellDiscount > 0 {
+		cost -= m.state[pi].nextSpellDiscount
 	}
 	if cost < 0 {
 		return 0
@@ -423,6 +431,14 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 				}
 			}
 		}
+		if eff.PerCardPlayedThisTurn {
+			// `shadowlord_vex` (Edwin VanCleef): +2/+2 per OTHER card played this turn.
+			// The counter already includes this minion (incremented at play), so drop it.
+			scale = m.state[caster].cardsPlayedThisTurn - 1
+			if scale < 0 {
+				scale = 0
+			}
+		}
 		for _, t := range m.damageTargets(caster, eff, ref) {
 			if t.minion == nil {
 				continue
@@ -435,6 +451,9 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			for _, k := range eff.Grant {
 				if k == cards.KeywordAegis {
 					t.minion.aegis = true
+				}
+				if k == cards.KeywordStealth {
+					t.minion.stealthed = true // granting Stealth hides it live (`masked_infiltrator`, `shadow_veil`)
 				}
 			}
 			if eff.DestroyNextTurn {
@@ -640,7 +659,68 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 		if ref.minion == nil {
 			return
 		}
-		m.bounceMinion(ref.minion, ref.owner)
+		// `slip_away` (Shadowstep) bounces a friendly minion and reduces its cost in
+		// hand by BounceCostDelta (-2); a plain bounce leaves it 0.
+		m.bounceMinionCost(ref.minion, ref.owner, eff.BounceCostDelta)
+	case cards.EffectBounceAll:
+		// `vanishing_act` (Vanish): return every minion on both boards to its owner's
+		// hand. Snapshot the boards first — bounceMinion mutates them as it goes.
+		for side := 0; side < 2; side++ {
+			for _, mn := range append([]*minion(nil), m.state[side].board...) {
+				m.bounceMinion(mn, side)
+			}
+		}
+	case cards.EffectForceAttackNeighbors:
+		// `turncoat` (Betrayal): the target enemy minion deals its Attack to the
+		// minions immediately beside it (no retaliation, the target is unharmed).
+		if ref.minion == nil {
+			return
+		}
+		dmg := ref.minion.atk()
+		if dmg <= 0 {
+			return
+		}
+		for _, nb := range m.adjacentRefs(ref, false) {
+			if nb.minion != nil {
+				m.damageMinion(nb.minion, dmg, srcID)
+			}
+		}
+	case cards.EffectWeaponSweep:
+		// `blade_whirl` (Blade Flurry): destroy the caster's weapon and deal its Attack
+		// to every enemy minion. Fizzles with no weapon. Attack read before destroy.
+		w := m.state[caster].weapon
+		if w == nil {
+			return
+		}
+		dmg := w.attack
+		m.emit(protocol.Event{Kind: "weaponBreak", Source: m.pid(caster), Name: w.card.Name})
+		m.state[caster].weapon = nil
+		if dmg > 0 {
+			for _, mn := range append([]*minion(nil), m.state[1-caster].board...) {
+				m.damageMinion(mn, dmg, srcID)
+			}
+		}
+	case cards.EffectDiscountNextSpell:
+		// `groundwork` (Preparation): the caster's next spell this turn costs Amount less.
+		m.state[caster].nextSpellDiscount = eff.Amount
+	case cards.EffectPickpocket:
+		// `pickpocket` (Pilfer): add a random collectible from another class (not the
+		// caster's, not neutral) to the caster's hand. Identity hidden from the opponent.
+		myClass := m.state[caster].heroPower.Class
+		ids := cards.OtherClassCardIDs(myClass)
+		if len(ids) == 0 {
+			return
+		}
+		gen, ok := cards.Get(ids[m.rng.Intn(len(ids))])
+		if !ok {
+			return
+		}
+		if len(m.state[caster].hand) >= maxHand {
+			m.emitBurn(caster, gen)
+			return
+		}
+		m.state[caster].hand = append(m.state[caster].hand, gen)
+		m.emit(protocol.Event{Kind: "generate", Target: m.pid(caster)})
 	case cards.EffectSummon:
 		tok, ok := cards.Get(eff.Summon)
 		if !ok {

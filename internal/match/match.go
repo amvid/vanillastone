@@ -264,6 +264,10 @@ type playerState struct {
 	nextSecretFree        bool // `spellwarden_magus`: the next Secret played this turn costs 0 (consumed on play; cleared each turn start)
 	minionsPlayedThisTurn int  // `pocket_conjurer`: drives the "first minion each turn" cost discount (reset each turn start)
 	spellsFreeOnTurn      int  // `fizzle_sparkmuddle`: the turnNum during which this player's spells cost 0 (0 = never; a specific future turn)
+
+	cardsPlayedThisTurn  int          // Rogue Chain (Combo): cards this player has played so far this turn; a card "has Chain" when this is > 0 at play time (reset each turn start)
+	nextSpellDiscount    int          // `groundwork` (Preparation): the caster's next spell this turn costs this much less (consumed on the next spell; reset each turn start)
+	returnToHandNextTurn []cards.Card // `skullcrack` (Headcrack) Chain: cards returned to this player's hand at the start of their next turn
 }
 
 // pendingChoice is a Seek awaiting the player's pick. While set, the match

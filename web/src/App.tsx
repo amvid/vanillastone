@@ -1635,6 +1635,11 @@ export function App() {
                                     label: "Druid",
                                     art: "/art/druid_hero.png",
                                   },
+                                  {
+                                    value: "rogue",
+                                    label: "Rogue",
+                                    art: "/art/rogue_hero.png",
+                                  },
                                 ]}
                               />
                             </label>
@@ -1756,6 +1761,11 @@ export function App() {
                                       value: "druid",
                                       label: "Druid",
                                       art: "/art/druid_hero.png",
+                                    },
+                                    {
+                                      value: "rogue",
+                                      label: "Rogue",
+                                      art: "/art/rogue_hero.png",
                                     },
                                   ]}
                                 />

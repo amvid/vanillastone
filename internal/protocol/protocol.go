@@ -271,6 +271,7 @@ type CardView struct {
 	ReqMaxAttack int    `json:"reqMaxAttack,omitempty"` // targeted effect: target minion must have Attack <= this
 	ReqTaunt     bool   `json:"reqTaunt,omitempty"`     // targeted onset: target minion must have Taunt
 	ReqTribe     string `json:"reqTribe,omitempty"`     // targeted onset: target minion must be of this tribe
+	Chain        bool   `json:"chain,omitempty"`        // Rogue Chain (Combo): the card has a combo bonus (drives the yellow "combo ready" outline when ChainActive)
 	Text         string `json:"text,omitempty"`         // human-readable rules text for the hover box
 	// Choices are the Duality (Choose One) options; when present the client shows a
 	// two-option chooser at play time and arms targeting per the chosen option.
@@ -350,6 +351,7 @@ type PlayerView struct {
 	Weapon        *WeaponView  `json:"weapon,omitempty"`        // equipped weapon, if any (public)
 	HeroAttack    int          `json:"heroAttack,omitempty"`    // current hero attack (weapon attack)
 	HeroCanAttack bool         `json:"heroCanAttack,omitempty"` // hero may attack right now
+	ChainActive   bool         `json:"chainActive,omitempty"`   // own view only: the player already played a card this turn, so Rogue Chain (Combo) bonuses are live
 }
 
 // WeaponView is the hero's equipped weapon, visible to both players.

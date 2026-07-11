@@ -2776,6 +2776,21 @@ button {
         0 0 0 1.5px #caffce,
         0 0 20px 5px #6fdf7a;
 }
+/* Rogue Chain (Combo): a playable card whose combo bonus is live glows yellow,
+   overriding the green "playable" outline so the combo upside reads at a glance. */
+.hand .card.playable.combo-ready {
+    border-color: #ffe9a8;
+    box-shadow:
+        0 3px 6px #0008,
+        0 0 0 1.5px #ffd75ecc,
+        0 0 12px 3px #f5b400cc;
+}
+.hand .card.playable.combo-ready:hover {
+    box-shadow:
+        0 16px 30px #000b,
+        0 0 0 1.5px #ffe9a8,
+        0 0 20px 5px #ffd75e;
+}
 /* Card colors are driven by CLASS, not type: neutral = warm parchment (the
  * default above), Mage = blue, Hunter = green. (.card.secret below styles only
  * the hidden opponent-secret cast placeholder, not a real card in hand.) */
@@ -2806,6 +2821,10 @@ button {
 .card.druid {
     background: linear-gradient(#5a3a1c, #35220e);
     border-color: #d8853a;
+}
+.card.rogue {
+    background: linear-gradient(#123430, #071b1a);
+    border-color: #35c08f;
 }
 .card.secret {
     background: linear-gradient(#43295c, #2a1b3a);
@@ -3947,6 +3966,9 @@ button {
 }
 .deck-card.druid {
     border-left: 3px solid #d8853a;
+}
+.deck-card.rogue {
+    border-left: 3px solid #35c08f;
 }
 .deck-card .cost {
     position: static;

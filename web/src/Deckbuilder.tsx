@@ -45,6 +45,7 @@ const CLASS_OPTIONS: { id: string; label: string }[] = [
   { id: "priest", label: "Priest" },
   { id: "paladin", label: "Paladin" },
   { id: "druid", label: "Druid" },
+  { id: "rogue", label: "Rogue" },
 ];
 
 const RARITIES = ["common", "rare", "epic", "legendary"] as const;

@@ -44,6 +44,8 @@ export function Hero(props: {
     ? "⚜️"
     : heroClass === "druid"
     ? "🍃"
+    : heroClass === "rogue"
+    ? "🗡️"
     : "🧙";
   const heroArt = p.heroArt
     ? `/art/${p.heroArt}.png`

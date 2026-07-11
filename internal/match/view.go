@@ -255,6 +255,7 @@ func cardView(c cards.Card) protocol.CardView {
 		Durability: c.Durability,
 		Tribe:      string(c.Tribe),
 		Text:       c.Text,
+		Chain:      c.ChainEffect != nil || c.ChainOnset != nil || c.ChainReturnsToHand, // has a Rogue Chain (Combo) bonus
 	}
 	// Target is the targeting rule the client uses to arm targeting: a spell's
 	// effect, or a minion's onset (on_play) effect. ReqAttack/ReqTaunt carry any
@@ -333,6 +334,16 @@ func (m *Match) selfView(pi int, name string) protocol.PlayerView {
 		hand[i] = cardView(c)
 		hand[i].BaseCost = c.Cost
 		hand[i].Cost = m.effectiveCost(pi, c)
+		// Rogue Chain (Combo): a minion/weapon whose only battlecry is a ChainOnset
+		// (`guild_agent`, `snatcher_brute`) needs targeting only when Chain is active.
+		// Expose its target rule so the client arms targeting exactly then; without
+		// Chain it plays as a vanilla body (base Onset, if any, already set the rule).
+		if hand[i].Target == "" && ps.cardsPlayedThisTurn > 0 {
+			if co := c.ChainOnset; co != nil {
+				hand[i].Target = string(co.Target)
+				hand[i].ReqAttack, hand[i].ReqMaxAttack, hand[i].ReqTaunt, hand[i].ReqTribe = co.ReqAttack, co.ReqMaxAttack, co.ReqTaunt, string(co.ReqTribe)
+			}
+		}
 		if sp > 0 {
 			hand[i].Text = spellDamageText(c, sp)
 		}
@@ -362,6 +373,7 @@ func (m *Match) selfView(pi int, name string) protocol.PlayerView {
 		Weapon:        weaponView(ps.weapon),
 		HeroAttack:    heroAttackValue(ps),
 		HeroCanAttack: heroCanAttack(ps),
+		ChainActive:   ps.cardsPlayedThisTurn > 0, // own view: Rogue Chain (Combo) bonuses are live
 	}
 }
 

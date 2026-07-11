@@ -334,6 +334,58 @@ var aiDruidMidrange = []string{
 
 var aiDruidDecks = [][]string{aiDruidFace, aiDruidMidrange}
 
+// aiRogueTempo is a dagger/poison tempo deck: cheap removal (Blindside / Lacerate),
+// reach (Sly Jab), Chain (Combo) bodies (Guild Ringleader / Guild Agent), a weapon,
+// and Onset stealth/poison bodies over sticky neutral bodies, topped by the class
+// legendary. Every card stands alone if the bot plays it without a Chain trigger.
+var aiRogueTempo = []string{
+	"blindside", "blindside",
+	"sly_jab", "sly_jab",
+	"quickstab", "quickstab",
+	"lacerate", "lacerate",
+	"blade_fan", "blade_fan",
+	"guild_ringleader", "guild_ringleader",
+	"guild_agent", "guild_agent",
+	"silverback_elder", "silverback_elder",
+	"assassins_edge",
+	"final_cut", "final_cut",
+	"masked_infiltrator", "masked_infiltrator",
+	"plague_carrier", "plague_carrier",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"dire_rider",
+	"snatcher_brute",
+	"molten_hound",
+	"war_colossus",
+	"shadowlord_vex",
+}
+
+// aiRogueMidrange is a slower dagger/control deck: bounce tempo (Waylay), removal
+// (Blindside / Lacerate / Final Cut / Blade Fan), a weapon, sturdy neutral walls,
+// and draw (Hasty Dash), topped by the class legendary. Stands alone for the bot.
+var aiRogueMidrange = []string{
+	"blindside", "blindside",
+	"waylay", "waylay",
+	"lacerate", "lacerate",
+	"blade_fan", "blade_fan",
+	"guild_agent", "guild_agent",
+	"silverback_elder", "silverback_elder",
+	"final_cut", "final_cut",
+	"assassins_edge",
+	"masked_infiltrator", "masked_infiltrator",
+	"plague_carrier", "plague_carrier",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"hasty_dash",
+	"snatcher_brute",
+	"crag_ogre",
+	"dawnguard_protector",
+	"war_colossus",
+	"molten_hound",
+	"shadowlord_vex",
+}
+
+var aiRogueDecks = [][]string{aiRogueTempo, aiRogueMidrange}
+
 // StarterDeck is a named prebuilt deck offered to players in the deckbuilder as a
 // one-click prefill. Cards mirror the vs-AI decks (AIDecks); the names are flavor
 // only and belong to our custom set (no external IP).
@@ -353,6 +405,7 @@ var starterNames = map[Class][2]string{
 	ClassPriest:  {"Radiant Zeal", "Gloomward Control"},
 	ClassPaladin: {"Dawnmace Tempo", "Hallowed Bulwark"},
 	ClassDruid:   {"Grove Frenzy", "Verdant Ramp"},
+	ClassRogue:   {"Shadow Tempo", "Venom Control"},
 }
 
 // StarterDecks returns the named prefill decks for a class (fresh copies, safe for
@@ -393,6 +446,8 @@ func AIDecks(class Class) [][]string {
 		src = aiPaladinDecks
 	case ClassDruid:
 		src = aiDruidDecks
+	case ClassRogue:
+		src = aiRogueDecks
 	default:
 		return nil
 	}

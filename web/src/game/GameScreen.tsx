@@ -1694,6 +1694,10 @@ export function GameScreen(props: GameScreenProps) {
               {(snap.self.hand ?? []).map((c, i) => {
                 const affordable = myTurn && !winner &&
                   c.cost <= snap.self.mana;
+                // Rogue Chain (Combo): a playable card whose combo bonus is live this
+                // turn glows yellow instead of the usual green "playable" outline.
+                const comboReady = affordable && !!c.chain &&
+                  !!snap.self.chainActive;
                 const armed = spell?.handIndex === i;
                 return (
                   <button
@@ -1703,6 +1707,7 @@ export function GameScreen(props: GameScreenProps) {
                     className={"card" +
                       cardColorClass(c) +
                       (affordable ? " playable" : "") +
+                      (comboReady ? " combo-ready" : "") +
                       (armed ? " selected aiming" : "") +
                       (isMobile && handSel === i ? " hand-sel" : "") +
                       (drag?.handIndex === i ? " dragging" : "")}

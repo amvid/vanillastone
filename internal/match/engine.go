@@ -103,6 +103,7 @@ func (m *Match) playSecret(pi, handIndex int, card cards.Card, cost int) (bool, 
 	}
 	ps.hand = append(ps.hand[:handIndex], ps.hand[handIndex+1:]...)
 	ps.mana -= cost
+	ps.cardsPlayedThisTurn++  // Chain (Combo) counter
 	ps.nextSecretFree = false // `spellwarden_magus`'s free-secret discount is consumed by this play
 	// A secret is a spell, so casting it triggers the opponent's "enemy casts a
 	// spell" secrets (e.g. Nullify). If countered, the secret never enters play —
