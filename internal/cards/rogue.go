@@ -37,7 +37,7 @@ var rogueCards = []Card{
 		Text:   "Deal 1 damage. Draw a card.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 1, Target: TargetAny, ThenDraw: 1}},
 
-	{ID: "blade_fan", Name: "Blade Fan", Type: TypeSpell, Class: ClassRogue, Cost: 2,
+	{ID: "blade_fan", Name: "Blade Fan", Type: TypeSpell, Class: ClassRogue, Cost: 3,
 		Text:   "Deal 1 damage to all enemy minions. Draw a card.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 1, Target: TargetNone, Area: AreaEnemyMinions, ThenDraw: 1}},
 

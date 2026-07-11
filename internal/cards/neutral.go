@@ -99,7 +99,7 @@ var neutralCards = []Card{
 		SpellDamage: 1,
 		Triggers:    []Trigger{{When: OnDeath, Effect: Effect{Kind: EffectDraw, Amount: 1, Target: TargetNone}}}},
 
-	{ID: "hushwing_owl", Name: "Hushwing Owl", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityCommon, Cost: 3, Attack: 2, Health: 1,
+	{ID: "hushwing_owl", Name: "Hushwing Owl", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityCommon, Cost: 2, Attack: 2, Health: 1,
 		Text:     "Onset: Silence a minion.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectSilence, Target: TargetMinion}}}},
 
@@ -107,7 +107,7 @@ var neutralCards = []Card{
 		Text:     "Onset: Restore 3 Health.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectHeal, Amount: 3, Target: TargetAny}}}},
 
-	{ID: "goad_imp", Name: "Goad Imp", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityCommon, Cost: 1, Attack: 1, Health: 1,
+	{ID: "goad_imp", Name: "Goad Imp", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityCommon, Cost: 1, Attack: 2, Health: 1,
 		Text:     "Onset: Give a minion +2 Attack this turn.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectBuff, BuffAtk: 2, Target: TargetMinion, Temporary: true}}}},
 
@@ -153,8 +153,8 @@ var neutralCards = []Card{
 		Text:     "Onset: Restore 4 Health to your hero.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectHeal, Amount: 4, Target: TargetFriendlyHero}}}},
 
-	{ID: "hornelder_chief", Name: "Hornelder Chief", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityLegendary, Cost: 6, Attack: 5, Health: 5,
-		Text:     "Final Gasp: Summon a 5/5 Hornelder Heir.",
+	{ID: "hornelder_chief", Name: "Hornelder Chief", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityLegendary, Cost: 6, Attack: 4, Health: 5,
+		Text:     "Final Gasp: Summon a 4/5 Hornelder Heir.",
 		Triggers: []Trigger{{When: OnDeath, Effect: Effect{Kind: EffectSummon, Summon: "hornelder_heir", Count: 1, Target: TargetNone}}}},
 
 	// --- Edge-trigger minions (react to ongoing game events while in play) ---
@@ -183,7 +183,7 @@ var neutralCards = []Card{
 		Text:     "After you cast a spell, deal 1 damage to all minions.",
 		Triggers: []Trigger{{When: OnSpellCast, Effect: Effect{Kind: EffectDamage, Amount: 1, Target: TargetNone, Area: AreaAllMinions}}}},
 
-	{ID: "bazaar_crier", Name: "Bazaar Crier", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityRare, Cost: 6, Attack: 4, Health: 4,
+	{ID: "bazaar_crier", Name: "Bazaar Crier", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityRare, Cost: 5, Attack: 4, Health: 4,
 		Text:     "Whenever you cast a spell, draw a card.",
 		Triggers: []Trigger{{When: OnSpellCast, Effect: Effect{Kind: EffectDraw, Amount: 1, Target: TargetNone}}}},
 
@@ -247,7 +247,7 @@ var neutralCards = []Card{
 
 	// --- Special / conditional battlecries (sub-wave 2: target-condition + copy) ---
 
-	{ID: "trophy_hunter", Name: "Trophy Hunter", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityEpic, Cost: 5, Attack: 4, Health: 2,
+	{ID: "trophy_hunter", Name: "Trophy Hunter", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityEpic, Cost: 3, Attack: 4, Health: 2,
 		Text:     "Onset: Destroy a minion with 7 or more Attack.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectDestroy, Target: TargetMinion, ReqAttack: 7}}}},
 
@@ -603,7 +603,7 @@ var neutralCards = []Card{
 		Text:     "Onset: Summon a 1/1 Thornback Boar.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectSummon, Summon: "thornback_boar", Count: 1, Target: TargetNone}}}},
 
-	{ID: "sunderlight_cleric", Name: "Sunderlight Cleric", Type: TypeMinion, Class: ClassNeutral, Cost: 3, Attack: 3, Health: 2,
+	{ID: "sunderlight_cleric", Name: "Sunderlight Cleric", Type: TypeMinion, Class: ClassNeutral, Rarity: RarityCommon, Cost: 3, Attack: 3, Health: 2,
 		Text:     "Onset: Give a friendly minion +1/+1.",
 		Triggers: []Trigger{{When: OnPlay, Effect: Effect{Kind: EffectBuff, BuffAtk: 1, BuffHP: 1, Target: TargetFriendlyMinion}}}},
 
@@ -688,7 +688,7 @@ var neutralCards = []Card{
 
 	{ID: "broken_golem", Name: "Broken Golem", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 2, Health: 1, Token: true},
 	{ID: "errant_squire", Name: "Errant Squire", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 2, Health: 2, Token: true},
-	{ID: "hornelder_heir", Name: "Hornelder Heir", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 5, Health: 5, Token: true},
+	{ID: "hornelder_heir", Name: "Hornelder Heir", Type: TypeMinion, Class: ClassNeutral, Cost: 4, Attack: 4, Health: 5, Token: true},
 	{ID: "tutors_pupil", Name: "Tutor's Pupil", Type: TypeMinion, Class: ClassNeutral, Cost: 1, Attack: 1, Health: 1, Token: true},
 	{ID: "snarl_pup", Name: "Snarl Pup", Type: TypeMinion, Class: ClassNeutral, Cost: 2, Attack: 2, Health: 2, Token: true,
 		Text: "Taunt.", Keywords: []Keyword{KeywordTaunt}},

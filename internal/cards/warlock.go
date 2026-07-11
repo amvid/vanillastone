@@ -23,7 +23,7 @@ var warlockCards = []Card{
 		Text:   "Deal 1 damage to a minion. If that kills it, draw a card.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 1, DrawIfKills: true, Target: TargetMinion}},
 
-	{ID: "soul_ember", Name: "Soul Ember", Type: TypeSpell, Class: ClassWarlock, Cost: 1,
+	{ID: "soul_ember", Name: "Soul Ember", Type: TypeSpell, Class: ClassWarlock, Cost: 0,
 		Text:   "Deal 4 damage. Discard a random card.",
 		Effect: &Effect{Kind: EffectDamage, Amount: 4, DiscardRandom: 1, Target: TargetAny}},
 

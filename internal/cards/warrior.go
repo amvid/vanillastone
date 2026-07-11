@@ -53,7 +53,7 @@ var warriorCards = []Card{
 		Text:   "Give your hero +4 Attack this turn.",
 		Effect: &Effect{Kind: EffectHeroAttack, Amount: 4, Target: TargetNone}},
 
-	{ID: "bracing_guard", Name: "Bracing Guard", Type: TypeSpell, Class: ClassWarrior, Rarity: RarityCommon, Cost: 2,
+	{ID: "bracing_guard", Name: "Bracing Guard", Type: TypeSpell, Class: ClassWarrior, Rarity: RarityCommon, Cost: 3,
 		Text:   "Gain 5 Armor. Draw a card.",
 		Effect: &Effect{Kind: EffectArmor, Amount: 5, ThenDraw: 1, Target: TargetNone}},
 

@@ -21,7 +21,7 @@ var hunterCards = []Card{
 		Text:   "Summon a random Beast companion.",
 		Effect: &Effect{Kind: EffectSummonRandom, Target: TargetNone, GenIDs: []string{"frenzy_boar", "pride_lion", "guardian_bear"}}},
 
-	{ID: "quarry_brand", Name: "Quarry Brand", Type: TypeSpell, Class: ClassHunter, Cost: 1,
+	{ID: "quarry_brand", Name: "Quarry Brand", Type: TypeSpell, Class: ClassHunter, Cost: 0,
 		Text:   "Change a minion's Health to 1.",
 		Effect: &Effect{Kind: EffectSetHealth, Amount: 1, Target: TargetMinion}},
 
@@ -64,7 +64,7 @@ var hunterCards = []Card{
 		Text:  "Your other Beasts have +1 Attack.",
 		Aura:  &Aura{Atk: 1, Tribe: TribeBeast}},
 
-	{ID: "famished_vulture", Name: "Famished Vulture", Type: TypeMinion, Class: ClassHunter, Cost: 5, Attack: 3, Health: 2,
+	{ID: "famished_vulture", Name: "Famished Vulture", Type: TypeMinion, Class: ClassHunter, Cost: 2, Attack: 2, Health: 1,
 		Tribe:    TribeBeast,
 		Text:     "Whenever you summon a Beast, draw a card.",
 		Triggers: []Trigger{{When: OnFriendlySummon, SubjectTribe: TribeBeast, Effect: Effect{Kind: EffectDraw, Amount: 1}}}},
