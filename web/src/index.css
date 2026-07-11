@@ -3711,6 +3711,7 @@ button {
 }
 .book-grid {
     display: grid;
+    justify-content: center; /* center the fixed-width tracks; book stretches to the wider filter row above */
     grid-template-columns: repeat(4, 143px);
     grid-template-rows: repeat(
         2,
@@ -4097,16 +4098,22 @@ button {
 .book-tabs {
     position: absolute;
     top: 14px;
+    bottom: 14px; /* span the book so the column has a bounded height */
     right: 100%; /* sit just left of the book... */
     margin-right: -2px; /* ...overlapping its border so tabs merge in */
     display: flex;
     flex-direction: column;
+    align-items: flex-end; /* keep the open right edge glued to the book as tiles shrink */
     gap: 5px;
     z-index: 1;
 }
 .tab-tile {
-    width: 42px;
+    box-sizing: border-box;
+    width: auto; /* width tracks height via aspect-ratio so tiles stay square when shrunk */
     height: 42px;
+    aspect-ratio: 1 / 1;
+    flex: 0 1 42px; /* shrink to fit the bounded rail; never grow past 42px */
+    min-height: 0; /* allow shrinking below the 42px basis */
     margin: 0;
     display: flex;
     align-items: center;
