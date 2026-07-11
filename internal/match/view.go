@@ -239,6 +239,11 @@ func minionText(mn *minion) string {
 // Used for minions/spells/weapons; secrets are intentionally NOT revealed.
 func (m *Match) emitPlay(pi int, card cards.Card) {
 	cv := cardView(card)
+	// Reveal the same Spell Damage-boosted text the caster saw in hand, so the log's
+	// card matches the damage the spell actually dealt (see spellDamageText).
+	if sp := m.spellPower(pi); sp > 0 {
+		cv.Text = spellDamageText(card, sp)
+	}
 	m.emit(protocol.Event{Kind: "play", Source: m.pid(pi), Name: card.Name, Card: &cv})
 }
 
@@ -294,33 +299,50 @@ func heroPowerView(ps *playerState) *protocol.CardView {
 	return &hp
 }
 
-// spellDamageText rewrites a spell's rules text so its boosted damage number
-// reflects the caster's current Spell Damage (sp > 0), wrapping the bumped number
+// spellDamageText rewrites a spell's rules text so every boosted damage number
+// reflects the caster's current Spell Damage (sp > 0), wrapping each bumped number
 // in a {sd:N} marker the client renders green. Only EffectDamage spells are
-// boosted at cast time (see applyEffect), so only those are rewritten; the boosted
-// number is the effect's Amount, or its FrozenDamage when Amount is 0 (`frostlance`).
-// The first whole-number occurrence of that base value in the text is the damage
-// figure for our cards (they lead with "Deal N ..."). Returns text unchanged if
-// nothing applies.
+// boosted at cast time (see applyEffect), so only those are rewritten.
+//
+// A single effect can print several sp-scaled figures: the base damage (Amount, or
+// FrozenDamage when Amount is 0, e.g. `frostlance`), a conditional AmountIfReq
+// (`feral_command`, `deathblow_swing`), splash onto neighbours (`blasting_shot`),
+// and a smaller hit to all other enemies (`claw_sweep`). Each of those values is
+// bumped at its first still-unclaimed whole-number occurrence in the text, so an
+// unrelated number ("Draw 2 cards", "Overload (2)", "12 or less Health") is never
+// mistaken for a damage figure. Returns text unchanged if nothing applies.
 func spellDamageText(c cards.Card, sp int) string {
 	if c.Type != cards.TypeSpell || c.Effect == nil || c.Effect.Kind != cards.EffectDamage {
 		return c.Text
 	}
-	base := c.Effect.Amount
+	e := c.Effect
+	base := e.Amount
 	if base == 0 {
-		base = c.Effect.FrozenDamage
+		base = e.FrozenDamage
 	}
-	if base <= 0 {
+	// remaining[v] = how many text occurrences of value v are damage figures still
+	// to bump. Each sp-scaled amount claims exactly one occurrence.
+	remaining := map[int]int{}
+	add := func(v int) {
+		if v > 0 {
+			remaining[v]++
+		}
+	}
+	add(base)
+	add(e.AmountIfReq)
+	add(e.SplashAmount)
+	add(e.OtherEnemyAmount)
+	if len(remaining) == 0 {
 		return c.Text
 	}
-	done := false
-	re := regexp.MustCompile(`\b` + strconv.Itoa(base) + `\b`)
+	re := regexp.MustCompile(`\b\d+\b`)
 	return re.ReplaceAllStringFunc(c.Text, func(s string) string {
-		if done {
-			return s
+		v, _ := strconv.Atoi(s)
+		if remaining[v] > 0 {
+			remaining[v]--
+			return fmt.Sprintf("{sd:%d}", v+sp)
 		}
-		done = true
-		return fmt.Sprintf("{sd:%d}", base+sp)
+		return s
 	})
 }
 

@@ -59,6 +59,40 @@ func TestSpellDamageText(t *testing.T) {
 			sp:   1,
 			want: "Deal {sd:13} damage to a 2-cost minion.",
 		},
+		{
+			// `feral_command`: the conditional AmountIfReq figure scales too, so both
+			// the base and the "instead" number must be bumped.
+			name: "conditional AmountIfReq bumps both damage figures",
+			card: cards.Card{Type: cards.TypeSpell, Text: "Deal 3 damage. If you control a Beast, deal 5 instead.",
+				Effect: &cards.Effect{Kind: cards.EffectDamage, Amount: 3, AmountIfReq: 5}},
+			sp:   1,
+			want: "Deal {sd:4} damage. If you control a Beast, deal {sd:6} instead.",
+		},
+		{
+			// `deathblow_swing`: the threshold "12" is not a damage figure and must stay
+			// static; only the base and AmountIfReq are bumped.
+			name: "AmountIfReq leaves a non-damage threshold number alone",
+			card: cards.Card{Type: cards.TypeSpell, Text: "Deal 4 damage. If you have 12 or less Health, deal 6 instead.",
+				Effect: &cards.Effect{Kind: cards.EffectDamage, Amount: 4, AmountIfReq: 6}},
+			sp:   2,
+			want: "Deal {sd:6} damage. If you have 12 or less Health, deal {sd:8} instead.",
+		},
+		{
+			// `blasting_shot`: splash damage scales with Spell Damage per instance.
+			name: "SplashAmount is bumped alongside the base",
+			card: cards.Card{Type: cards.TypeSpell, Text: "Deal 5 damage to a minion and 2 damage to adjacent ones.",
+				Effect: &cards.Effect{Kind: cards.EffectDamage, Amount: 5, SplashAmount: 2}},
+			sp:   1,
+			want: "Deal {sd:6} damage to a minion and {sd:3} damage to adjacent ones.",
+		},
+		{
+			// `claw_sweep`: the "all other enemies" figure scales too.
+			name: "OtherEnemyAmount is bumped alongside the base",
+			card: cards.Card{Type: cards.TypeSpell, Text: "Deal 4 damage to an enemy and 1 damage to all other enemies.",
+				Effect: &cards.Effect{Kind: cards.EffectDamage, Amount: 4, OtherEnemyAmount: 1}},
+			sp:   2,
+			want: "Deal {sd:6} damage to an enemy and {sd:3} damage to all other enemies.",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
