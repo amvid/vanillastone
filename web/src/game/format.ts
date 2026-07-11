@@ -479,6 +479,8 @@ export function ruleMatches(rule: TargetRule, kind: CharKind): boolean {
       return kind === "enemyMinion" || kind === "oppHero";
     case "friendlyHero":
       return kind === "selfHero";
+    case "friendlyChar":
+      return kind === "selfHero" || kind === "friendlyMinion";
     case "hero":
       return kind === "selfHero" || kind === "oppHero";
     default:
@@ -553,6 +555,7 @@ export function cardColorClass(c: CardView): string {
   if (c.class === "paladin") return " paladin";
   if (c.class === "druid") return " druid";
   if (c.class === "rogue") return " rogue";
+  if (c.class === "shaman") return " shaman";
   return "";
 }
 

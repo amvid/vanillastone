@@ -1640,6 +1640,11 @@ export function App() {
                                     label: "Rogue",
                                     art: "/art/rogue_hero.png",
                                   },
+                                  {
+                                    value: "shaman",
+                                    label: "Shaman",
+                                    art: "/art/shaman_hero.png",
+                                  },
                                 ]}
                               />
                             </label>
@@ -1766,6 +1771,11 @@ export function App() {
                                       value: "rogue",
                                       label: "Rogue",
                                       art: "/art/rogue_hero.png",
+                                    },
+                                    {
+                                      value: "shaman",
+                                      label: "Shaman",
+                                      art: "/art/shaman_hero.png",
                                     },
                                   ]}
                                 />

@@ -28,7 +28,7 @@ func (m *Match) pid(i int) string { return m.players[i].ID() }
 func needsTarget(rule cards.TargetRule) bool {
 	switch rule {
 	case cards.TargetAny, cards.TargetMinion, cards.TargetFriendlyMinion, cards.TargetEnemyMinion,
-		cards.TargetEnemy, cards.TargetFriendlyHero, cards.TargetHero:
+		cards.TargetEnemy, cards.TargetFriendlyHero, cards.TargetFriendlyChar, cards.TargetHero:
 		return true
 	}
 	return false

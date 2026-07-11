@@ -386,6 +386,57 @@ var aiRogueMidrange = []string{
 
 var aiRogueDecks = [][]string{aiRogueTempo, aiRogueMidrange}
 
+// aiShamanOverload is an elemental burn/tempo deck: cheap Overload burn
+// (Voltstrike / Magma Burst), lightning bodies (Gale Wisp), AoE (Split Bolt /
+// Tempest Surge), a weapon, an Overload payoff body, and sturdy Elemental/neutral
+// walls topped by the class legendary. Every card stands alone on curve.
+var aiShamanOverload = []string{
+	"voltstrike", "voltstrike",
+	"frost_jolt", "frost_jolt",
+	"gale_wisp", "gale_wisp",
+	"split_bolt", "split_bolt",
+	"tempest_axe", "tempest_axe",
+	"magma_burst", "magma_burst",
+	"tempest_surge", "tempest_surge",
+	"riftbound_elemental", "riftbound_elemental",
+	"silverback_elder", "silverback_elder",
+	"harbor_bodyguard", "harbor_bodyguard",
+	"bedrock_elemental", "bedrock_elemental",
+	"cinder_elemental", "cinder_elemental",
+	"molten_hound",
+	"war_colossus",
+	"crag_ogre",
+	"dire_rider",
+	"arena_champion",
+	"zephiron_stormlord",
+}
+
+// aiShamanMidrange is a slower elemental control deck: removal + AoE (Tempest
+// Surge / Magma Burst), draw (Distant Sight / Tidewater Totem), Overload payoff,
+// big Elemental bodies, and sturdy neutral walls, topped by the class legendary.
+var aiShamanMidrange = []string{
+	"frost_jolt", "frost_jolt",
+	"voltstrike", "voltstrike",
+	"tempest_surge", "tempest_surge",
+	"magma_burst", "magma_burst",
+	"distant_sight", "distant_sight",
+	"tidewater_totem", "tidewater_totem",
+	"riftbound_elemental", "riftbound_elemental",
+	"galecaller", "galecaller",
+	"silverback_elder", "silverback_elder",
+	"moonsilver_guardian", "moonsilver_guardian",
+	"bedrock_elemental", "bedrock_elemental",
+	"cinder_elemental", "cinder_elemental",
+	"crag_ogre",
+	"dawnguard_protector",
+	"war_colossus",
+	"molten_hound",
+	"harbor_bodyguard",
+	"zephiron_stormlord",
+}
+
+var aiShamanDecks = [][]string{aiShamanOverload, aiShamanMidrange}
+
 // StarterDeck is a named prebuilt deck offered to players in the deckbuilder as a
 // one-click prefill. Cards mirror the vs-AI decks (AIDecks); the names are flavor
 // only and belong to our custom set (no external IP).
@@ -406,6 +457,7 @@ var starterNames = map[Class][2]string{
 	ClassPaladin: {"Dawnmace Tempo", "Hallowed Bulwark"},
 	ClassDruid:   {"Grove Frenzy", "Verdant Ramp"},
 	ClassRogue:   {"Shadow Tempo", "Venom Control"},
+	ClassShaman:  {"Stormcaller Overload", "Elemental Control"},
 }
 
 // StarterDecks returns the named prefill decks for a class (fresh copies, safe for
@@ -448,6 +500,8 @@ func AIDecks(class Class) [][]string {
 		src = aiDruidDecks
 	case ClassRogue:
 		src = aiRogueDecks
+	case ClassShaman:
+		src = aiShamanDecks
 	default:
 		return nil
 	}

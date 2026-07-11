@@ -1908,6 +1908,25 @@ button {
     font-weight: bold;
     color: #f0d8a0;
 }
+/* Hero attack with no weapon (Rockbiter/Bloodlust buffs): a swing chip on the
+   bottom-left of the portrait, styled like a minion's attack gem. */
+.hero-attack-orb {
+    position: absolute;
+    z-index: 6;
+    left: -10px;
+    bottom: -6px;
+    background: radial-gradient(circle at 35% 30%, #ffd27a, #d89a2a);
+    color: #2a1c05;
+    border: 1px solid #ffe6a8;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    line-height: 24px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    box-shadow: 0 1px 3px #0008;
+}
 
 .hero-meta {
     font-size: 11px;
@@ -2157,6 +2176,19 @@ button {
     border-color: #2a3550;
     opacity: 0.3;
 }
+/* Shaman Overload: owned crystals locked THIS turn — amber-chained, distinct from
+   merely-spent so the mana loss reads at a glance. */
+.crystal.overloaded {
+    background: repeating-linear-gradient(
+        45deg,
+        #6a4a1a,
+        #6a4a1a 3px,
+        #3a2a10 3px,
+        #3a2a10 6px
+    );
+    border-color: #d8a23a;
+    opacity: 0.8;
+}
 .crystal-count {
     margin-left: 4px;
     color: #bfe4ff;
@@ -2165,6 +2197,10 @@ button {
     font-variant-numeric: tabular-nums;
     text-shadow: 0 1px 2px #000a;
     transform: none;
+}
+.crystal-count .overload-tag {
+    margin-left: 3px;
+    color: #f0c060;
 }
 
 /* Self action row: portrait + hero power + turn buttons --------- */
@@ -2747,6 +2783,24 @@ button {
         0 0 0 1.5px #0007;
     z-index: 6; /* above the overlaid name plate (z5) */
 }
+/* Shaman Overload badge: a small chip on the card's top-right marking how many
+   Mana Crystals it locks next turn. */
+.card-overload {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    padding: 1px 5px;
+    background: linear-gradient(#2a3a6a, #16224a);
+    border: 1px solid #d8a23a;
+    color: #f0c060;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.3;
+    text-shadow: 0 1px 1px #000;
+    box-shadow: 0 1px 2px #000b;
+    z-index: 6;
+}
 /* Cost gem recolours the DIGIT (not the gem) when a cost modifier changed the
  * printed cost: green if cheaper, red if pricier. Gem keeps its native blue. */
 .card .cost.cost-reduced {
@@ -2795,8 +2849,8 @@ button {
  * default above), Mage = blue, Hunter = green. (.card.secret below styles only
  * the hidden opponent-secret cast placeholder, not a real card in hand.) */
 .card.mage {
-    background: linear-gradient(#27406a, #1a2740);
-    border-color: #5a9bd8;
+    background: linear-gradient(#3f6fb0, #274d80);
+    border-color: #7fc0f5;
 }
 .card.hunter {
     background: linear-gradient(#2a4a2c, #1a2f1b);
@@ -2825,6 +2879,10 @@ button {
 .card.rogue {
     background: linear-gradient(#123430, #071b1a);
     border-color: #35c08f;
+}
+.card.shaman {
+    background: linear-gradient(#1b2450, #0b1030);
+    border-color: #4aa8e0;
 }
 .card.secret {
     background: linear-gradient(#43295c, #2a1b3a);
@@ -3947,7 +4005,7 @@ button {
 /* Class accent on deck-list rows: left border tinted by card class (matches the
    card-frame border colors). Neutral rows keep the default border. */
 .deck-card.mage {
-    border-left: 3px solid #5a9bd8;
+    border-left: 3px solid #7fc0f5;
 }
 .deck-card.hunter {
     border-left: 3px solid #6fb35a;
@@ -3969,6 +4027,9 @@ button {
 }
 .deck-card.rogue {
     border-left: 3px solid #35c08f;
+}
+.deck-card.shaman {
+    border-left: 3px solid #4aa8e0;
 }
 .deck-card .cost {
     position: static;

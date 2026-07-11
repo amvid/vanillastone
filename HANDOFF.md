@@ -12,7 +12,53 @@ Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 > (explicit allowlist) or dev fetches fall through to the SPA fallback and fail
 > silently; editing that config needs a dev-server restart.
 
-Last updated: **2026-07-11** (**ROGUE CODE + ART COMPLETE** — eighth playable class. Full
+Last updated: **2026-07-11** (**SHAMAN CODE + FE COMPLETE — art in progress** — ninth/final
+playable class. Full 25-card spec (10 Basic + 15 Classic) + hero power `call_totem` (Totemic Call —
+summon a random Totem you don't already control) + 6 tokens transcribed VERBATIM from the user's
+screenshots in `.notes/classic-mapping.md` "SHAMAN"; all art prompts (hero, hero power, 25
+collectible, 6 tokens) in `.notes/art-prompts.md` "# SHAMAN". NEW mechanic **Overload (X)**: playing
+a card locks X Mana Crystals at the START of your next turn — per-seat `overloadNext`/`overloadLocked`
+on `playerState`, accrued via `noteOverload` at every play-path commit, locked in `startTurn`
+(`mana = maxMana - overloadLocked`), shown to the client as `PlayerView.Overloaded`/`OverloadNext` +
+`CardView.Overload`. NEW event `OnPlayOverload` (fired by `noteOverload`) drives `riftbound_elemental`
+(Unbound Elemental, +1/+1). NEW tribe **Totem** (`TribeTotem`): `embertongue_totem`/`tidewater_totem`
++ the 4 hero-power totems, buffed by `totem_bulwark` via `AreaFriendlyTribe`. Kept renames:
+Twinstrike (= Windfury), Aegis (= Divine Shield), Riftborn (= Draenei). Other new engine:
+`heroAttacked` bool → `heroAttacksMade` int + `heroAttacksPerTurn` (a Twinstrike WEAPON = 2 hero
+attacks, `ruinhammer`); `EffectSummonTotem` (unique-totem hero power); `TargetFriendlyChar` (hero OR
+friendly minion, `stonefury`/Rockbiter — EffectBuff now buffs the hero via `heroAtkThisTurn`);
+`Effect.DrawCostDelta` (Far Sight `distant_sight`); `Effect.SummonSelf` baked into a granted finalGasp
+by EffectGrantFinalGasp (Ancestral Spirit `spirit_bond` resummon); Hex `toadcurse` → `spirit_frog`
+token. Deckcode char `s`, glyph ⚡, colour storm-indigo/cyan. CODE: `internal/cards/shaman.go` (25
+collectible = 13 spells + 8 minions + 2 weapons + hero power + 6 tokens) + tests
+`internal/match/shaman_mechanics_test.go` (14) + `TestDefaultShamanDeckIsLegal`; `go test -race ./...`,
+vet, gofmt, `deno check`/`deno lint`/`deno task build` all green. Client wired: `.card.shaman`/
+`.deck-card.shaman`, ⚡ glyph, deckbuilder + vs-AI pickers, `defaultShamanDeck` +
+`aiShamanOverload`/`aiShamanMidrange` ("Stormcaller Overload"/"Elemental Control"), Overload badge on
+cards + amber locked crystals in the mana bar. ALSO (per user): the hero portrait now shows the
+**hero's Attack** whenever `heroAttack > 0` with NO weapon (Rockbiter/Bloodlust/etc.) via a new
+`.hero-attack-orb`. ART COMPLETE: UI art approved and placed — `shaman_hero.png` (original male
+troll elemental caller, 512x512, 145KB), `call_totem.png` (stone-and-wood totem hero-power icon,
+512x512, 134KB), and first Basic collectible `spirit_mend` (512x512, 124KB). Shaman art reviews
+proceed in five-card batches. First batch is approved and placed: `totem_bulwark`, `frost_jolt`,
+`stonefury`, `galeforce`, and `embertongue_totem`; all are 512x512 and under 150KB. Next review batch
+is also approved and placed: `toadcurse`, `galecaller`, `bloodsurge`, `cinder_elemental`, and first
+Classic card `gale_wisp`; all are 512x512 and under 150KB. All 10 Basic collectible arts are now
+complete. Next review batch: `stonejolt`, `split_bolt`, `voltstrike`, `spirit_bond`, `tempest_axe`.
+That Classic batch is now approved and placed, all 512x512 and under 150KB. Next review batch:
+`distant_sight`, `wolfspirit_call`, `magma_burst`, `tempest_surge`, `tidewater_totem`.
+That batch is now approved and placed, all 512x512 and under 150KB. Next review batch contains the
+final four collectibles (`riftbound_elemental`, `ruinhammer`, `bedrock_elemental`,
+`zephiron_stormlord`) plus first token `mending_totem`.
+That batch is now approved and placed, all 512x512 and under 150KB. All 25 collectible Shaman arts
+are complete. Final token review batch: `ember_totem`, `stoneshell_totem`, `stormcrest_totem`,
+`spirit_wolf`, `spirit_frog`.
+Final token batch is now approved and placed; all six tokens (`mending_totem` plus that batch) are
+complete. Full Shaman art manifest is complete: hero + hero power + 25/25 collectibles + 6/6 tokens,
+all 512x512 and under 150KB. NEXT: an in-client
+visual smoke test (Overload crystal lock, `call_totem` totems, `ruinhammer` double hero swing,
+Hex → Frog).
+Prior: **ROGUE CODE + ART COMPLETE** — eighth playable class. Full
 27-card spec (10 Basic + 17 Classic) transcribed VERBATIM from user screenshots in
 `.notes/classic-mapping.md` "ROGUE" + all 31 art prompts (hero, hero power `hone_blade`, 27 collectible,
 2 tokens `night_shiv`/`guild_thug`) in `.notes/art-prompts.md` "# ROGUE". Costs/stats are OLD-ERA

@@ -46,7 +46,7 @@ Built deliberately, one phase at a time:
 |    12 | Paladin class                                                     |  ✅   |
 |    13 | Druid class                                                       |  ✅   |
 |    14 | Rogue class                                                       |  ✅   |
-|    15 | Shaman class                                                      |  ⏳   |
+|    15 | Shaman class                                                      |  ✅   |
 |    ?? | Polish UI, improve animations                                     |  ⏳   |
 
 ## Stack

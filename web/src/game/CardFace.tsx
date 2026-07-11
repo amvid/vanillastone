@@ -168,6 +168,12 @@ export function CardFace({ card }: { card: CardView }) {
         </div>
       </div>
       <div className={"cost" + costCls}>{card.cost}</div>
+      {!!card.overload && card.overload > 0 && (
+        // Shaman Overload: locks this many Mana Crystals next turn.
+        <div className="card-overload" title={`Overload (${card.overload})`}>
+          ⚡{card.overload}
+        </div>
+      )}
       <div
         className={"card-textbox" + (desc ? "" : " empty")}
         style={descStyle}

@@ -27,12 +27,13 @@ const (
 	ClassPaladin Class = "paladin"
 	ClassDruid   Class = "druid"
 	ClassRogue   Class = "rogue"
+	ClassShaman  Class = "shaman"
 )
 
 // PlayableClasses lists the hero classes a deck may be built for. A deck binds
 // to exactly one of these; its cards must be that class or neutral.
 func PlayableClasses() []Class {
-	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin, ClassDruid, ClassRogue}
+	return []Class{ClassMage, ClassHunter, ClassWarrior, ClassWarlock, ClassPriest, ClassPaladin, ClassDruid, ClassRogue, ClassShaman}
 }
 
 // classPlayable reports whether decks may be built for this class.
@@ -150,6 +151,9 @@ const (
 	EffectDiscountNextSpell    EffectKind = "discountNextSpell"    // the caster's next spell this turn costs Amount less (`groundwork` = Preparation)
 	EffectPickpocket           EffectKind = "pickpocket"           // add a random collectible from a class other than the caster's (and not neutral) to the caster's hand (`pickpocket` = Pilfer)
 	EffectBounceAll            EffectKind = "bounceAll"            // return every minion on both boards to its owner's hand (`vanishing_act` = Vanish)
+
+	// Shaman staples (lightning/storms, fire, frost, earth, totems, Overload).
+	EffectSummonTotem EffectKind = "summonTotem" // summon a random Totem token the caster does NOT already control, from GenIDs (`call_totem` hero power); fizzles if all are out
 )
 
 // SeekPool selects the card pool an EffectSeek offers.
@@ -174,6 +178,7 @@ const (
 	TargetEnemy          TargetRule = "enemy"          // any enemy character: an enemy minion or the enemy hero
 	TargetFriendlyHero   TargetRule = "friendlyHero"   // the caster's own hero
 	TargetHero           TargetRule = "hero"           // either hero (friendly or enemy), not minions (`emberqueen_valtha`)
+	TargetFriendlyChar   TargetRule = "friendlyChar"   // the caster's own hero OR a friendly minion (`stonefury` = Rockbiter: +Attack this turn)
 	TargetRandomEnemy    TargetRule = "randomEnemy"    // server picks a random enemy character (RNG)
 	TargetSelf           TargetRule = "self"           // the effect's own source minion (edge triggers, e.g. self-buff)
 	TargetRandomFriendly TargetRule = "randomFriendly" // a random OTHER friendly minion (trigger effects)
@@ -288,6 +293,10 @@ type Effect struct {
 	BounceCostDelta       int  `json:"bounceCostDelta,omitempty"`       // EffectBounce: permanently add this to the returned card's Cost in hand (`slip_away` = Shadowstep: -2); floored at 0
 	PerCardPlayedThisTurn bool `json:"perCardPlayedThisTurn,omitempty"` // EffectBuff: scale the buff by the number of OTHER cards the caster has played this turn (`shadowlord_vex` = Edwin VanCleef)
 
+	// Shaman riders/fields.
+	SummonSelf    bool `json:"summonSelf,omitempty"`    // EffectSummon used as a granted FinalGasp: summon a fresh copy of the dying minion (`spirit_bond` = Ancestral Spirit). EffectGrantFinalGasp bakes the target's card id in.
+	DrawCostDelta int  `json:"drawCostDelta,omitempty"` // EffectDraw: permanently add this to the Cost (in hand) of each card drawn by this effect (`distant_sight` = Far Sight: -3); floored at 0
+
 	// Random-pool generation (EffectGenerateRandom / EffectSummonRandom): pick one
 	// card at random from the collectible cards matching every set filter below.
 	// EffectTransformRandom ignores these and uses GenIDs (its two token outcomes).
@@ -320,6 +329,7 @@ const (
 	OnMinionHealed         EventType = "on_minion_healed"          // a MINION (not a hero) is healed — global (`dawnvale_acolyte`)
 	OnSecretPlayed         EventType = "on_secret_played"          // any Secret is played (global)
 	OnPlayCard             EventType = "on_play_card"              // the controller plays any card (after it resolves)
+	OnPlayOverload         EventType = "on_play_overload"          // the controller plays a card with Overload (`riftbound_elemental` = Unbound Elemental: +1/+1)
 	OnDamage               EventType = "on_damage"                 // this minion takes damage (fires on the damaged minion only — draw-on-damage minion)
 	OnFriendlyMinionDamage EventType = "on_friendly_minion_damage" // a friendly minion (including this one) takes damage — `platewright`
 	OnAnyMinionDamage      EventType = "on_any_minion_damage"      // any minion on either board takes damage — global (`ragebound_brute`)
@@ -426,6 +436,7 @@ const (
 	TribeElemental Tribe = "elemental"
 	TribeUndead    Tribe = "undead"
 	TribeRiftborn  Tribe = "riftborn"
+	TribeTotem     Tribe = "totem" // Shaman: Totem minions (Flametongue/Mana Tide + the hero-power totems)
 )
 
 // Aura is a continuous stat buff a minion grants to the controller's other
@@ -499,6 +510,7 @@ type Card struct {
 	Attack             int           `json:"attack,omitempty"`     // minions and weapons
 	Health             int           `json:"health,omitempty"`     // minions only
 	Durability         int           `json:"durability,omitempty"` // weapons only
+	Overload           int           `json:"overload,omitempty"`   // Shaman: playing this card locks this many of the controller's Mana Crystals at the START of their next turn (they return the turn after). Any card type. (`voltstrike`, `ruinhammer`)
 	Text               string        `json:"text,omitempty"`
 	Effect             *Effect       `json:"effect,omitempty"`             // spells only
 	Choices            []Choice      `json:"choices,omitempty"`            // Duality (Choose One): exactly two options; the player picks one at play time — the chosen Effect replaces the card's spell Effect / minion onset (`might_of_the_grove`, `clawform_druid`)
@@ -584,7 +596,7 @@ func (c Card) TriggersFor(when EventType) []Effect {
 var set = map[string]Card{}
 
 func init() {
-	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards, druidCards, rogueCards} {
+	for _, list := range [][]Card{neutralCards, mageCards, hunterCards, warriorCards, warlockCards, priestCards, paladinCards, druidCards, rogueCards, shamanCards} {
 		for _, c := range list {
 			if _, dup := set[c.ID]; dup {
 				panic("duplicate card id: " + c.ID)
@@ -623,6 +635,8 @@ func HeroPowerForClass(c Class) Card {
 		return set["wild_shape"]
 	case ClassRogue:
 		return set["hone_blade"]
+	case ClassShaman:
+		return set["call_totem"]
 	default:
 		return set["fire_dart"]
 	}
@@ -994,6 +1008,38 @@ var defaultRogueDeck = []string{
 	"shadowlord_vex",
 }
 
+// defaultShamanDeck is the curated fallback Shaman deck: an elemental burn/tempo
+// list — cheap Overload burn (Voltstrike / Magma Burst / Lava-style reach),
+// lightning AoE (Tempest Surge / Split Bolt), Totem + Elemental bodies, and the
+// class legendary. Kept 30 cards, ≤2 of any id, ≤1 legendary —
+// TestDefaultShamanDeckIsLegal enforces it.
+var defaultShamanDeck = []string{
+	// 1-drops: Overload burn + a cheap Twinstrike body.
+	"voltstrike", "voltstrike",
+	"frost_jolt", "frost_jolt",
+	"gale_wisp", "gale_wisp",
+	"split_bolt", "split_bolt",
+	// 2-drops: buffs, weapon, totem body, Ancestral Spirit value.
+	"stonefury", "stonefury",
+	"tempest_axe", "tempest_axe",
+	"embertongue_totem", "embertongue_totem",
+	// 3-drops: AoE, wolves, burn, Overload payoff, card-draw totem.
+	"tempest_surge", "tempest_surge",
+	"wolfspirit_call", "wolfspirit_call",
+	"magma_burst",
+	"riftbound_elemental", "riftbound_elemental",
+	"tidewater_totem",
+	// 4-drops: Twinstrike enabler.
+	"galecaller", "galecaller",
+	// 5-drops: fat Overload taunt + team buff.
+	"bedrock_elemental", "bedrock_elemental",
+	"bloodsurge",
+	// 6-drops: burn body.
+	"cinder_elemental", "cinder_elemental",
+	// Top end: legendary.
+	"zephiron_stormlord",
+}
+
 // DefaultDeck returns a legal, curated 30-card Mage deck used when a player
 // queues without having built one. The slice is copied so callers can't mutate
 // the shared list.
@@ -1020,6 +1066,8 @@ func DefaultDeckFor(class Class) []string {
 		return append([]string(nil), defaultDruidDeck...)
 	case ClassRogue:
 		return append([]string(nil), defaultRogueDeck...)
+	case ClassShaman:
+		return append([]string(nil), defaultShamanDeck...)
 	default:
 		return append([]string(nil), defaultMageDeck...)
 	}

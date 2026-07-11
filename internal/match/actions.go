@@ -91,6 +91,7 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 		ps.hand = append(ps.hand[:handIndex], ps.hand[handIndex+1:]...)
 		ps.mana -= cost
 		ps.cardsPlayedThisTurn++
+		m.noteOverload(pi, card)
 		ps.weapon = &weaponInst{card: card, attack: card.Attack, durability: card.Durability} // replaces any current weapon
 		m.emitPlay(pi, card)
 		m.emit(protocol.Event{Kind: "equip", Source: m.pid(pi), Name: card.Name})
@@ -143,6 +144,7 @@ func (m *Match) PlayCardAt(c Sender, handIndex int, targetID string, pos, choice
 	ps.mana -= cost
 	ps.minionsPlayedThisTurn++ // after cost is locked, so `pocket_conjurer` discounts THIS minion
 	ps.cardsPlayedThisTurn++   // Chain (Combo) counter; `shadowlord_vex` reads it minus itself
+	m.noteOverload(pi, card)
 	m.emitPlay(pi, card)
 	mn := m.summonMinion(pi, card)
 	m.placeAt(pi, mn, pos) // honor a drag-to-position drop (no-op if pos < 0)
@@ -242,6 +244,7 @@ func (m *Match) playSpell(pi, handIndex int, card cards.Card, targetID string, c
 	ps.hand = append(ps.hand[:handIndex], ps.hand[handIndex+1:]...)
 	ps.mana -= cost
 	ps.cardsPlayedThisTurn++ // Chain (Combo) counter
+	m.noteOverload(pi, card)
 	ps.nextSpellDiscount = 0 // `groundwork`'s discount is consumed by this spell (a fresh cast may re-set it below)
 	m.emitPlay(pi, card)
 	// The opponent's "enemy casts a spell" secrets trigger before the effect. A
@@ -466,7 +469,7 @@ func (m *Match) heroAttack(pi int, targetID string) (bool, string) {
 	if ps.frozen {
 		return false, "hero is frozen"
 	}
-	if ps.heroAttacked {
+	if ps.heroAttacksMade >= heroAttacksPerTurn(ps) {
 		return false, "hero already attacked"
 	}
 	atkVal := heroAttackValue(ps)
@@ -511,7 +514,7 @@ func (m *Match) heroAttack(pi int, targetID string) (bool, string) {
 			m.emit(protocol.Event{Kind: "heal", Target: m.pid(pi), Amount: ps.heroHP - before})
 		}
 	}
-	ps.heroAttacked = true
+	ps.heroAttacksMade++
 	if targetID != oppHeroTarget && ps.weapon != nil && ps.weapon.card.WearByAttack {
 		// `bloodwail`: attacking a minion costs 1 Attack instead of 1 Durability.
 		if ps.weapon.attack--; ps.weapon.attack < 0 {
@@ -610,10 +613,34 @@ func heroAttackValue(ps *playerState) int {
 	return atk
 }
 
-// heroCanAttack reports whether the hero is able to attack right now: it has a
-// weapon with attack, has not attacked this turn, and is not frozen.
+// noteOverload records a just-played card's Overload: its crystals are queued to
+// lock at the start of the caster's NEXT turn, and "after you play a card with
+// Overload" triggers fire now (`riftbound_elemental`). Called at each play path's
+// commit point (card removed from hand, mana spent), so it fires even if a spell
+// is later countered — you still played the card.
+func (m *Match) noteOverload(pi int, card cards.Card) {
+	if card.Overload <= 0 {
+		return
+	}
+	m.state[pi].overloadNext += card.Overload
+	m.emit(protocol.Event{Kind: "overload", Source: m.pid(pi), Amount: card.Overload})
+	m.fireTriggers(pi, cards.OnPlayOverload, nil)
+}
+
+// heroAttacksPerTurn is how many times the hero may attack this turn: two with a
+// Twinstrike (Windfury) weapon (`ruinhammer`), otherwise one.
+func heroAttacksPerTurn(ps *playerState) int {
+	if ps.weapon != nil && ps.weapon.card.Has(cards.KeywordTwinstrike) {
+		return 2
+	}
+	return 1
+}
+
+// heroCanAttack reports whether the hero is able to attack right now: it has
+// attack (weapon or a granted bonus), has attacks remaining this turn, and is
+// not frozen.
 func heroCanAttack(ps *playerState) bool {
-	return heroAttackValue(ps) > 0 && !ps.heroAttacked && !ps.frozen
+	return heroAttackValue(ps) > 0 && ps.heroAttacksMade < heroAttacksPerTurn(ps) && !ps.frozen
 }
 
 // Concede forfeits the match for c: its hero is set to 0 and the opponent wins.

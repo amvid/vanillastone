@@ -238,25 +238,29 @@ type weaponInst struct {
 
 // playerState is one side's board, hand, hero, mana, secret zone, hero power, and
 // weapon. frozen marks the hero as frozen (now meaningful: a frozen hero cannot
-// attack with its weapon). heroPowerUsed / heroAttacked are per-turn flags.
+// attack with its weapon). heroPowerUsed is a per-turn flag; heroAttacksMade
+// counts hero attacks this turn (a Twinstrike weapon permits two).
 type playerState struct {
-	heroHP        int
-	armor         int
-	frozen        bool
-	mana          int
-	maxMana       int
-	hand          []cards.Card
-	deck          []cards.Card // draw pile (index 0 = top); shuffled at match start
-	fatigue       int          // escalating self-damage taken each draw from an empty deck
-	board         []*minion
-	diedThisTurn  []cards.Card // base cards of this player's minions that died since the current turn began (`revenant_priestess`); cleared each turn start
-	secrets       []*secretInst
-	heroPower     cards.Card
-	heroPowerUsed bool
-	heroArt       string // overrides the class-derived hero portrait art id (`overlord_xathul` hero replacement); "" = class default
-	weapon        *weaponInst
-	heroAttacked  bool
-	immune        bool // hero ignores all damage this turn (e.g. `frostward_aegis`)
+	heroHP          int
+	armor           int
+	frozen          bool
+	mana            int
+	maxMana         int
+	hand            []cards.Card
+	deck            []cards.Card // draw pile (index 0 = top); shuffled at match start
+	fatigue         int          // escalating self-damage taken each draw from an empty deck
+	board           []*minion
+	diedThisTurn    []cards.Card // base cards of this player's minions that died since the current turn began (`revenant_priestess`); cleared each turn start
+	secrets         []*secretInst
+	heroPower       cards.Card
+	heroPowerUsed   bool
+	heroArt         string // overrides the class-derived hero portrait art id (`overlord_xathul` hero replacement); "" = class default
+	weapon          *weaponInst
+	heroAttacksMade int  // attacks the hero has made this turn (a Twinstrike weapon allows 2); reset each turn start
+	immune          bool // hero ignores all damage this turn (e.g. `frostward_aegis`)
+
+	overloadNext   int // Shaman: Mana Crystals to lock at the START of this player's NEXT turn (accrued as Overload cards are played)
+	overloadLocked int // Shaman: Mana Crystals locked THIS turn by last turn's Overload (shown to the client; cleared+recomputed each turn start)
 
 	heroAtkThisTurn       int  // `valiant_strike`: bonus hero Attack for this turn only (no weapon needed); cleared at turn end
 	minMinHealth1ThisTurn bool // `rallying_roar`: this player's minions can't drop below 1 Health this turn; cleared at turn end

@@ -46,6 +46,8 @@ export function Hero(props: {
     ? "🍃"
     : heroClass === "rogue"
     ? "🗡️"
+    : heroClass === "shaman"
+    ? "⚡"
     : "🧙";
   const heroArt = p.heroArt
     ? `/art/${p.heroArt}.png`
@@ -116,6 +118,13 @@ export function Hero(props: {
             <span className="weapon-stats">
               {p.weapon.attack}/{p.weapon.durability}
             </span>
+          </div>
+        )}
+        {!p.weapon && !!p.heroAttack && p.heroAttack > 0 && (
+          // Hero attack with no weapon (e.g. Rockbiter/Bloodlust buffs): show the
+          // swing amount on the portrait so an unarmed hero attack reads.
+          <div className="hero-attack-orb" title="Hero attack this turn">
+            {p.heroAttack}
           </div>
         )}
       </div>

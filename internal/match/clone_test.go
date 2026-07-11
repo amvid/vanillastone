@@ -77,7 +77,7 @@ func assertSameState(t *testing.T, a, b *Match) {
 		pa, pb := a.state[pi], b.state[pi]
 		if pa.heroHP != pb.heroHP || pa.armor != pb.armor || pa.mana != pb.mana || pa.maxMana != pb.maxMana ||
 			pa.frozen != pb.frozen || pa.fatigue != pb.fatigue || pa.heroPowerUsed != pb.heroPowerUsed ||
-			pa.heroAttacked != pb.heroAttacked || pa.immune != pb.immune ||
+			pa.heroAttacksMade != pb.heroAttacksMade || pa.immune != pb.immune ||
 			pa.nextSecretFree != pb.nextSecretFree || pa.minionsPlayedThisTurn != pb.minionsPlayedThisTurn ||
 			pa.spellsFreeOnTurn != pb.spellsFreeOnTurn {
 			t.Fatalf("seat %d scalars differ:\n %+v\n %+v", pi, pa, pb)

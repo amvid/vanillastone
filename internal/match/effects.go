@@ -57,6 +57,8 @@ func validTarget(rule cards.TargetRule, ref charRef, pi int) bool {
 		return ref.owner == 1-pi // any enemy character (minion or hero)
 	case cards.TargetFriendlyHero:
 		return ref.minion == nil && ref.owner == pi
+	case cards.TargetFriendlyChar:
+		return ref.owner == pi // the caster's own hero or a friendly minion (`stonefury`)
 	case cards.TargetHero:
 		return ref.minion == nil // either hero, not a minion
 	default:
@@ -440,10 +442,16 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			}
 		}
 		for _, t := range m.damageTargets(caster, eff, ref) {
+			ba, bh := eff.BuffAtk*scale, eff.BuffHP*scale
 			if t.minion == nil {
+				// A friendly-hero target (`stonefury` = Rockbiter). Only Attack applies,
+				// and only "this turn": heroAtkThisTurn is cleared at end of turn.
+				if t.owner == caster && ba > 0 {
+					m.state[caster].heroAtkThisTurn += ba
+					m.emit(protocol.Event{Kind: "buff", Target: m.pid(caster), BuffAtk: ba})
+				}
 				continue
 			}
-			ba, bh := eff.BuffAtk*scale, eff.BuffHP*scale
 			t.minion.enchants = append(t.minion.enchants, enchant{atk: ba, hp: bh, spellDamage: eff.GrantSpellDamage, keywords: eff.Grant, temp: eff.Temporary, tempNextTurn: eff.TempUntilNextTurn, tempOwner: caster})
 			t.minion.health += bh // a +health buff raises current health too
 			// Granting Aegis raises the live pop-shield, not just the keyword (`warding_hand`,
@@ -776,7 +784,17 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			n = 1
 		}
 		for i := 0; i < n; i++ {
+			before := len(m.state[who].hand)
 			m.drawCard(who)
+			// `distant_sight` (Far Sight): the drawn card is cheaper in hand. Only apply
+			// when a card actually reached the hand (not fatigue / overdraw burn).
+			if eff.DrawCostDelta != 0 && len(m.state[who].hand) > before {
+				h := m.state[who].hand
+				c := &h[len(h)-1]
+				if c.Cost += eff.DrawCostDelta; c.Cost < 0 {
+					c.Cost = 0
+				}
+			}
 		}
 		// `rallying_roar`: also stop the caster's own minions dropping below 1 Health
 		// for the rest of this turn (cleared at the caster's turn end).
@@ -980,7 +998,16 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			if t.minion == nil {
 				continue
 			}
-			t.minion.enchants = append(t.minion.enchants, enchant{finalGasp: eff.FinalGasp})
+			fg := eff.FinalGasp
+			if fg.Kind == cards.EffectSummon && fg.SummonSelf {
+				// `spirit_bond` (Ancestral Spirit): bake THIS minion's base card id into
+				// the granted deathrattle so it resummons a fresh copy of this minion.
+				cp := *fg
+				cp.Summon = t.minion.card.ID
+				cp.SummonSelf = false
+				fg = &cp
+			}
+			t.minion.enchants = append(t.minion.enchants, enchant{finalGasp: fg})
 			m.emit(protocol.Event{Kind: "buff", Target: t.minion.uid})
 		}
 	case cards.EffectSetHealth:
@@ -1076,6 +1103,25 @@ func (m *Match) applyEffect(caster int, eff *cards.Effect, ref charRef, sp int, 
 			return
 		}
 		if c, ok := cards.Get(ids[m.rng.Intn(len(ids))]); ok {
+			m.summonMinion(caster, c)
+		}
+	case cards.EffectSummonTotem:
+		// `call_totem` (Totemic Call) hero power: summon a random Totem the caster does
+		// NOT already control, from GenIDs. Fizzles when all totem kinds are already out.
+		have := map[string]bool{}
+		for _, mn := range m.state[caster].board {
+			have[mn.card.ID] = true
+		}
+		var pool []string
+		for _, id := range eff.GenIDs {
+			if !have[id] {
+				pool = append(pool, id)
+			}
+		}
+		if len(pool) == 0 {
+			return
+		}
+		if c, ok := cards.Get(pool[m.rng.Intn(len(pool))]); ok {
 			m.summonMinion(caster, c)
 		}
 	case cards.EffectMindControl:

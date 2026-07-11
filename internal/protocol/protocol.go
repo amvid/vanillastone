@@ -265,6 +265,7 @@ type CardView struct {
 	Attack       int    `json:"attack"`
 	Health       int    `json:"health"`
 	Durability   int    `json:"durability,omitempty"` // weapons
+	Overload     int    `json:"overload,omitempty"`   // Shaman: locks this many Mana Crystals next turn (drives the card's Overload badge)
 	Tribe        string `json:"tribe,omitempty"`
 	Target       string `json:"target,omitempty"`
 	ReqAttack    int    `json:"reqAttack,omitempty"`    // targeted onset: target minion must have Attack >= this
@@ -339,6 +340,8 @@ type PlayerView struct {
 	Immune        bool         `json:"immune,omitempty"` // hero ignores all damage this turn (frostward_aegis)
 	Mana          int          `json:"mana"`
 	MaxMana       int          `json:"maxMana"`
+	Overloaded    int          `json:"overloaded,omitempty"`   // Shaman: Mana Crystals locked THIS turn by last turn's Overload (unavailable now)
+	OverloadNext  int          `json:"overloadNext,omitempty"` // Shaman: Mana Crystals that will lock at the START of this player's next turn
 	Board         []MinionView `json:"board"`
 	Hand          []CardView   `json:"hand,omitempty"`
 	HandCount     int          `json:"handCount"`

@@ -9,6 +9,7 @@ export type TargetRule =
   | "enemyMinion"
   | "enemy"
   | "friendlyHero"
+  | "friendlyChar"
   | "hero";
 
 export type CardView = {
@@ -24,13 +25,15 @@ export type CardView = {
     | "priest"
     | "paladin"
     | "druid"
-    | "rogue"; // drives card color (mage = blue); absent/neutral = default
+    | "rogue"
+    | "shaman"; // drives card color (mage = blue); absent/neutral = default
   rarity?: "common" | "rare" | "epic" | "legendary"; // drives the rarity gem
   cost: number;
   baseCost?: number; // hand cards: printed cost (present so the client can colour a cost-modified card)
   attack: number;
   health: number;
   durability?: number; // weapons
+  overload?: number; // Shaman: locks this many Mana Crystals next turn (drives the Overload badge)
   tribe?: string; // minion creature type (shown in the type band)
   target?: TargetRule; // present for spells
   reqAttack?: number; // targeted onset: target minion must have attack >= this
@@ -67,7 +70,8 @@ export type MinionView = {
     | "priest"
     | "paladin"
     | "druid"
-    | "rogue"; // drives card color in the hover preview
+    | "rogue"
+    | "shaman"; // drives card color in the hover preview
   cost: number; // printed mana cost (for the full-card hover preview)
   attack: number;
   health: number;
@@ -104,6 +108,8 @@ export type PlayerView = {
   immune?: boolean; // hero ignores all damage this turn (Ice Block)
   mana: number;
   maxMana: number;
+  overloaded?: number; // Shaman: Mana Crystals locked THIS turn by last turn's Overload
+  overloadNext?: number; // Shaman: Mana Crystals that will lock at the start of this player's next turn
   board: MinionView[];
   hand?: CardView[]; // present only for your own side
   handCount: number;

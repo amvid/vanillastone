@@ -1509,7 +1509,7 @@ export function GameScreen(props: GameScreenProps) {
                 hpOverride={heldHp.oppHero}
                 onClick={() => onChar("oppHero", "oppHero")}
               />
-              <ManaBar side="opp" mana={snap.opp.mana} max={snap.opp.maxMana} />
+              <ManaBar side="opp" mana={snap.opp.mana} max={snap.opp.maxMana} overloaded={snap.opp.overloaded} />
             </div>
             <Board
               minions={snap.opp.board}
@@ -1620,6 +1620,7 @@ export function GameScreen(props: GameScreenProps) {
                 side="self"
                 mana={snap.self.mana}
                 max={snap.self.maxMana}
+                overloaded={snap.self.overloaded}
               />
             </div>
 
@@ -2027,23 +2028,34 @@ function TurnTimer(
 
 // ManaBar renders 10 fixed crystal slots in a corner (so growing mana never
 // shifts the layout): filled = available, owned-but-spent = dim, beyond the
-// player's max = locked.
+// player's max = locked. Shaman Overload locks the top `overloaded` owned crystals
+// this turn — those render chained/dim with a distinct style.
 function ManaBar(
-  { side, mana, max }: { side: "self" | "opp"; mana: number; max: number },
+  { side, mana, max, overloaded = 0 }: {
+    side: "self" | "opp";
+    mana: number;
+    max: number;
+    overloaded?: number;
+  },
 ) {
+  const title = overloaded > 0
+    ? `${mana}/${max} mana (${overloaded} locked by Overload)`
+    : `${mana}/${max} mana`;
   return (
-    <div className={"mana-bar " + side} title={`${mana}/${max} mana`}>
+    <div className={"mana-bar " + side} title={title}>
       <div className="crystals">
         {Array.from({ length: 10 }, (_, i) => {
           let cls = "crystal";
-          if (i < mana) cls += " on";
-          else if (i < max) cls += " spent";
-          else cls += " locked";
+          if (i >= max) cls += " locked";
+          else if (i >= max - overloaded) cls += " overloaded"; // top owned crystals, locked this turn
+          else if (i < mana) cls += " on";
+          else cls += " spent";
           return <span key={i} className={cls} />;
         })}
       </div>
       <span className="crystal-count">
         {mana}/{max}
+        {overloaded > 0 && <span className="overload-tag">⚡{overloaded}</span>}
       </span>
     </div>
   );

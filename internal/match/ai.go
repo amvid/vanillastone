@@ -186,7 +186,7 @@ func (m *Match) burstNow(seat int) int {
 			dmg += mn.atk()
 		}
 	}
-	if !ps.frozen && !ps.heroAttacked {
+	if !ps.frozen && ps.heroAttacksMade < heroAttacksPerTurn(ps) {
 		dmg += heroAttackValue(ps)
 	}
 	if !ps.heroPowerUsed && ps.mana >= m.effectiveCost(seat, ps.heroPower) {

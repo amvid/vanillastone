@@ -105,9 +105,17 @@ func (m *Match) startTurn(pi int) {
 	if ps.maxMana < maxMana {
 		ps.maxMana++
 	}
-	ps.mana = ps.maxMana
+	// Shaman Overload: crystals queued last turn are locked now (unavailable this
+	// turn, then freed). overloadLocked is kept for the snapshot so the client can
+	// render the locked crystals.
+	ps.overloadLocked = ps.overloadNext
+	ps.overloadNext = 0
+	ps.mana = ps.maxMana - ps.overloadLocked
+	if ps.mana < 0 {
+		ps.mana = 0
+	}
 	ps.heroPowerUsed = false
-	ps.heroAttacked = false
+	ps.heroAttacksMade = 0
 	ps.nextSecretFree = false    // `spellwarden_magus`'s "this turn" free secret expires
 	ps.minionsPlayedThisTurn = 0 // reset `pocket_conjurer`'s first-minion counter
 	ps.cardsPlayedThisTurn = 0   // reset the Rogue Chain (Combo) counter
