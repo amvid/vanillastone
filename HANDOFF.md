@@ -41,7 +41,16 @@ Test: `TestPlannerSequencesAdjacencyOnsetLast`; (6) the bot dropped an adjacency
 now subtracts `idleAuraDiscount` from an `adjacencyAuraMinion` with no friendly neighbour
 (`hasFriendlyNeighbour`), so the bot develops a plain body first and holds the aura minion until it
 has someone to buff (then `positionMattersFor` still slots it in the middle). Test:
-`TestPlannerHoldsIdleAuraMinion`. See Phase 3 note under "Open / next". PRIOR:
+`TestPlannerHoldsIdleAuraMinion`; (7) in MIXED decks the buffer still landed on an edge ~1-in-5
+times: enumerating every board slot as a separate candidate flooded the deep planner's bounded
+shortlist, and opponent-reply noise (Bannerguard's Taunt invites trades the eval misprices) picked a
+worse slot. FIX: `aiCandidates` now emits a SINGLE candidate per position-sensitive minion at its
+shallow-best slot (`bestAdjacencyPos` — scores each slot by the immediate board heuristic, no
+lookahead), so placement is decided by the buff that lands NOW, not deep noise. Cut suboptimal-edge
+placements 8/43 → 2/39 in a mixed-deck self-play trace (residual are legitimate — buffing one big
+Taunt minion can beat buffing two small ones). NOTE: the vs-AI bot plays one of the PLAYER'S saved
+decks when `aiDeckID != 0` (`transport.go:962`), so it can run ANY card — test adjacency with mixed
+decks, not just `AIDecks` (only `fang_alpha` is in those). See Phase 3 note under "Open / next". PRIOR:
 **SHAMAN CODE + FE COMPLETE — art in progress** — ninth/final
 playable class. Full 25-card spec (10 Basic + 15 Classic) + hero power `call_totem` (Totemic Call —
 summon a random Totem you don't already control) + 6 tokens transcribed VERBATIM from the user's

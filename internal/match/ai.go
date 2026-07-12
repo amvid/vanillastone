@@ -333,16 +333,17 @@ func (m *Match) aiCandidates(seat int) []aiMove {
 			continue
 		}
 		// Placement matters only for a minion whose value depends on WHERE it lands —
-		// an adjacent-buff onset/aura, or slotting beside an existing adjacent-aura
-		// body. Enumerate every board slot for those (0..len is a valid final slot; see
-		// placeAt) so the planner can pick the spot that buffs two neighbours instead of
-		// dropping it at the edge. Every other card is placement-agnostic (its value is
-		// position-independent), so it gets a single append candidate — keeping the
-		// candidate list small.
+		// an adjacent-buff onset/aura, or slotting beside an existing adjacent-aura body.
+		// For those, emit a SINGLE candidate at the slot that maximizes the immediate
+		// buff (bestAdjacencyPos) rather than one candidate per slot. Placement is a
+		// property of the current board — the immediate buff, which shallow eval prices
+		// reliably — so deciding it here keeps the deep planner from (a) flooding its
+		// bounded shortlist with slot variants of one card and (b) letting opponent-reply
+		// noise (e.g. Taunt inviting trades the eval misprices) pick a worse slot, which
+		// dropped the buffer on an edge buffing one neighbour instead of two. Every other
+		// card is placement-agnostic and gets a single append candidate.
 		if m.positionMattersFor(seat, card) {
-			for pos := 0; pos <= len(ps.board); pos++ {
-				moves = append(moves, aiMove{kind: mPlay, hand: i, pos: pos})
-			}
+			moves = append(moves, aiMove{kind: mPlay, hand: i, pos: m.bestAdjacencyPos(seat, i)})
 		} else {
 			moves = append(moves, aiMove{kind: mPlay, hand: i, pos: -1})
 		}
@@ -468,6 +469,29 @@ func (m *Match) positionMattersFor(seat int, c cards.Card) bool {
 		}
 	}
 	return false
+}
+
+// bestAdjacencyPos returns the board slot at which playing the hand-index minion
+// maximizes the IMMEDIATE board value — the slot that buffs the most / most-valuable
+// neighbours. It scores each slot on a clone with the plain board heuristic (no
+// opponent-reply lookahead: placement is decided by the buff that lands now, and the
+// deep planner's reply noise otherwise mis-picks it). A fixed clone seed keeps it
+// deterministic and off the shared planning RNG (adjacency buffs carry no randomness).
+// Falls back to append (-1) if no slot is playable. Caller holds m.mu.
+func (m *Match) bestAdjacencyPos(seat, handIdx int) int {
+	bestPos, bestScore := -1, loseScore
+	for pos := 0; pos <= len(m.state[seat].board); pos++ {
+		sim := m.cloneForSim(1)
+		sim.state[1-seat].secrets = nil
+		if ok, _ := (aiMove{kind: mPlay, hand: handIdx, pos: pos}).applyTo(sim, seat); !ok {
+			continue
+		}
+		sim.autoResolveSeek(seat)
+		if sc := sim.scoreForPlanner(seat); sc > bestScore {
+			bestScore, bestPos = sc, pos
+		}
+	}
+	return bestPos
 }
 
 // planBestDeep is the 2-ply planner the live bot uses. The SHALLOW planner decides
