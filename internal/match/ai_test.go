@@ -115,6 +115,31 @@ func TestPlannerIgnoresHiddenSecrets(t *testing.T) {
 	}
 }
 
+// TestPlannerSequencesAdjacencyOnsetLast is the reported bug: the bot played
+// Bannerguard (Onset: give ADJACENT minions +1/+1 & Taunt) FIRST, into an empty
+// flank, so its one-shot battlecry buffed nobody — then developed another minion
+// beside it that arrived too late to be buffed. An adjacency-battlecry minion must be
+// sequenced AFTER the bodies it should buff (playPhase phaseAdjOnset > phasePlay), so
+// it lands between them and its onset lands. Encodes WHY: a battlecry fires once, on
+// entry — order is the whole value.
+func TestPlannerSequencesAdjacencyOnsetLast(t *testing.T) {
+	m := aiMatch(1)
+	m.state[1].mana, m.state[1].maxMana = 6, 6
+	m.state[1].hand = []cards.Card{
+		getCard("bannerguard"),  // adjacency-battlecry minion — must go LAST
+		getCard("clay_acolyte"), // a plain body — develop this FIRST
+	}
+
+	mv, ok := m.planBest(1)
+	if !ok || mv.kind != mPlay {
+		t.Fatalf("expected to develop a body first, got %+v ok=%v", mv, ok)
+	}
+	if m.state[1].hand[mv.hand].ID != "clay_acolyte" {
+		t.Fatalf("must play the plain body before the adjacency-onset minion, got %s",
+			m.state[1].hand[mv.hand].ID)
+	}
+}
+
 // TestPlannerPlacesAdjacentBufferBetween is the reported bug: a minion whose
 // battlecry buffs ADJACENT minions was always dropped at the board edge (the bot
 // only ever appended), so only one neighbour got the buff. With two friendly bodies
@@ -323,6 +348,41 @@ func TestDeepPlannerDevelopsIntoAnswerableBoard(t *testing.T) {
 	mv, ok := m.planBestDeep(1)
 	if !ok || mv.kind != mPlay || mv.hand != 0 {
 		t.Fatalf("deep planner must develop even when the opponent can trade, got %+v ok=%v", mv, ok)
+	}
+}
+
+// TestBuffGatedOnSurvivalButDevelopIsnt reproduces a reported bug and the asymmetry
+// that fixes it: the bot played a minion and poured a buff onto it, then the opponent
+// killed it — a 2-for-1 (buff card + minion for one removal). A buff spell leaves no
+// body of its own, so its whole value rides on the target surviving: the deep planner
+// must decline a buff whose post-reply score doesn't beat simply passing
+// (`deepEligible` false). A plain minion development must NOT be gated the same way —
+// a body that merely trades is a fair 1-for-1, and gating it is exactly what made the
+// bot hoard its hand and float mana. This encodes both halves of the rule.
+func TestBuffGatedOnSurvivalButDevelopIsnt(t *testing.T) {
+	const pass = 5.0
+
+	buffM := aiMatch(1)
+	buffM.state[1].hand = []cards.Card{getCard("wild_mark")} // a buff spell
+	buff := aiMove{kind: mPlay, hand: 0, target: "runt"}
+	if !buffM.isEnhancementPlay(1, buff) {
+		t.Fatal("wild_mark is a buff spell — must be classed as an enhancement play")
+	}
+	if buffM.deepEligible(1, buff, pass, pass) { // score == pass baseline → didn't pay off
+		t.Fatal("a buff that doesn't beat passing (target dies) must be ineligible")
+	}
+	if !buffM.deepEligible(1, buff, pass+1, pass) { // beats pass → target survived, worth it
+		t.Fatal("a buff that beats passing (target survives) must be eligible")
+	}
+
+	devM := aiMatch(1)
+	devM.state[1].hand = []cards.Card{getCard("clay_acolyte")} // a minion (a body)
+	dev := aiMove{kind: mPlay, hand: 0}
+	if devM.isEnhancementPlay(1, dev) {
+		t.Fatal("a minion play leaves a body — it is not an enhancement play")
+	}
+	if !devM.deepEligible(1, dev, pass, pass) { // even at the baseline, develop must stay eligible
+		t.Fatal("a plain development must not be gated on beating pass (no hoarding)")
 	}
 }
 

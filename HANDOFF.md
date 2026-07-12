@@ -23,7 +23,20 @@ minion, wasting the buff's Attack. `planBest` now tiers actions: value-positive 
 resolve before any attack (only an outright winning move jumps the queue); attacks cost no mana so
 deferring them is free. `planBestDeep` + `topCandidates` carry the same pre-combat phase.
 Tests: `TestDeepPlannerDevelopsIntoAnswerableBoard`, `TestPlannerPlacesAdjacentBufferBetween`,
-`TestPlannerBuffsBeforeAttacking`. See Phase 3 note under "Open / next". PRIOR:
+`TestPlannerBuffsBeforeAttacking`; (4) the bot poured a buff onto a minion the opponent then killed
+— a 2-for-1. A buff spell adds no body, so its value rides on the target surviving: the deep planner
+now gates ENHANCEMENT plays (`isEnhancementPlay` = a `EffectBuff` spell) on beating the pass
+baseline (`deepEligible`), while plain developments stay ungated (a body that trades is a fair
+1-for-1 — gating those is what caused the earlier hoarding). Selection refactored into `bestDeepMove`
+(pre-combat plays first, fall through to combat if all are punished). Test:
+`TestBuffGatedOnSurvivalButDevelopIsnt`; (5) the bot played an adjacency-BATTLECRY minion
+(Bannerguard, "Onset: adjacent minions +1/+1 & Taunt") FIRST into an empty flank, wasting its
+one-shot onset. Generalised the plays-before-attacks ordering into three `playPhase`s —
+`phasePlay` (develop/buff/removal/power) → `phaseAdjOnset` (adjacency-battlecry minions, so they
+land after the bodies they buff, then slot between via positionMattersFor) → `phaseAttack`. planBest
+serves the earliest non-empty phase; planBestDeep + `topCandidates` rank within the due phase and
+advance if a phase is all-punished. Adjacency AURAS are NOT phased (they recompute continuously).
+Test: `TestPlannerSequencesAdjacencyOnsetLast`. See Phase 3 note under "Open / next". PRIOR:
 **SHAMAN CODE + FE COMPLETE — art in progress** — ninth/final
 playable class. Full 25-card spec (10 Basic + 15 Classic) + hero power `call_totem` (Totemic Call —
 summon a random Totem you don't already control) + 6 tokens transcribed VERBATIM from the user's

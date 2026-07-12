@@ -485,12 +485,11 @@ func (m *Match) planBestDeep(seat int) (aiMove, bool) {
 	if !ok {
 		return aiMove{}, false
 	}
-	// Pre-combat phase: planBest defers attacks behind every value-positive play, so a
-	// non-attack shallow pick means beneficial plays remain — rank ONLY those this
-	// action and leave combat for later iterations, once the board is fully developed
-	// and buffed. This carries planBest's buff-before-attack ordering into the deep
-	// planner (which otherwise picks the top deep-scoring candidate of any kind).
-	preCombat := shallowMove.kind != mAttack
+	// The shallow pick's phase (see playPhase) is the phase due THIS action — planBest
+	// serves the earliest non-empty phase, so a non-attack pick means plays/onset
+	// minions still remain and combat is deferred. Carry that ordering into the deep
+	// planner (which otherwise picks the top deep-scoring candidate of any phase).
+	phase := m.playPhase(seat, shallowMove)
 	// One shared seed for EVERY deep sim this turn (baseline + each candidate). The
 	// opponent's reply — its draw, its random effects — is then identical across
 	// candidates, so a score difference reflects the candidate move, not draw luck.
@@ -499,28 +498,74 @@ func (m *Match) planBestDeep(seat int) (aiMove, bool) {
 	// coin flip — the "does nothing" bug.
 	seed := m.aiRng.Int63()
 	passDeep := m.deepScoreAfter(seat, aiMove{}, seed, true) // pass and let them reply
-	bestDeep := loseScore
+
+	// Serve phases in order starting from the due one; if every candidate of a phase is
+	// punished (or the phase is empty), advance rather than passing with later phases —
+	// e.g. attacks — still available.
 	var chosen aiMove
 	found := false
-	for _, mv := range m.topCandidates(seat, lookaheadTopK, seed, preCombat) {
-		if sc := m.deepScoreAfter(seat, mv, seed, false); sc > bestDeep {
-			bestDeep, chosen, found = sc, mv, true
-		}
+	for p := phase; p <= phaseAttack && !found; p++ {
+		chosen, found = m.bestDeepMove(seat, seed, passDeep, p)
 	}
 	if !found {
-		return shallowMove, true // no candidate survived the shortlist; trust the shallow pick
-	}
-	// Board-wipe veto: the one line worth overriding the shallow "act" decision for is
-	// dumping a fresh body onto the board when the opponent will wipe all minions at
-	// its next turn start — the minion dies having done nothing, so holding the card
-	// is strictly better. Scoped narrowly (only a minion play that still feeds the
-	// wipe, and only when the lookahead confirms it gains nothing over passing) so
-	// normal development is never second-guessed — the over-broad "must beat the pass
-	// baseline" gate is what made the bot hoard its hand and float mana.
-	if chosen.kind == mPlay && bestDeep <= passDeep && m.playFeedsWipe(seat, chosen) {
+		// Nothing survived: if even the shallow pick is a punished play, hold the turn;
+		// otherwise trust it (a shortlist miss).
+		if m.deepEligible(seat, shallowMove, m.deepScoreAfter(seat, shallowMove, seed, false), passDeep) {
+			return shallowMove, true
+		}
 		return aiMove{}, false
 	}
 	return chosen, true
+}
+
+// bestDeepMove ranks the shortlisted candidates of a single phase by their full
+// opponent-reply score and returns the best ELIGIBLE one (see deepEligible — it drops
+// buffs the reply punishes and bodies fed into a wipe). Caller holds m.mu.
+func (m *Match) bestDeepMove(seat int, seed int64, passDeep float64, phase int) (aiMove, bool) {
+	bestDeep := loseScore
+	var chosen aiMove
+	found := false
+	for _, mv := range m.topCandidates(seat, lookaheadTopK, seed, phase) {
+		sc := m.deepScoreAfter(seat, mv, seed, false)
+		if !m.deepEligible(seat, mv, sc, passDeep) {
+			continue // a punished play (buff into removal, body into a wipe) — skip it
+		}
+		if sc > bestDeep {
+			bestDeep, chosen, found = sc, mv, true
+		}
+	}
+	return chosen, found
+}
+
+// deepEligible reports whether a play is worth making given its post-opponent-reply
+// score sc versus the pass baseline passDeep. Only mPlay is gated (attacks / hero
+// powers are always eligible). A play that already pays off (sc > passDeep) is fine.
+// A play that does NOT is allowed anyway — UNLESS it is one of the two lines that are
+// pure loss when they don't survive the reply:
+//   - a body dumped into a pending board wipe (playFeedsWipe), or
+//   - an enhancement whose whole value rides on a target minion that then dies
+//     (isEnhancementPlay) — a +X/+X buff on a minion the opponent kills is a 2-for-1.
+//
+// This keeps plain development ungated (a minion that trades is a fair 1-for-1, so the
+// bot never hoards bodies) while still declining buffs the opponent simply removes.
+// Caller holds m.mu.
+func (m *Match) deepEligible(seat int, mv aiMove, sc, passDeep float64) bool {
+	if mv.kind != mPlay || sc > passDeep {
+		return true
+	}
+	return !m.playFeedsWipe(seat, mv) && !m.isEnhancementPlay(seat, mv)
+}
+
+// isEnhancementPlay reports whether mv casts a buff spell — a play that adds no body
+// of its own and only enhances an existing minion, so if the target dies it was a
+// wasted card. Buff-battlecry MINIONS are excluded: they leave a body behind, so they
+// are priced as a normal development, not a pure enhancement. Caller holds m.mu.
+func (m *Match) isEnhancementPlay(seat int, mv aiMove) bool {
+	if mv.kind != mPlay || mv.hand < 0 || mv.hand >= len(m.state[seat].hand) {
+		return false
+	}
+	c := m.state[seat].hand[mv.hand]
+	return c.Type == cards.TypeSpell && c.Effect != nil && c.Effect.Kind == cards.EffectBuff
 }
 
 // playFeedsWipe reports whether mv plays a minion that just feeds an opponent's
@@ -565,16 +610,16 @@ func (m *Match) deepScoreAfter(seat int, mv aiMove, seed int64, pass bool) float
 // best first — the shortlist the deep planner spends its lookahead budget on, so a
 // full opponent turn is simulated only a bounded number of times per action. Uses
 // the shared turn seed so the shortlist is deterministic alongside the deep eval.
-// When preCombat is set, attacks are excluded so the shortlist holds only the plays /
-// hero powers to resolve before combat (see planBestDeep).
-func (m *Match) topCandidates(seat, k int, seed int64, preCombat bool) []aiMove {
+// Only candidates of the given phase (see playPhase) are shortlisted, so the deep
+// planner ranks within the phase that is due this action (see planBestDeep).
+func (m *Match) topCandidates(seat, k int, seed int64, phase int) []aiMove {
 	type scored struct {
 		mv aiMove
 		sc float64
 	}
 	var ranked []scored
 	for _, mv := range m.aiCandidates(seat) {
-		if preCombat && mv.kind == mAttack {
+		if m.playPhase(seat, mv) != phase {
 			continue
 		}
 		sim := m.cloneForSim(seed)
@@ -643,23 +688,65 @@ func (m *Match) runShallowTurn(seat int) {
 	}
 }
 
+// Action phases, played in ascending order within a turn (see playPhase). Sequencing
+// plays this way is free — every play still happens the same turn — but it makes each
+// play resolve against the board it wants:
+//   - phasePlay first: develop bodies / cast buffs / removal / hero power, so the
+//     board is populated before anything keys off it.
+//   - phaseAdjOnset next: an adjacency-BATTLECRY minion (Bannerguard) buffs its
+//     neighbours ONCE, when it enters — so it must land AFTER the bodies it should
+//     buff exist, then slot between them (positionMattersFor picks the slot). Playing
+//     it first (the reported bug) fires its onset into an empty flank for nothing.
+//   - phaseAttack last: attacks cost no mana, so deferring them behind every play lets
+//     buffs/develops land first (e.g. buff a minion BEFORE it swings — a spent minion
+//     can't re-swing the extra Attack).
+const (
+	phasePlay     = 0
+	phaseAdjOnset = 1
+	phaseAttack   = 2
+)
+
+// playPhase returns the ordering phase of a candidate move (see the phase consts).
+func (m *Match) playPhase(seat int, mv aiMove) int {
+	if mv.kind == mAttack {
+		return phaseAttack
+	}
+	if mv.kind == mPlay && mv.hand >= 0 && mv.hand < len(m.state[seat].hand) &&
+		adjacencyOnsetMinion(m.state[seat].hand[mv.hand]) {
+		return phaseAdjOnset
+	}
+	return phasePlay
+}
+
+// adjacencyOnsetMinion reports whether a card is a minion whose battlecry buffs its
+// immediate neighbours once, on play (Area == AreaAdjacent) — the case that needs to
+// be sequenced last so there are neighbours to buff. An adjacency AURA is excluded: it
+// recomputes continuously (refreshAuras), so it picks up minions played after it and
+// needs no special ordering.
+func adjacencyOnsetMinion(c cards.Card) bool {
+	if c.Type != cards.TypeMinion {
+		return false
+	}
+	bc := c.Onset()
+	return bc != nil && bc.Area == cards.AreaAdjacent
+}
+
 // planBest simulates every candidate on a fresh clone and returns the one whose
 // resulting position scores highest, provided it beats doing nothing. Returns
-// found=false when no action improves the position (→ end the turn).
-//
-// Pre-combat ordering: a value-positive PLAY or hero power is always chosen ahead of
-// an attack (only an outright winning move jumps the queue). Attacks cost no mana, so
-// deferring them behind every beneficial play is free — and it fixes the reported bug
-// where the bot swung a minion at the face BEFORE casting a buff on it, wasting the
-// buff's Attack for the turn (a spent minion can't re-swing). Buffs / develops now
-// resolve first, then combat happens with the enhanced board.
+// found=false when no action improves the position (→ end the turn). Moves are chosen
+// in phase order (see playPhase): all value-positive plays of the earliest non-empty
+// phase are preferred, and only an outright winning move jumps the queue.
 //
 // Caller holds m.mu. Simulation never touches the live match.
 func (m *Match) planBest(seat int) (aiMove, bool) {
 	baseline := m.scoreForPlanner(seat) // "do nothing"
-	var bestAny, bestPlay aiMove
-	bestAnyScore, bestPlayScore := baseline, baseline
-	foundAny, foundPlay := false, false
+	var bestAny aiMove
+	bestAnyScore := baseline
+	foundAny := false
+	// Best value-positive move within each phase.
+	var bestPhase [3]aiMove
+	scorePhase := [3]float64{baseline, baseline, baseline}
+	var foundPhase [3]bool
 	for _, mv := range m.aiCandidates(seat) {
 		sim := m.cloneForSim(m.aiRng.Int63())
 		// Fog of war: the opponent's secrets are hidden. Strip them from the planning
@@ -678,20 +765,22 @@ func (m *Match) planBest(seat int) (aiMove, bool) {
 		if sc > bestAnyScore {
 			bestAny, bestAnyScore, foundAny = mv, sc, true
 		}
-		if mv.kind != mAttack && sc > bestPlayScore {
-			bestPlay, bestPlayScore, foundPlay = mv, sc, true
+		if p := m.playPhase(seat, mv); sc > scorePhase[p] {
+			bestPhase[p], scorePhase[p], foundPhase[p] = mv, sc, true
 		}
 	}
 	if !foundAny {
 		return aiMove{}, false
 	}
 	if bestAnyScore >= winScore {
-		return bestAny, true // a killing line is taken immediately, whatever its kind
+		return bestAny, true // a killing line is taken immediately, whatever its phase
 	}
-	if foundPlay {
-		return bestPlay, true // resolve buffs / develops / hero power before any attack
+	for p := phasePlay; p <= phaseAttack; p++ {
+		if foundPhase[p] {
+			return bestPhase[p], true // earliest non-empty phase wins
+		}
 	}
-	return bestAny, true // nothing left but attacks
+	return bestAny, true // unreachable (foundAny implies some phase found)
 }
 
 // botFallbackHeroPower returns a hero-power move to use when the planner found no
