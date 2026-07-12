@@ -276,6 +276,7 @@ const (
 type aiMove struct {
 	kind     string
 	hand     int    // mPlay: hand index
+	pos      int    // mPlay: board slot to place a minion (see placeAt); <0 = append
 	attacker string // mAttack: attacker uid
 	target   string // play/power/attack target id ("" = no target)
 }
@@ -287,7 +288,7 @@ func (mv aiMove) applyTo(m *Match, seat int) (bool, string) {
 	c := m.players[seat]
 	switch mv.kind {
 	case mPlay:
-		return m.PlayCardAt(c, mv.hand, mv.target, -1, 0)
+		return m.PlayCardAt(c, mv.hand, mv.target, mv.pos, 0)
 	case mAttack:
 		return m.Attack(c, mv.attacker, mv.target)
 	case mPower:
@@ -310,11 +311,26 @@ func (m *Match) aiCandidates(seat int) []aiMove {
 		if isManaRamp(card) && !m.manaRampUnlocksPlay(seat, i) {
 			continue // don't burn the Coin with nothing to spend the extra mana on
 		}
-		moves = append(moves, aiMove{kind: mPlay, hand: i})
 		if cardNeedsTarget(card) {
+			moves = append(moves, aiMove{kind: mPlay, hand: i, pos: -1})
 			for _, t := range chars {
-				moves = append(moves, aiMove{kind: mPlay, hand: i, target: t})
+				moves = append(moves, aiMove{kind: mPlay, hand: i, target: t, pos: -1})
 			}
+			continue
+		}
+		// Placement matters only for a minion whose value depends on WHERE it lands —
+		// an adjacent-buff onset/aura, or slotting beside an existing adjacent-aura
+		// body. Enumerate every board slot for those (0..len is a valid final slot; see
+		// placeAt) so the planner can pick the spot that buffs two neighbours instead of
+		// dropping it at the edge. Every other card is placement-agnostic (its value is
+		// position-independent), so it gets a single append candidate — keeping the
+		// candidate list small.
+		if m.positionMattersFor(seat, card) {
+			for pos := 0; pos <= len(ps.board); pos++ {
+				moves = append(moves, aiMove{kind: mPlay, hand: i, pos: pos})
+			}
+		} else {
+			moves = append(moves, aiMove{kind: mPlay, hand: i, pos: -1})
 		}
 	}
 
@@ -402,14 +418,54 @@ func cardNeedsTarget(c cards.Card) bool {
 	return false
 }
 
-// planBestDeep is the 2-ply planner the live bot uses. It shortlists the most
-// promising moves by the cheap 1-ply score, then for each looks a full opponent
-// turn ahead (deepScore) and keeps the move with the best position AFTER the
-// opponent's reply. That reply lens is what lets the bot decline plays the
-// opponent simply punishes — a minion it'll just kill next turn, or bodies dumped
-// into a board wipe that clears them. Beats the deep "do nothing" baseline by
-// epsilon or it ends the turn. Falls back to the 1-ply planBest when lookahead is
-// off. Caller holds m.mu; simulation never touches the live match.
+// cardIsAdjacencySensitive reports whether a card's OWN value depends on which two
+// minions end up beside it: an adjacent-buff aura (continuous) or an adjacent-area
+// onset (a battlecry buffing / consuming its neighbours on play).
+func cardIsAdjacencySensitive(c cards.Card) bool {
+	if c.Aura != nil && c.Aura.Adjacent {
+		return true
+	}
+	if bc := c.Onset(); bc != nil && bc.Area == cards.AreaAdjacent {
+		return true
+	}
+	return false
+}
+
+// positionMattersFor reports whether WHERE seat places minion card changes its
+// value — the only case worth enumerating board slots for. True when the card is
+// itself adjacency-sensitive, or the friendly board already holds a live
+// adjacent-aura body (so slotting the new minion beside it picks up the buff).
+// False for the common placement-agnostic minion, keeping the candidate list small.
+// Caller holds m.mu.
+func (m *Match) positionMattersFor(seat int, c cards.Card) bool {
+	if c.Type != cards.TypeMinion {
+		return false
+	}
+	board := m.state[seat].board
+	if len(board) == 0 {
+		return false // no neighbours possible — every slot is identical
+	}
+	if cardIsAdjacencySensitive(c) {
+		return true
+	}
+	for _, mn := range board {
+		if !mn.silenced && mn.card.Aura != nil && mn.card.Aura.Adjacent {
+			return true
+		}
+	}
+	return false
+}
+
+// planBestDeep is the 2-ply planner the live bot uses. The SHALLOW planner decides
+// WHETHER to act (does any move improve the board this turn?); the lookahead is
+// used only to (a) pick the best VARIANT among the promising moves after a full
+// simulated opponent reply and (b) VETO a line the opponent actively punishes — a
+// body dumped into a board wipe, a play that dies for nothing. It deliberately does
+// NOT require the move to beat the post-reply "pass" baseline: a healthy
+// development the opponent later trades with looks ≈ neutral after the reply, and
+// demanding it beat passing made the bot hoard its hand and float mana (worst on
+// slow control decks). Falls back to the 1-ply planBest when lookahead is off.
+// Caller holds m.mu; simulation never touches the live match.
 func (m *Match) planBestDeep(seat int) (aiMove, bool) {
 	if !aiLookahead {
 		return m.planBest(seat)
@@ -422,6 +478,19 @@ func (m *Match) planBestDeep(seat int) (aiMove, bool) {
 	if m.facingLethalNextTurn(seat) {
 		return m.planBest(seat)
 	}
+	// Shallow gate: if nothing improves the board this turn, pass. This is what
+	// decides action vs. inaction — the lookahead only refines an action, it never
+	// manufactures passivity by itself.
+	shallowMove, ok := m.planBest(seat)
+	if !ok {
+		return aiMove{}, false
+	}
+	// Pre-combat phase: planBest defers attacks behind every value-positive play, so a
+	// non-attack shallow pick means beneficial plays remain — rank ONLY those this
+	// action and leave combat for later iterations, once the board is fully developed
+	// and buffed. This carries planBest's buff-before-attack ordering into the deep
+	// planner (which otherwise picks the top deep-scoring candidate of any kind).
+	preCombat := shallowMove.kind != mAttack
 	// One shared seed for EVERY deep sim this turn (baseline + each candidate). The
 	// opponent's reply — its draw, its random effects — is then identical across
 	// candidates, so a score difference reflects the candidate move, not draw luck.
@@ -429,15 +498,51 @@ func (m *Match) planBestDeep(seat int) (aiMove, bool) {
 	// small clean signals (e.g. a hero power worth +2 face), and the bot passes on a
 	// coin flip — the "does nothing" bug.
 	seed := m.aiRng.Int63()
-	best := m.deepScoreAfter(seat, aiMove{}, seed, true) // baseline: pass and let them reply
+	passDeep := m.deepScoreAfter(seat, aiMove{}, seed, true) // pass and let them reply
+	bestDeep := loseScore
 	var chosen aiMove
 	found := false
-	for _, mv := range m.topCandidates(seat, lookaheadTopK, seed) {
-		if sc := m.deepScoreAfter(seat, mv, seed, false); sc > best+epsilon {
-			best, chosen, found = sc, mv, true
+	for _, mv := range m.topCandidates(seat, lookaheadTopK, seed, preCombat) {
+		if sc := m.deepScoreAfter(seat, mv, seed, false); sc > bestDeep {
+			bestDeep, chosen, found = sc, mv, true
 		}
 	}
-	return chosen, found
+	if !found {
+		return shallowMove, true // no candidate survived the shortlist; trust the shallow pick
+	}
+	// Board-wipe veto: the one line worth overriding the shallow "act" decision for is
+	// dumping a fresh body onto the board when the opponent will wipe all minions at
+	// its next turn start — the minion dies having done nothing, so holding the card
+	// is strictly better. Scoped narrowly (only a minion play that still feeds the
+	// wipe, and only when the lookahead confirms it gains nothing over passing) so
+	// normal development is never second-guessed — the over-broad "must beat the pass
+	// baseline" gate is what made the bot hoard its hand and float mana.
+	if chosen.kind == mPlay && bestDeep <= passDeep && m.playFeedsWipe(seat, chosen) {
+		return aiMove{}, false
+	}
+	return chosen, true
+}
+
+// playFeedsWipe reports whether mv plays a minion that just feeds an opponent's
+// pending turn-start board wipe: the played card is a minion, the opponent will
+// wipe all minions at its next turn start, and the play does NOT itself remove the
+// wiper (a battlecry that kills it clears the pending wipe). Such a body dies having
+// done nothing, so the bot should hold the card instead. Caller holds m.mu.
+func (m *Match) playFeedsWipe(seat int, mv aiMove) bool {
+	if mv.kind != mPlay || mv.hand < 0 || mv.hand >= len(m.state[seat].hand) {
+		return false
+	}
+	if m.state[seat].hand[mv.hand].Type != cards.TypeMinion {
+		return false
+	}
+	if !m.oppBoardWipePending(seat) {
+		return false
+	}
+	sim := m.cloneForSim(m.aiRng.Int63())
+	if ok, _ := mv.applyTo(sim, seat); !ok {
+		return false
+	}
+	return sim.oppBoardWipePending(seat) // wiper still live → the new body just feeds it
 }
 
 // deepScoreAfter applies mv on a clone seeded with `seed` (or applies nothing when
@@ -460,13 +565,18 @@ func (m *Match) deepScoreAfter(seat int, mv aiMove, seed int64, pass bool) float
 // best first — the shortlist the deep planner spends its lookahead budget on, so a
 // full opponent turn is simulated only a bounded number of times per action. Uses
 // the shared turn seed so the shortlist is deterministic alongside the deep eval.
-func (m *Match) topCandidates(seat, k int, seed int64) []aiMove {
+// When preCombat is set, attacks are excluded so the shortlist holds only the plays /
+// hero powers to resolve before combat (see planBestDeep).
+func (m *Match) topCandidates(seat, k int, seed int64, preCombat bool) []aiMove {
 	type scored struct {
 		mv aiMove
 		sc float64
 	}
 	var ranked []scored
 	for _, mv := range m.aiCandidates(seat) {
+		if preCombat && mv.kind == mAttack {
+			continue
+		}
 		sim := m.cloneForSim(seed)
 		sim.state[1-seat].secrets = nil
 		if ok, _ := mv.applyTo(sim, seat); !ok {
@@ -535,12 +645,21 @@ func (m *Match) runShallowTurn(seat int) {
 
 // planBest simulates every candidate on a fresh clone and returns the one whose
 // resulting position scores highest, provided it beats doing nothing. Returns
-// found=false when no action improves the position (→ end the turn). Caller holds
-// m.mu. Simulation never touches the live match.
+// found=false when no action improves the position (→ end the turn).
+//
+// Pre-combat ordering: a value-positive PLAY or hero power is always chosen ahead of
+// an attack (only an outright winning move jumps the queue). Attacks cost no mana, so
+// deferring them behind every beneficial play is free — and it fixes the reported bug
+// where the bot swung a minion at the face BEFORE casting a buff on it, wasting the
+// buff's Attack for the turn (a spent minion can't re-swing). Buffs / develops now
+// resolve first, then combat happens with the enhanced board.
+//
+// Caller holds m.mu. Simulation never touches the live match.
 func (m *Match) planBest(seat int) (aiMove, bool) {
-	best := m.scoreForPlanner(seat) // "do nothing" baseline
-	var chosen aiMove
-	found := false
+	baseline := m.scoreForPlanner(seat) // "do nothing"
+	var bestAny, bestPlay aiMove
+	bestAnyScore, bestPlayScore := baseline, baseline
+	foundAny, foundPlay := false, false
 	for _, mv := range m.aiCandidates(seat) {
 		sim := m.cloneForSim(m.aiRng.Int63())
 		// Fog of war: the opponent's secrets are hidden. Strip them from the planning
@@ -552,11 +671,27 @@ func (m *Match) planBest(seat int) (aiMove, bool) {
 			continue
 		}
 		sim.autoResolveSeek(seat) // settle any seek the move opened, so the state is scorable
-		if sc := sim.scoreForPlanner(seat); sc > best+epsilon {
-			best, chosen, found = sc, mv, true
+		sc := sim.scoreForPlanner(seat)
+		if sc <= baseline+epsilon {
+			continue
+		}
+		if sc > bestAnyScore {
+			bestAny, bestAnyScore, foundAny = mv, sc, true
+		}
+		if mv.kind != mAttack && sc > bestPlayScore {
+			bestPlay, bestPlayScore, foundPlay = mv, sc, true
 		}
 	}
-	return chosen, found
+	if !foundAny {
+		return aiMove{}, false
+	}
+	if bestAnyScore >= winScore {
+		return bestAny, true // a killing line is taken immediately, whatever its kind
+	}
+	if foundPlay {
+		return bestPlay, true // resolve buffs / develops / hero power before any attack
+	}
+	return bestAny, true // nothing left but attacks
 }
 
 // botFallbackHeroPower returns a hero-power move to use when the planner found no

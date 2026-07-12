@@ -12,7 +12,19 @@ Full session-by-session history (phases 1–10 + every card-clone wave) lives in
 > (explicit allowlist) or dev fetches fall through to the SPA fallback and fail
 > silently; editing that config needs a dev-server restart.
 
-Last updated: **2026-07-11** (**SHAMAN CODE + FE COMPLETE — art in progress** — ninth/final
+Last updated: **2026-07-12** (**AI planner retune** — two fixes: (1) the bot hoarded its hand /
+floated mana across the newer classes — the 2-ply lookahead now only gates *variant choice* +
+board-wipe veto, not the decision to act; (2) the bot ignored **adjacency** — it always appended
+minions (`pos -1`), so an adjacent-buff onset/aura landed on the flank and buffed only one
+neighbour. `aiCandidates` now enumerates board slots for position-sensitive minions
+(`positionMattersFor`) and `aiMove.pos` threads the chosen slot through `applyTo`→`PlayCardAt`;
+(3) the bot attacked BEFORE buffing — it swung a minion at the face, then buffed the already-spent
+minion, wasting the buff's Attack. `planBest` now tiers actions: value-positive plays / hero powers
+resolve before any attack (only an outright winning move jumps the queue); attacks cost no mana so
+deferring them is free. `planBestDeep` + `topCandidates` carry the same pre-combat phase.
+Tests: `TestDeepPlannerDevelopsIntoAnswerableBoard`, `TestPlannerPlacesAdjacentBufferBetween`,
+`TestPlannerBuffsBeforeAttacking`. See Phase 3 note under "Open / next". PRIOR:
+**SHAMAN CODE + FE COMPLETE — art in progress** — ninth/final
 playable class. Full 25-card spec (10 Basic + 15 Classic) + hero power `call_totem` (Totemic Call —
 summon a random Totem you don't already control) + 6 tokens transcribed VERBATIM from the user's
 screenshots in `.notes/classic-mapping.md` "SHAMAN"; all art prompts (hero, hero power, 25
@@ -714,8 +726,16 @@ builds + stages `web/static` (`make hooks`). **nginx in front MUST set `proxy_ht
     1-ply `planBest`). Per action: `topCandidates` shortlists the best `lookaheadTopK = 6` moves by
     the cheap 1-ply score, then each is `deepScore`d — apply the move on a clone, `endTurnLocked`
     (the opponent's turn-start triggers fire here, incl. the board wipe), `runShallowTurn(opp)` plays
-    a greedy 1-ply opponent turn, then score from the bot's POV. A move must beat `deepScoreNoMove`
-    (pass-and-let-them-reply) by epsilon. So the bot declines plays the opponent simply erases. KEY
+    a greedy 1-ply opponent turn, then score from the bot's POV. **Action gate (retuned 2026-07-12
+    — the "AI hoards its hand / floats mana" bugfix):** the SHALLOW `planBest` decides *whether* to
+    act (does any move improve the board this turn?); the lookahead only (a) ranks the shortlist to
+    pick the best VARIANT after the reply and (b) VETOes the one line worth overriding a shallow act
+    for — `playFeedsWipe`: a minion play that just feeds an opponent's pending turn-start board wipe
+    (and the deep score confirms it gains nothing over passing). The OLD gate (a move must beat the
+    post-reply pass baseline by epsilon) made a healthy minion the opponent later trades with look
+    ≈ neutral, so *passing won* and the bot hoarded — measured self-play float roughly halved on the
+    slow control classes (Paladin 18→6, Warrior 9→4 wasted mana/game). Test:
+    `TestDeepPlannerDevelopsIntoAnswerableBoard`. KEY
     enabler: `cloneForSim` now sets **`aiSeat = -1`** (a sim must never spawn the async bot driver
     when its turn is ended) **and seeds `aiRng`** (nested planning needs its own sub-clone seeds).
     `runShallowTurn` uses `planBest` not `planBestDeep` — no recursion. Tests:

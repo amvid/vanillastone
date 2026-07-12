@@ -115,6 +115,66 @@ func TestPlannerIgnoresHiddenSecrets(t *testing.T) {
 	}
 }
 
+// TestPlannerPlacesAdjacentBufferBetween is the reported bug: a minion whose
+// battlecry buffs ADJACENT minions was always dropped at the board edge (the bot
+// only ever appended), so only one neighbour got the buff. With two friendly bodies
+// on board, the planner must slot the buffer BETWEEN them so BOTH are buffed.
+// Encodes WHY: placement is part of a card's value, not a cosmetic — an
+// adjacent-buff onset played on the flank wastes half its effect.
+func TestPlannerPlacesAdjacentBufferBetween(t *testing.T) {
+	m := aiMatch(1)
+	m.state[1].mana, m.state[1].maxMana = 4, 4
+	m.state[1].board = []*minion{bodyMinion("left", 1, 2, 2), bodyMinion("right", 1, 2, 2)}
+	m.state[1].hand = []cards.Card{getCard("bannerguard")} // Onset: adjacent minions +1/+1 & Taunt
+
+	mv, ok := m.planBest(1)
+	if !ok || mv.kind != mPlay {
+		t.Fatalf("expected to play the adjacent buffer, got %+v ok=%v", mv, ok)
+	}
+	if mv.pos != 1 {
+		t.Fatalf("adjacent buffer must land between the two bodies (pos 1), got pos=%d", mv.pos)
+	}
+
+	// And applying it must actually buff BOTH neighbours (2/2 → 3/3).
+	mv.applyTo(m, 1) // PlayCardAt takes m.mu itself — don't hold it here
+	m.mu.Lock()
+	m.refreshAuras()
+	var buffed int
+	for _, mn := range m.state[1].board {
+		if mn.uid == "left" || mn.uid == "right" {
+			if mn.atk() == 3 && mn.health == 3 {
+				buffed++
+			}
+		}
+	}
+	m.mu.Unlock()
+	if buffed != 2 {
+		t.Fatalf("both flanking minions must be buffed to 3/3, got %d buffed", buffed)
+	}
+}
+
+// TestPlannerBuffsBeforeAttacking is the reported bug: with a buff spell in hand and
+// a minion that can attack, the greedy planner swung the minion FIRST (attacking the
+// face scored higher than the buff's static value), then buffed the already-spent
+// minion — wasting the buff's Attack for the turn. A value-positive play must be
+// chosen ahead of an attack so the buff lands first and its Attack counts. Encodes
+// WHY: a spent minion can't re-swing, so buffs belong before combat.
+func TestPlannerBuffsBeforeAttacking(t *testing.T) {
+	m := aiMatch(1)
+	m.state[0].heroHP = 30
+	m.state[1].mana, m.state[1].maxMana = 2, 2
+	m.state[1].board = []*minion{bodyMinion("beater", 1, 3, 3)} // ready to swing at the face
+	m.state[1].hand = []cards.Card{getCard("wild_mark")}        // +2/+2 & Taunt to a minion
+
+	mv, ok := m.planBest(1)
+	if !ok {
+		t.Fatal("planner found no move; expected the pre-combat buff")
+	}
+	if mv.kind != mPlay || mv.target != "beater" {
+		t.Fatalf("expected to buff the attacker BEFORE swinging, got %+v", mv)
+	}
+}
+
 // TestPlannerPassesWhenStuck: no mana, no plays, no attackers → end the turn
 // (planBest returns found=false).
 func TestPlannerPassesWhenStuck(t *testing.T) {
@@ -241,6 +301,28 @@ func TestDeepPlannerStillDevelops(t *testing.T) {
 	mv, ok := m.planBestDeep(1)
 	if !ok || mv.kind != mPlay || mv.hand != 0 {
 		t.Fatalf("deep planner should still develop a free minion, got %+v ok=%v", mv, ok)
+	}
+}
+
+// TestDeepPlannerDevelopsIntoAnswerableBoard reproduces the reported bug this fix
+// targets: the bot floated mana and hoarded its hand (worst on slow control decks)
+// because the 2-ply lookahead demanded a play beat the post-opponent-reply "pass"
+// baseline — and a healthy minion the opponent can later trade with nets ≈ neutral
+// after the reply, so passing won. Here the opponent has a body that can trade into
+// the developed minion (but NO board wipe), so developing is correct tempo and must
+// still be chosen. Encodes WHY: a card-for-card trade is not a reason to sit on the
+// turn — only a play the opponent's turn erases for free (a wipe) is.
+func TestDeepPlannerDevelopsIntoAnswerableBoard(t *testing.T) {
+	m := aiMatch(1)
+	m.state[0].heroHP, m.state[1].heroHP = 30, 30
+	m.state[0].board = []*minion{bodyMinion("answer", 0, 3, 3)} // can trade into the play
+	m.state[0].hand, m.state[0].deck = nil, nil                 // no wipe, no other punish
+	m.state[1].mana, m.state[1].maxMana = 3, 3
+	m.state[1].hand = []cards.Card{getCard("clay_acolyte")} // 2-mana 3/2
+
+	mv, ok := m.planBestDeep(1)
+	if !ok || mv.kind != mPlay || mv.hand != 0 {
+		t.Fatalf("deep planner must develop even when the opponent can trade, got %+v ok=%v", mv, ok)
 	}
 }
 
