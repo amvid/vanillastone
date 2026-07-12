@@ -115,6 +115,30 @@ func TestPlannerIgnoresHiddenSecrets(t *testing.T) {
 	}
 }
 
+// TestPlannerHoldsIdleAuraMinion is the reported bug: on an empty board the bot
+// dropped Fang Alpha ("Adjacent minions have +1 Attack") alone, wasting its aura
+// (nobody to buff), when it could have developed an equivalent plain body and saved
+// the aura minion for a turn where it has a neighbour. With a comparable alternative
+// in hand, the bot must develop the plain body first. Encodes WHY: an aura buffing no
+// one is idle — its whole value is the neighbours.
+func TestPlannerHoldsIdleAuraMinion(t *testing.T) {
+	m := aiMatch(1)
+	m.state[0].heroHP = 30
+	m.state[1].mana, m.state[1].maxMana = 2, 2
+	m.state[1].hand = []cards.Card{
+		getCard("fang_alpha"),   // 2/2 adjacency aura — idle on an empty board
+		getCard("clay_acolyte"), // 2/3 plain body — develop this first
+	}
+
+	mv, ok := m.planBest(1)
+	if !ok || mv.kind != mPlay {
+		t.Fatalf("expected to develop a body, got %+v ok=%v", mv, ok)
+	}
+	if m.state[1].hand[mv.hand].ID == "fang_alpha" {
+		t.Fatal("bot must not drop a lone aura minion when an equivalent body is available")
+	}
+}
+
 // TestPlannerSequencesAdjacencyOnsetLast is the reported bug: the bot played
 // Bannerguard (Onset: give ADJACENT minions +1/+1 & Taunt) FIRST, into an empty
 // flank, so its one-shot battlecry buffed nobody — then developed another minion

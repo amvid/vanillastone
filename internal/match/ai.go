@@ -41,6 +41,13 @@ const (
 	// summon Final Gasp's token-body value. Skews the bot toward silencing/removing
 	// such minions without dying into them.
 	finalGaspBaseBonus = 1.0
+
+	// Penalty for an adjacency-aura minion currently buffing no one (no friendly
+	// neighbour). Sized to lose a tie against an equivalent plain body — so the bot
+	// develops the plain body first and saves the aura minion for a neighbour — yet
+	// stay smaller than a body's worth, so a lone aura minion is still played when it
+	// is the only option.
+	idleAuraDiscount = 1.5
 )
 
 // eval scores the position from seat's point of view: our value minus the
@@ -58,8 +65,15 @@ func (m *Match) eval(seat int) float64 {
 func (m *Match) sideValue(seat int) float64 {
 	ps := m.state[seat]
 	v := float64(ps.heroHP+ps.armor) * heroHPWeight
-	for _, mn := range ps.board {
+	for i, mn := range ps.board {
 		v += m.minionValue(mn)
+		// An adjacency AURA buffing nobody (no friendly neighbour) is idle — its whole
+		// point is wasted this turn. Discount it so the bot develops a plain body first
+		// and holds the aura minion until it has someone to sit beside, instead of
+		// dropping it alone (the reported "aura on the flank of an empty board" play).
+		if adjacencyAuraMinion(mn.card) && !mn.silenced && !hasFriendlyNeighbour(ps.board, i) {
+			v -= idleAuraDiscount
+		}
 	}
 	v += float64(min(len(ps.hand), maxHand)) * handWeight
 	if ps.weapon != nil {
@@ -729,6 +743,18 @@ func adjacencyOnsetMinion(c cards.Card) bool {
 	}
 	bc := c.Onset()
 	return bc != nil && bc.Area == cards.AreaAdjacent
+}
+
+// adjacencyAuraMinion reports whether a card carries a continuous "adjacent minions
+// have …" aura (Fang Alpha) — the buff is live only while it has a neighbour.
+func adjacencyAuraMinion(c cards.Card) bool {
+	return c.Aura != nil && c.Aura.Adjacent
+}
+
+// hasFriendlyNeighbour reports whether the minion at board index i has an immediate
+// neighbour on either side (the characters an adjacency aura would buff).
+func hasFriendlyNeighbour(board []*minion, i int) bool {
+	return i > 0 || i < len(board)-1
 }
 
 // planBest simulates every candidate on a fresh clone and returns the one whose

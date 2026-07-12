@@ -36,7 +36,12 @@ one-shot onset. Generalised the plays-before-attacks ordering into three `playPh
 land after the bodies they buff, then slot between via positionMattersFor) → `phaseAttack`. planBest
 serves the earliest non-empty phase; planBestDeep + `topCandidates` rank within the due phase and
 advance if a phase is all-punished. Adjacency AURAS are NOT phased (they recompute continuously).
-Test: `TestPlannerSequencesAdjacencyOnsetLast`. See Phase 3 note under "Open / next". PRIOR:
+Test: `TestPlannerSequencesAdjacencyOnsetLast`; (6) the bot dropped an adjacency-AURA minion
+(Fang Alpha, "Adjacent minions have +1 Attack") alone onto an empty board, wasting the aura. eval
+now subtracts `idleAuraDiscount` from an `adjacencyAuraMinion` with no friendly neighbour
+(`hasFriendlyNeighbour`), so the bot develops a plain body first and holds the aura minion until it
+has someone to buff (then `positionMattersFor` still slots it in the middle). Test:
+`TestPlannerHoldsIdleAuraMinion`. See Phase 3 note under "Open / next". PRIOR:
 **SHAMAN CODE + FE COMPLETE — art in progress** — ninth/final
 playable class. Full 25-card spec (10 Basic + 15 Classic) + hero power `call_totem` (Totemic Call —
 summon a random Totem you don't already control) + 6 tokens transcribed VERBATIM from the user's
